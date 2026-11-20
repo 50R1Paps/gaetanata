@@ -37,12 +37,15 @@ Per rigenerarli senza includere dati dei pazienti:
 npm run import:tables -- "percorso/al/file.xlsx"
 ```
 
-## Domande aperte per il nutrizionista
+## Formule del metabolismo
 
-Il foglio Excel ha formule in conflitto o con buchi. Vanno confermate prima di portarle nel codice:
+Decisioni prese (issue #1):
+
+- **Scelta automatica della formula** in base al BMI: BMI ≤ 25 → Harris-Benedict, 25 < BMI ≤ 30 → Mifflin, BMI > 30 → Bernstein.
+- **"Eq. Giuseppe"**: tolta, non viene implementata.
+- **Unità in stampa**: latte e olio in ml, tutto il resto in g.
+
+Ancora da confermare con il nutrizionista:
 
 1. **Bernstein, maschio**: in "Calcolo metabolismo" è `11.02·peso − 0.47·altezza − 4.3·età + 889`, in "Elenco pz" è `11.02·peso + 10.23·altezza − 5.8·età − 1032`. Quale è corretta?
-2. **Harris-Benedict**: coefficienti arrotondati (`66.5 + 13.75·peso …`) in un foglio, completi (`66.473 + 13.7516·peso …`) nell'altro. Quali usare?
-3. **Scelta automatica della formula** in base al BMI: con BMI tra 25,1 e 25,2 o tra 30,1 e 30,2 non viene scelta nessuna formula. I limiti giusti sono BMI ≤ 25 → Harris-Benedict, 25–30 → Mifflin, > 30 → Bernstein?
-4. **"Eq. Giuseppe"**: da dove viene questa formula, ed è da tenere?
-5. **Unità in stampa**: latte e olio vanno in ml, il resto in g? Altri alimenti in ml?
+2. **Coefficienti arrotondati o completi**: Harris-Benedict è `66.5 + 13.75·peso …` in un foglio e `66.473 + 13.7516·peso …` nell'altro; Mifflin è `10·peso + 6.25·altezza − 5·età` in un foglio e `9.99·peso + 6.25·altezza − 4.92·età` nell'altro. Quali usare?
