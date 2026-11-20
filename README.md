@@ -120,6 +120,39 @@ Per rigenerarli senza includere dati dei pazienti:
 npm run import:tables -- "percorso/al/file.xlsx"
 ```
 
+### Categorie dello Schema e misure casalinghe
+
+`src/data/food-schema.json` estende i dati di riferimento senza cambiare il
+formato nutrizionale di `foods.json`: contiene le categorie, le sette misure
+casalinghe e un'assegnazione per ogni nome alimento esatto. Il nome è già
+l'identificativo usato dal Piano settimanale. `import:tables` non tocca questo
+file: le assegnazioni non vengono perse rigenerando gli alimenti dall'Excel.
+I test confrontano entrambi gli elenchi e segnalano alimenti nuovi, rinominati
+o eliminati, così l'importazione richiede una revisione esplicita.
+
+Ogni assegnazione ha `categoryId` (oppure `null`, senza categoria),
+`uncertain` (dubbio esplicito), `note` e `measureIds`. Le dieci fonti proteiche
+sono distinte; latte e yogurt hanno categorie separate. Non risultano alimenti
+inequivocabilmente in scatola nella categoria legumi: «Ceci» resta senza
+categoria finché non si chiarisce la preparazione.
+
+Tutte le assegnazioni sono proposte da revisionare, non approvazioni cliniche.
+Le preparazioni ambigue, i prodotti speciali e gli alimenti composti non sono
+assimilati automaticamente alle porzioni dello Schema. Le misure sono
+convenzioni del Word, non pesi effettivi delle confezioni; i ml restano ml,
+senza conversione implicita in grammi.
+
+L'[elenco di revisione](docs/revisione-alimenti-schema.md) contiene tutti gli
+alimenti, le misure e i dubbi. Dopo una modifica dei dati rigenerarlo con:
+
+```sh
+npm run export:food-review --silent > docs/revisione-alimenti-schema.md
+```
+
+Il comando scrive Markdown su stdout, esportabile anche in un altro file.
+In Windows PowerShell 5 usare `cmd /c "npm run export:food-review --silent > docs/revisione-alimenti-schema.md"`
+per conservare UTF-8. Il test del generatore segnala un elenco non aggiornato.
+
 ## Media settimanale
 
 La media dei nutrienti conta soltanto i giorni che contengono almeno una porzione in uno dei sei pasti e che non sono stati esclusi a mano con la casella "Giorni inclusi nella media". Un giorno senza porzioni è indicato come vuoto e non conteggiato (non conta il valore zero delle calorie); torna a contribuire appena viene ricompilato. L'esclusione manuale è una scelta separata e resta anche quando si aggiungono o tolgono porzioni. Se nessun giorno è compilato e incluso, compare un messaggio al posto della media. Il pannello mostra su quanti giorni è calcolata la media.

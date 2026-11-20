@@ -10,6 +10,7 @@
     "dev": "node --experimental-strip-types --disable-warning=ExperimentalWarning server/dev.ts",
     "start": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/start.ts",
     "import:tables": "node --experimental-strip-types scripts/import-tables.ts",
+    "export:food-review": "node --experimental-strip-types scripts/export-food-review.ts",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",

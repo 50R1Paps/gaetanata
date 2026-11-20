@@ -1,0 +1,1289 @@
+{
+  "version": 1,
+  "categories": [
+    {
+      "id": "carne-rossa",
+      "label": "Carne rossa"
+    },
+    {
+      "id": "carne-bianca",
+      "label": "Carne bianca"
+    },
+    {
+      "id": "pesce",
+      "label": "Pesce"
+    },
+    {
+      "id": "uova",
+      "label": "Uova"
+    },
+    {
+      "id": "legumi-secchi",
+      "label": "Legumi secchi"
+    },
+    {
+      "id": "legumi-in-scatola",
+      "label": "Legumi in scatola"
+    },
+    {
+      "id": "formaggio-fresco",
+      "label": "Formaggio fresco"
+    },
+    {
+      "id": "formaggio-stagionato",
+      "label": "Formaggio stagionato"
+    },
+    {
+      "id": "affettati",
+      "label": "Affettati"
+    },
+    {
+      "id": "pesce-in-scatola",
+      "label": "Tonno / pesce in scatola"
+    },
+    {
+      "id": "carboidrati",
+      "label": "Carboidrati"
+    },
+    {
+      "id": "verdura",
+      "label": "Verdura"
+    },
+    {
+      "id": "frutta",
+      "label": "Frutta"
+    },
+    {
+      "id": "grassi",
+      "label": "Grassi"
+    },
+    {
+      "id": "latte",
+      "label": "Latte"
+    },
+    {
+      "id": "yogurt",
+      "label": "Yogurt"
+    },
+    {
+      "id": "frutta-secca",
+      "label": "Frutta secca"
+    }
+  ],
+  "householdMeasures": [
+    {
+      "id": "fetta-biscottata",
+      "label": "Fetta biscottata",
+      "quantity": 8,
+      "unit": "g"
+    },
+    {
+      "id": "cucchiaio-cereali",
+      "label": "Cucchiaio di cereali",
+      "quantity": 6,
+      "unit": "g"
+    },
+    {
+      "id": "biscotto",
+      "label": "Biscotto",
+      "quantity": 5,
+      "unit": "g"
+    },
+    {
+      "id": "cucchiaino",
+      "label": "Cucchiaino",
+      "quantity": 5,
+      "unit": "ml"
+    },
+    {
+      "id": "cucchiaio",
+      "label": "Cucchiaio",
+      "quantity": 10,
+      "unit": "ml"
+    },
+    {
+      "id": "vasetto",
+      "label": "Vasetto",
+      "quantity": 125,
+      "unit": "g"
+    },
+    {
+      "id": "bicchiere",
+      "label": "Bicchiere",
+      "quantity": 150,
+      "unit": "ml"
+    }
+  ],
+  "foods": {
+    "Agnello, coscio": {
+      "categoryId": "carne-rossa",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Albumi": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Solo una parte dell’uovo: non usare automaticamente la porzione delle uova intere.",
+      "measureIds": []
+    },
+    "Amarene": {
+      "categoryId": "frutta",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Amilopectina Vitalyn powder Yamamoto": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Ananas": {
+      "categoryId": "frutta",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Arachidi": {
+      "categoryId": "frutta-secca",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Aragosta": {
+      "categoryId": "pesce",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Aringa": {
+      "categoryId": "pesce",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Asiago": {
+      "categoryId": "formaggio-stagionato",
+      "uncertain": true,
+      "note": "Categoria proposta: verificare stagionatura e compatibilità con la porzione fissa del formaggio stagionato.",
+      "measureIds": []
+    },
+    "Avena (fiocchi)": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": ["cucchiaio-cereali"]
+    },
+    "Avocado": {
+      "categoryId": "grassi",
+      "uncertain": true,
+      "note": "Categoria funzionale proposta per lo Schema, non classificazione botanica: confermare.",
+      "measureIds": []
+    },
+    "Banana": {
+      "categoryId": "frutta",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Bisc. Integrali": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": ["biscotto"]
+    },
+    "Biscotti frollini": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": ["biscotto"]
+    },
+    "biscotti secchi": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": ["biscotto"]
+    },
+    "Bistecca di maiale": {
+      "categoryId": "carne-rossa",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Bresaola": {
+      "categoryId": "affettati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Broccoli (crudi)": {
+      "categoryId": "verdura",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Burro": {
+      "categoryId": "grassi",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Burro d'arachidi": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Non assimilato automaticamente a frutta, frutta secca o grassi: confermare categoria e composizione.",
+      "measureIds": []
+    },
+    "Calamaro": {
+      "categoryId": "pesce",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Carne maiale (bistecca)": {
+      "categoryId": "carne-rossa",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Carne manzo": {
+      "categoryId": "carne-rossa",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Carne vitello (filetto)": {
+      "categoryId": "carne-rossa",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Carote": {
+      "categoryId": "verdura",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Ceci": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Il nome non specifica se secchi, cotti o in scatola: verificare prima di assegnare la fonte proteica.",
+      "measureIds": []
+    },
+    "Cetrioli": {
+      "categoryId": "verdura",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Chia (semi)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Semi oleosi: confermare eventuale inclusione nella frutta secca o nei grassi.",
+      "measureIds": []
+    },
+    "Cicoria, da campo, cruda": {
+      "categoryId": "verdura",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Cioccolato al latte": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Cioccolato fondente": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Cioccolato fondente Lindt 75%": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Cioccolato fondente Lindt 85%": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Cioccolato fondente Lindt 90%": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Cocco Essiccato": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Non assimilato automaticamente a frutta, frutta secca o grassi: confermare categoria e composizione.",
+      "measureIds": []
+    },
+    "Cocco Fresco": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Non assimilato automaticamente a frutta, frutta secca o grassi: confermare categoria e composizione.",
+      "measureIds": []
+    },
+    "Coniglio": {
+      "categoryId": "carne-bianca",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Cornflakes Kellogg's": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": ["cucchiaio-cereali"]
+    },
+    "Cozze": {
+      "categoryId": "pesce",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Crackers": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Crema mandorle Tostate Damiano": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Non assimilato automaticamente a frutta, frutta secca o grassi: confermare categoria e composizione.",
+      "measureIds": []
+    },
+    "Crema pistacchio Damiano": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Non assimilato automaticamente a frutta, frutta secca o grassi: confermare categoria e composizione.",
+      "measureIds": []
+    },
+    "Emmenthal": {
+      "categoryId": "formaggio-stagionato",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Fagioli borlotti, secchi (crudi)": {
+      "categoryId": "legumi-secchi",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Farina d'Avena": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Farro (dietabit)": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Farro perlato": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Feta": {
+      "categoryId": "formaggio-fresco",
+      "uncertain": true,
+      "note": "Categoria proposta: confermare se usare la porzione fissa del formaggio fresco.",
+      "measureIds": []
+    },
+    "Fette biscottate": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": ["fetta-biscottata"]
+    },
+    "Fette biscottate integrali": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": ["fetta-biscottata"]
+    },
+    "Fette Wasa (segale)": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Finocchi": {
+      "categoryId": "verdura",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Fiocchi di latte": {
+      "categoryId": "formaggio-fresco",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Formaggio Spalmabile": {
+      "categoryId": "formaggio-fresco",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Fruchtgurt (yogurt ciliegia)": {
+      "categoryId": "yogurt",
+      "uncertain": false,
+      "note": "",
+      "measureIds": ["vasetto"]
+    },
+    "Funghi porcini": {
+      "categoryId": "verdura",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Gallette di riso": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Gamberi": {
+      "categoryId": "pesce",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Gnocchi di patate (crudi)": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Grana": {
+      "categoryId": "formaggio-stagionato",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Ketocal 4:1": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Kinder Delice (39 g)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "kiwi": {
+      "categoryId": "frutta",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Lamponi": {
+      "categoryId": "frutta",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Lamponi (Dietabit)": {
+      "categoryId": "frutta",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Latte d'avena esselunga (Equilibrio)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Bevanda vegetale: non assimilata automaticamente al latte vaccino.",
+      "measureIds": []
+    },
+    "Latte di Cocco s.z. (ALPRO)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Bevanda vegetale: non assimilata automaticamente al latte vaccino.",
+      "measureIds": []
+    },
+    "Latte di mandorla (Alpro)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Bevanda vegetale: non assimilata automaticamente al latte vaccino.",
+      "measureIds": []
+    },
+    "Latte di Mandorla (Eurospin)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Bevanda vegetale: non assimilata automaticamente al latte vaccino.",
+      "measureIds": []
+    },
+    "Latte di soia": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Bevanda vegetale: non assimilata automaticamente al latte vaccino.",
+      "measureIds": []
+    },
+    "Latte di Soia s.z. (ALPRO)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Bevanda vegetale: non assimilata automaticamente al latte vaccino.",
+      "measureIds": []
+    },
+    "Latte di vacca, scremato": {
+      "categoryId": "latte",
+      "uncertain": false,
+      "note": "",
+      "measureIds": ["bicchiere"]
+    },
+    "Latte intero UHT": {
+      "categoryId": "latte",
+      "uncertain": false,
+      "note": "",
+      "measureIds": ["bicchiere"]
+    },
+    "Latte parzialmente scremato UHT": {
+      "categoryId": "latte",
+      "uncertain": false,
+      "note": "",
+      "measureIds": ["bicchiere"]
+    },
+    "Lattuga": {
+      "categoryId": "verdura",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Lenticchie, secche": {
+      "categoryId": "legumi-secchi",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Mandarini": {
+      "categoryId": "frutta",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Mandorle": {
+      "categoryId": "frutta-secca",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Marmellata": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Mela con buccia": {
+      "categoryId": "frutta",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Melanzane": {
+      "categoryId": "verdura",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Merluzzo": {
+      "categoryId": "pesce",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Merluzzo bastoncini surg.": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Prodotto impanato: non assimilato automaticamente al pesce a crudo.",
+      "measureIds": []
+    },
+    "Merluzzo surgelato": {
+      "categoryId": "pesce",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Miele millefiori": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Mirtilli": {
+      "categoryId": "frutta",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Mozzarella": {
+      "categoryId": "formaggio-fresco",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Muesli": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": ["cucchiaio-cereali"]
+    },
+    "Muesli (dietabit)": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": ["cucchiaio-cereali"]
+    },
+    "Muesli cioccolato (eurospin)": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": ["cucchiaio-cereali"]
+    },
+    "Nocciole": {
+      "categoryId": "frutta-secca",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Noci": {
+      "categoryId": "frutta-secca",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Olio EVO": {
+      "categoryId": "grassi",
+      "uncertain": false,
+      "note": "",
+      "measureIds": ["cucchiaino", "cucchiaio"]
+    },
+    "Olive Nere": {
+      "categoryId": "grassi",
+      "uncertain": true,
+      "note": "Categoria funzionale proposta per lo Schema, non classificazione botanica: confermare.",
+      "measureIds": []
+    },
+    "Olive Verdi": {
+      "categoryId": "grassi",
+      "uncertain": true,
+      "note": "Categoria funzionale proposta per lo Schema, non classificazione botanica: confermare.",
+      "measureIds": []
+    },
+    "Orzo perlato (dietabit)": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Pancake Mulino Bianco (35 g)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Pancarrè": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Pancarrè mulino bianco": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Pane bianco": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Pane di segale": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Pane integrale": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Panino all'olio": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Pasta di semola": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Pasta integrale": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Patate": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Patatine San Carlo (25 g - 50 g - 80 g - 180 g)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Peperoni (crudi)": {
+      "categoryId": "verdura",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "pera con buccia": {
+      "categoryId": "frutta",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Pesce spada (dietabit)": {
+      "categoryId": "pesce",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Philadelphia classico": {
+      "categoryId": "formaggio-fresco",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Pinoli": {
+      "categoryId": "frutta-secca",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Pistacchi": {
+      "categoryId": "frutta-secca",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Pizza margherita surgelata Carrefour (330 g)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Pizza margherita napoletana (218 g farina, 9 g lievito madrem 1 g di sale, 70 g acqua, 100 g pomodoro san marzano, 130 g mozzarella fior di latte, 20 g olio d'oliva e di soia, 15 g parmigiano reggiano e pecorino, 1,5 basilico)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Pollo coscia con pelle (crudo)": {
+      "categoryId": "carne-bianca",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Pollo petto (crudo)": {
+      "categoryId": "carne-bianca",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Polpo": {
+      "categoryId": "pesce",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Pomodorini": {
+      "categoryId": "verdura",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Pomodoro, passata": {
+      "categoryId": "verdura",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Prosciutto cotto": {
+      "categoryId": "affettati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Prosciutto crudo": {
+      "categoryId": "affettati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Quinoa": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Ragù Bolognese Barilla (400 g - 200 g)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Ragù contadino Barilla (400 g - 200 g)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Ribes": {
+      "categoryId": "frutta",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Ricotta": {
+      "categoryId": "formaggio-fresco",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Riso brillato": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Riso Integrale": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Rucola": {
+      "categoryId": "verdura",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Rucola (dietabit)": {
+      "categoryId": "verdura",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Salmone (Affumicato)": {
+      "categoryId": "pesce",
+      "uncertain": true,
+      "note": "Preparazione affumicata: confermare compatibilità con la porzione di pesce a crudo.",
+      "measureIds": []
+    },
+    "Salmone (dietabit)": {
+      "categoryId": "pesce",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Salmone (fresco)": {
+      "categoryId": "pesce",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Salsa pomodoro (Pomodoro 100 g, basilico 0,4 g, olio EVO 7 g, sale 0,9 g)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Sardine": {
+      "categoryId": "pesce",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Seitan (Eataly)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Seitan (Esselunga)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Seitan (USDA)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Semi di chia": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Semi oleosi: confermare eventuale inclusione nella frutta secca o nei grassi.",
+      "measureIds": []
+    },
+    "Semi di lino": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Semi oleosi: confermare eventuale inclusione nella frutta secca o nei grassi.",
+      "measureIds": []
+    },
+    "Semi di lino (IEO)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Semi oleosi: confermare eventuale inclusione nella frutta secca o nei grassi.",
+      "measureIds": []
+    },
+    "Semi di Sesamo": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Semi oleosi: confermare eventuale inclusione nella frutta secca o nei grassi.",
+      "measureIds": []
+    },
+    "Semolino": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Sgombro": {
+      "categoryId": "pesce",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Sogliola": {
+      "categoryId": "pesce",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Spinaci bolliti": {
+      "categoryId": "verdura",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Spinaci crudi": {
+      "categoryId": "verdura",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Tacchino, fesa": {
+      "categoryId": "carne-bianca",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Tagliatelle all'uovo Barilla (250 g -  125 g)": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Taleggio": {
+      "categoryId": "formaggio-stagionato",
+      "uncertain": true,
+      "note": "Categoria proposta: verificare stagionatura e compatibilità con la porzione fissa del formaggio stagionato.",
+      "measureIds": []
+    },
+    "Taralli (Coop)": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Teff": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Tempeh (USDA)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Tofu (Esselunga)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Tofu (Eurospin)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Tonno (in scatola)": {
+      "categoryId": "pesce-in-scatola",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Tonno fresco": {
+      "categoryId": "pesce",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Torta Sacher (fetta 125 g)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Trota": {
+      "categoryId": "pesce",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Tuorlo": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Solo una parte dell’uovo: non usare automaticamente la porzione delle uova intere.",
+      "measureIds": []
+    },
+    "Ultra Whey Complex": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Uova": {
+      "categoryId": "uova",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Verza": {
+      "categoryId": "verdura",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Yogurt di Soia": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Prodotto vegetale: non assimilato automaticamente allo yogurt di latte.",
+      "measureIds": []
+    },
+    "Yogurt greco intero": {
+      "categoryId": "yogurt",
+      "uncertain": false,
+      "note": "",
+      "measureIds": ["vasetto"]
+    },
+    "Yogurt greco magro 0%": {
+      "categoryId": "yogurt",
+      "uncertain": false,
+      "note": "",
+      "measureIds": ["vasetto"]
+    },
+    "Yogurt intero": {
+      "categoryId": "yogurt",
+      "uncertain": false,
+      "note": "",
+      "measureIds": ["vasetto"]
+    },
+    "Zucchine": {
+      "categoryId": "verdura",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "kefir intero": {
+      "categoryId": "yogurt",
+      "uncertain": true,
+      "note": "Latte fermentato: proposta da confermare; non si presume una confezione da 125 g.",
+      "measureIds": []
+    },
+    "yogurt magro (Vipiteno)": {
+      "categoryId": "yogurt",
+      "uncertain": false,
+      "note": "",
+      "measureIds": ["vasetto"]
+    },
+    "Crackers salati (Mulino Bianco)": {
+      "categoryId": "carboidrati",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Tonno sott'olio sgocciolato (Riomare)": {
+      "categoryId": "pesce-in-scatola",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Mozzarella light (Santa Lucia)": {
+      "categoryId": "formaggio-fresco",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Vitellone magro": {
+      "categoryId": "carne-rossa",
+      "uncertain": false,
+      "note": "",
+      "measureIds": []
+    },
+    "Kefir naturale (FAGE)": {
+      "categoryId": "yogurt",
+      "uncertain": true,
+      "note": "Latte fermentato: proposta da confermare; non si presume una confezione da 125 g.",
+      "measureIds": []
+    },
+    "Croissant Bauli Classico (brioche - cornetto)  - 40 g  a porzione": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Croissant Bauli Albicocca (brioche - cornetto)  - 50 g  a porzione": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Biscottini al cacao (dietamedicale)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Frollini all'arancia (dietamedicale)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Cantucci alla mandorla (dietamedicale)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Deliziotto cioccolato e pera (dietamedicale)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Fusilli cheto (dietamedicale)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Bauletto cheto (dietamedicale)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Omelette erbe cheto (dietamedicale)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Tagliatelle agli spinaci cheto (dietamedicale)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Tagliatelle cheto (dietamedicale)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Mini cracky cheto (dietamedicale)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "minigriss proteico rosmarino cheto (dietamedicale)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Meritene Forza e Vitalità - Polvere - Vaniglia (barattolo 270g - porzione 30 g)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Meritene Protein Drink - Liquido - Vaniglia (bottiglietta da 200 ml)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Ravioli ricotta e spinaci (Carrefour) porzione 275 g": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Cordon Bleu (Aia) - porzione 120 g": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Prother 5 (bustina 5 g)": {
+      "categoryId": null,
+      "uncertain": true,
+      "note": "Nessuna corrispondenza univoca con le categorie dello Schema: confermare se includere e con quale categoria.",
+      "measureIds": []
+    },
+    "Yogurt di Capra (Mila)": {
+      "categoryId": "yogurt",
+      "uncertain": false,
+      "note": "",
+      "measureIds": ["vasetto"]
+    }
+  }
+}
