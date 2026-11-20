@@ -38,7 +38,7 @@ Gli altri pasti e giorni restano consultabili con i loro valori.
 
 Il formato `WeekPlan` conserva solo i dati originali serializzabili, comprese
 le righe irrisolte. `resolvePlan(plan, lookupFood)` produce separatamente gli
-esiti di validazione e i calcoli: un futuro salvataggio deve conservare il piano
+esiti di validazione e i calcoli: il salvataggio conserva il piano
 originale; un'esportazione deve essere impedita e spiegata se `issues` non è
 vuoto. Al momento non è presente un comando di esportazione.
 
@@ -81,6 +81,30 @@ Sotto i campi della scheda il riquadro **Metabolismo basale** mostra affiancati 
 Sono indicati anche l'età, calcolata alla data di oggi del computer (scritta accanto, «Età al GG/MM/AAAA»), e il BMI usati nel calcolo. Il metabolismo basale è la spesa a riposo: non è automaticamente la quantità di calorie da prescrivere nella dieta.
 
 I risultati si aggiornano mentre si modificano i campi, anche prima di salvare; nel database restano solo i dati della scheda e il metabolismo viene ricalcolato ogni volta che la scheda si riapre. Se manca la data di nascita, il sesso, il peso o l'altezza, il riquadro dice cosa completare; se un valore non è valido dice cosa correggere; se i dati danno un risultato nullo o negativo per qualche formula chiede di controllarli. In questi casi non compare nessun numero.
+
+## Salvare e riaprire il piano
+
+Apri una scheda dal pulsante **Paziente**: l'editor carica il piano di quella
+persona oppure una settimana vuota se non è ancora stato salvato. **Salva piano**
+scrive l'intera settimana sul computer: sette giorni, sei pasti, porzioni
+nell'ordine originale, quantità e giorni esclusi dalla media. Ogni paziente ha
+un solo piano corrente: salvare lo aggiorna, senza creare uno storico.
+
+Lo stato distingue modifiche non salvate, caricamento, salvataggio in corso,
+conferma e errore. In caso di errore il lavoro resta nell'editor: ripremi
+**Salva piano**; se il caricamento fallisce, riseleziona la scheda per riprovare.
+Prima di cambiare paziente puoi **Salva e cambia**, **Scarta e cambia** oppure
+**Annulla cambio**. Prima di selezionare il primo paziente, un piano compilato
+senza scheda può essere scartato oppure mantenuto annullando il cambio, ma non
+salvato senza un paziente. La chiusura o ricarica della pagina avvisa se restano
+modifiche non salvate; riaprendo l'app, seleziona nuovamente la scheda.
+
+I piani restano nello stesso database locale delle schede, anche dopo il
+riavvio. La seconda migrazione aggiunge i piani senza modificare le schede
+esistenti. Eliminare una scheda elimina anche il suo piano, come avvisa la
+conferma: non rimangono piani senza paziente e non è possibile recuperarli.
+I nomi alimento non più riconosciuti vengono conservati e segnalati nell'editor
+per la sostituzione, senza impedire di caricare o salvare il resto del piano.
 
 ## Dati
 

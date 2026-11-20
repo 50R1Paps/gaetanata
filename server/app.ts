@@ -13,6 +13,7 @@ import {
 } from "../src/patient.ts";
 import { openDatabase, schemaVersion } from "./db.ts";
 import { type PatientStore, patientStore } from "./patients.ts";
+import { planHandler } from "./plans.ts";
 
 export const APP_ID = "gaetanata";
 
@@ -40,6 +41,7 @@ const contentTypes: Record<string, string> = {
 export async function startServer(options: ServerOptions): Promise<Server> {
   const db = openDatabase(options.databaseFile);
   const patients = patientStore(db);
+  const handlePlan = planHandler(db);
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
@@ -51,7 +53,13 @@ export async function startServer(options: ServerOptions): Promise<Server> {
       url.pathname === "/api/patients" ||
       url.pathname.startsWith("/api/patients/")
     ) {
-      handlePatients(patients, url.pathname, req, res).catch((error) => {
+      const match = /^\/api\/patients\/([1-9]\d{0,15})\/plan$/.exec(
+        url.pathname,
+      );
+      const handled = match
+        ? handlePlan(Number(match[1]), req, res)
+        : handlePatients(patients, url.pathname, req, res);
+      handled.catch((error) => {
         console.error(error);
         if (res.headersSent) res.end();
         else sendJson(res, 500, { error: "Errore interno del server" });
