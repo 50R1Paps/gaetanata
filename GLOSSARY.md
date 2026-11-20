@@ -27,14 +27,20 @@ Media dei nutrienti sui soli giorni compilati e non esclusi (`weekAverage`).
 ### Quantità
 
 **Sostituzione**:
-Alimento alternativo a un altro con le stesse kcal, con quantità arrotondata a multipli di 10 g. Se foglio Excel e schema Word differiscono, vale il Word.
+Alimento alternativo a un altro con le stesse kcal, con quantità arrotondata per difetto ai 10 g; vale anche per la porzione di partenza (la pasta). Se il valore calcolato differisce da quello scritto a mano nel Word, prevale il calcolo (ADR 0004).
 _Avoid_: Equivalenza, scambio
 
+**Alternativa**:
+Alimento che il template Word propone al posto di un altro. Compaiono sempre tutte.
+
 **Porzione fissa**:
-Quantità che non segue la regola delle sostituzioni: formaggio 100 g, uova 120 g, tonno in scatola 52 g, legumi secchi 50 g, affettati 80 g. Se valga per qualsiasi apporto calorico è da confermare (issue #4).
+Quantità uguale per tutti i pazienti, che non segue la regola delle sostituzioni: formaggio fresco 100 g e stagionato 50 g, uova 120 g, tonno in scatola 52 g (sgocciolato), legumi 50 g secchi o 150 g in scatola, affettati 80 g, frutta 150 g (2 al giorno), verdure almeno 200 g. Eccezioni scelte dalla nutrizionista: uova 180 g, tonno 78 g.
 
 **Porzione variabile**:
-Quantità decisa caso per caso: carne rossa, carne bianca, pesce, spuntini. Le regole di dimensionamento non sono ancora note (issue #4, #5).
+Quantità decisa caso per caso. Carne rossa, carne bianca e pesce: la base la sceglie la nutrizionista, le altre seguono il rapporto fisso 100 : 130 : 150 g a crudo. Spuntini: dimensionati a mano. Olio: in base alle kcal.
+
+**Anamnesi alimentare**:
+Abitudini alimentari del paziente; se lo richiede, cambiano gli alimenti dello schema (di solito cambiano solo le quantità).
 
 ### Metabolismo
 
