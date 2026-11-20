@@ -74,6 +74,14 @@ Nome vuoto, data di nascita futura o non valida, peso o altezza non numerici o n
 
 Le schede restano in `data/gaetanata.db` anche dopo la chiusura. Al primo avvio di questa versione il database viene aggiornato automaticamente, senza perdere dati.
 
+### Metabolismo basale nella scheda
+
+Sotto i campi della scheda il riquadro **Metabolismo basale** mostra affiancati i risultati di Harris-Benedict, Mifflin-St Jeor e Bernstein in kcal/giorno, con la fascia di BMI di ciascuna formula. La formula usata automaticamente è evidenziata («In uso») e il suo valore è ripetuto in grassetto; non esiste una scelta manuale (vedi [Formule del metabolismo](#formule-del-metabolismo) e ADR 0002). La scelta segue il BMI non arrotondato: fino a 25 incluso Harris-Benedict, oltre 25 fino a 30 incluso Mifflin-St Jeor, oltre 30 Bernstein. Il BMI è mostrato con due decimali.
+
+Sono indicati anche l'età, calcolata alla data di oggi del computer (scritta accanto, «Età al GG/MM/AAAA»), e il BMI usati nel calcolo. Il metabolismo basale è la spesa a riposo: non è automaticamente la quantità di calorie da prescrivere nella dieta.
+
+I risultati si aggiornano mentre si modificano i campi, anche prima di salvare; nel database restano solo i dati della scheda e il metabolismo viene ricalcolato ogni volta che la scheda si riapre. Se manca la data di nascita, il sesso, il peso o l'altezza, il riquadro dice cosa completare; se un valore non è valido dice cosa correggere; se i dati danno un risultato nullo o negativo per qualche formula chiede di controllarli. In questi casi non compare nessun numero.
+
 ## Dati
 
 Il foglio originale contiene dati di pazienti reali. Il repository è pubblico: non committare mai file Excel/CSV (sono esclusi in `.gitignore`) né dati che identificano una persona. Tabelle di riferimento (alimenti, attività MET) possono entrare nel repo; i dati dei pazienti no.
