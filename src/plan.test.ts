@@ -4,12 +4,16 @@ import { findFood, searchFoods } from "./foods";
 import { formatNumber, formatNutrient, parseGrams } from "./format";
 import {
   addPortion,
+  countedDays,
   emptyWeekPlan,
+  isDayEmpty,
+  type PlannedDay,
   removePortion,
   setDayIncluded,
   setPortionGrams,
   toCalcDay,
   type WeekPlan,
+  weekAverage,
   weekDays,
 } from "./plan";
 
@@ -105,6 +109,79 @@ describe("week plan", () => {
     expect(total.carbohydratesG).toBeCloseTo(33.7065);
     expect(total.fatG).toBeCloseTo(14.1015);
     expect(total.proteinG).toBeCloseTo(10.7005);
+  });
+});
+
+describe("weekly average of filled days", () => {
+  const average = (plan: WeekPlan) => weekAverage(plan, findFood);
+
+  it("has no average and no counted days for an empty week", () => {
+    const plan = emptyWeekPlan();
+    expect(plan.days.every(isDayEmpty)).toBe(true);
+    expect(countedDays(plan)).toEqual(weekDays.map(() => false));
+    expect(average(plan)).toBeNull();
+  });
+
+  it("equals the single filled day, not its total divided by seven", () => {
+    const plan = breakfastPlan();
+    const monday = plan.days[0];
+    if (!monday) throw new Error("Missing Monday");
+    const expected = dayTotal(toCalcDay(monday, findFood));
+    expect(average(plan)?.caloriesKcal).toBeCloseTo(expected.caloriesKcal);
+    expect(average(plan)?.proteinG).toBeCloseTo(expected.proteinG);
+    expect(countedDays(plan)).toEqual([
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+  });
+
+  it("averages two filled days", () => {
+    const plan = addPortion(breakfastPlan(), 1, 0, rusks);
+    // Monday 290.94 kcal, Tuesday 32 g of rusks.
+    const tuesday = plan.days[1];
+    const monday = plan.days[0];
+    if (!monday || !tuesday) throw new Error("Missing days");
+    const sum =
+      dayTotal(toCalcDay(monday, findFood)).caloriesKcal +
+      dayTotal(toCalcDay(tuesday, findFood)).caloriesKcal;
+    expect(average(plan)?.caloriesKcal).toBeCloseTo(sum / 2);
+  });
+
+  it("detects emptiness from portions, not from zero calories", () => {
+    const plan = addPortion(emptyWeekPlan(), 4, 5, {
+      id: "zero",
+      food: "Noci",
+      grams: 0,
+    });
+    expect(isDayEmpty(plan.days[4] as PlannedDay)).toBe(false);
+    expect(countedDays(plan)[4]).toBe(true);
+    expect(average(plan)?.caloriesKcal).toBe(0);
+  });
+
+  it("keeps a manually excluded day excluded when portions change", () => {
+    let plan = setDayIncluded(breakfastPlan(), 0, false);
+    expect(countedDays(plan)[0]).toBe(false);
+    expect(average(plan)).toBeNull();
+    plan = addPortion(plan, 0, 1, rusks);
+    expect(plan.days[0]?.included).toBe(false);
+    expect(average(plan)).toBeNull();
+    plan = removePortion(plan, 0, 1, "rusks");
+    expect(plan.days[0]?.included).toBe(false);
+    expect(countedDays(plan)[0]).toBe(false);
+  });
+
+  it("stops counting an emptied day and counts it again when refilled", () => {
+    let plan = addPortion(breakfastPlan(), 1, 0, rusks);
+    for (const id of ["rusks"]) plan = removePortion(plan, 1, 0, id);
+    expect(countedDays(plan)[1]).toBe(false);
+    expect(plan.days[1]?.included).toBe(true);
+    plan = addPortion(plan, 1, 0, rusks);
+    expect(countedDays(plan)[1]).toBe(true);
   });
 });
 

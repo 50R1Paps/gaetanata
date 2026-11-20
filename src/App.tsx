@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { dayTotal, type Food, mealSlots, weeklyAverage } from "./calc";
+import { dayTotal, type Food, mealSlots } from "./calc";
 import { FoodSearch } from "./components/FoodSearch";
 import { MealCard } from "./components/MealCard";
 import { SummaryPanel } from "./components/SummaryPanel";
@@ -7,11 +7,14 @@ import { defaultGrams, findFood } from "./foods";
 import { formatNumber } from "./format";
 import {
   addPortion,
+  countedDays,
   emptyWeekPlan,
+  isDayEmpty,
   removePortion,
   setDayIncluded,
   setPortionGrams,
   toCalcDay,
+  weekAverage,
   weekDays,
 } from "./plan";
 import "./App.css";
@@ -26,16 +29,8 @@ export function App() {
     [plan],
   );
   const totals = useMemo(() => calcDays.map(dayTotal), [calcDays]);
-  const average = useMemo(
-    () =>
-      weeklyAverage(
-        totals.map((total, index) => ({
-          total,
-          included: plan.days[index]?.included ?? false,
-        })),
-      ),
-    [plan, totals],
-  );
+  const average = useMemo(() => weekAverage(plan, findFood), [plan]);
+  const counted = useMemo(() => countedDays(plan), [plan]);
 
   const day = plan.days[dayIndex];
   const calcDay = calcDays[dayIndex];
@@ -119,7 +114,9 @@ export function App() {
           name,
           kcal: totals[index]?.caloriesKcal ?? 0,
           included: plan.days[index]?.included ?? false,
+          empty: plan.days[index] ? isDayEmpty(plan.days[index]) : true,
         }))}
+        countedCount={counted.filter(Boolean).length}
         average={average}
         onToggleDay={(index, included) =>
           setPlan((current) => setDayIncluded(current, index, included))
