@@ -16,6 +16,11 @@ export const migrations: readonly string[] = [
     weight_kg REAL CHECK (weight_kg > 0),
     height_cm REAL CHECK (height_cm > 0)
   );`,
+  // 2: one current weekly plan per patient; deleting the record deletes its plan.
+  `CREATE TABLE plans (
+    patient_id INTEGER PRIMARY KEY REFERENCES patients(id) ON DELETE CASCADE,
+    plan_json TEXT NOT NULL
+  );`,
 ];
 
 export function openDatabase(

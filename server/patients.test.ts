@@ -156,7 +156,7 @@ describe("patient API", () => {
     });
     expect((await reopened.call("GET", "/api/health")).body).toEqual({
       app: "gaetanata",
-      schemaVersion: 1,
+      schemaVersion: 2,
     });
   });
 

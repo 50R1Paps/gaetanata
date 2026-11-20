@@ -2,11 +2,10 @@ import { type KeyboardEvent, useMemo, useRef, useState } from "react";
 import { type Food, mealSlots } from "./calc";
 import { FoodSearch } from "./components/FoodSearch";
 import { MealCard } from "./components/MealCard";
-import { PatientsDialog } from "./components/PatientsDialog";
+import { PatientPlanHeader } from "./components/PatientPlanHeader";
 import { SummaryPanel } from "./components/SummaryPanel";
 import { defaultGrams, lookupFood } from "./foods";
 import { formatNumber } from "./format";
-import type { Patient } from "./patient";
 import {
   addPortion,
   countedDays,
@@ -27,7 +26,7 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
   const [dayIndex, setDayIndex] = useState(0);
   const [mealIndex, setMealIndex] = useState(0);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const [patient, setPatient] = useState<Patient | null>(null);
+  const [planBusy, setPlanBusy] = useState(false);
 
   const resolved = useMemo(() => resolvePlan(plan, lookupFood), [plan]);
   const { days, average, averageIncomplete } = resolved;
@@ -75,91 +74,97 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
             coinvolti sono incompleti.
           </p>
         )}
-        <PatientsDialog patient={patient} onSelect={setPatient} />
+        <PatientPlanHeader
+          plan={plan}
+          setPlan={setPlan}
+          onBusyChange={setPlanBusy}
+        />
       </header>
-      <FoodSearch
-        targetLabel={`${dayName} · ${mealSlots[mealIndex]}`}
-        onAdd={(food) => add(mealIndex, food)}
-      />
-      <main className="week">
-        <div className="day-tabs" role="tablist" aria-label="Giorni">
-          {weekDays.map((name, index) => (
-            <button
-              key={name}
-              ref={(element) => {
-                tabRefs.current[index] = element;
-              }}
-              type="button"
-              role="tab"
-              id={`tab-${index}`}
-              aria-selected={index === dayIndex}
-              aria-controls="day-panel"
-              tabIndex={index === dayIndex ? 0 : -1}
-              onClick={() => setDayIndex(index)}
-              onKeyDown={onTabKeyDown}
-            >
-              <span>{name}</span>
-              <span className="tab-kcal">
-                {plan.days[index] && isDayEmpty(plan.days[index])
-                  ? "Vuoto"
-                  : days[index]?.total
-                    ? `${formatNumber(days[index].total.caloriesKcal)} kcal`
-                    : "Incompleto"}
-              </span>
-            </button>
-          ))}
-        </div>
-        <div
-          className="meals"
-          id="day-panel"
-          role="tabpanel"
-          aria-labelledby={`tab-${dayIndex}`}
-        >
-          {mealSlots.map((slot, slotIndex) => (
-            <MealCard
-              key={slot}
-              slot={slot}
-              slotIndex={slotIndex}
-              portions={day.meals[slotIndex] ?? []}
-              meal={calcDay.meals[slotIndex] ?? { portions: [], total: null }}
-              active={slotIndex === mealIndex}
-              onActivate={() => setMealIndex(slotIndex)}
-              onAdd={(food) => add(slotIndex, food)}
-              onRemove={(id) =>
-                setPlan((current) =>
-                  removePortion(current, dayIndex, slotIndex, id),
-                )
-              }
-              onReplace={(id, food) =>
-                setPlan((current) =>
-                  setPortionFood(current, dayIndex, slotIndex, id, food),
-                )
-              }
-              onGrams={(id, grams) =>
-                setPlan((current) =>
-                  setPortionGrams(current, dayIndex, slotIndex, id, grams),
-                )
-              }
-            />
-          ))}
-        </div>
-      </main>
-      <SummaryPanel
-        dayName={dayName}
-        dayTotal={total}
-        days={weekDays.map((name, index) => ({
-          name,
-          kcal: days[index]?.total?.caloriesKcal ?? null,
-          included: plan.days[index]?.included ?? false,
-          empty: plan.days[index] ? isDayEmpty(plan.days[index]) : true,
-        }))}
-        countedCount={counted.filter(Boolean).length}
-        average={average}
-        averageIncomplete={averageIncomplete}
-        onToggleDay={(index, included) =>
-          setPlan((current) => setDayIncluded(current, index, included))
-        }
-      />
+      <div style={{ display: "contents" }} inert={planBusy}>
+        <FoodSearch
+          targetLabel={`${dayName} · ${mealSlots[mealIndex]}`}
+          onAdd={(food) => add(mealIndex, food)}
+        />
+        <main className="week">
+          <div className="day-tabs" role="tablist" aria-label="Giorni">
+            {weekDays.map((name, index) => (
+              <button
+                key={name}
+                ref={(element) => {
+                  tabRefs.current[index] = element;
+                }}
+                type="button"
+                role="tab"
+                id={`tab-${index}`}
+                aria-selected={index === dayIndex}
+                aria-controls="day-panel"
+                tabIndex={index === dayIndex ? 0 : -1}
+                onClick={() => setDayIndex(index)}
+                onKeyDown={onTabKeyDown}
+              >
+                <span>{name}</span>
+                <span className="tab-kcal">
+                  {plan.days[index] && isDayEmpty(plan.days[index])
+                    ? "Vuoto"
+                    : days[index]?.total
+                      ? `${formatNumber(days[index].total.caloriesKcal)} kcal`
+                      : "Incompleto"}
+                </span>
+              </button>
+            ))}
+          </div>
+          <div
+            className="meals"
+            id="day-panel"
+            role="tabpanel"
+            aria-labelledby={`tab-${dayIndex}`}
+          >
+            {mealSlots.map((slot, slotIndex) => (
+              <MealCard
+                key={slot}
+                slot={slot}
+                slotIndex={slotIndex}
+                portions={day.meals[slotIndex] ?? []}
+                meal={calcDay.meals[slotIndex] ?? { portions: [], total: null }}
+                active={slotIndex === mealIndex}
+                onActivate={() => setMealIndex(slotIndex)}
+                onAdd={(food) => add(slotIndex, food)}
+                onRemove={(id) =>
+                  setPlan((current) =>
+                    removePortion(current, dayIndex, slotIndex, id),
+                  )
+                }
+                onReplace={(id, food) =>
+                  setPlan((current) =>
+                    setPortionFood(current, dayIndex, slotIndex, id, food),
+                  )
+                }
+                onGrams={(id, grams) =>
+                  setPlan((current) =>
+                    setPortionGrams(current, dayIndex, slotIndex, id, grams),
+                  )
+                }
+              />
+            ))}
+          </div>
+        </main>
+        <SummaryPanel
+          dayName={dayName}
+          dayTotal={total}
+          days={weekDays.map((name, index) => ({
+            name,
+            kcal: days[index]?.total?.caloriesKcal ?? null,
+            included: plan.days[index]?.included ?? false,
+            empty: plan.days[index] ? isDayEmpty(plan.days[index]) : true,
+          }))}
+          countedCount={counted.filter(Boolean).length}
+          average={average}
+          averageIncomplete={averageIncomplete}
+          onToggleDay={(index, included) =>
+            setPlan((current) => setDayIncluded(current, index, included))
+          }
+        />
+      </div>
     </div>
   );
 }
