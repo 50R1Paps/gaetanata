@@ -46,97 +46,102 @@ export function MealCard({
         </span>
       </header>
       {portions.length > 0 && (
-        <table>
-          <colgroup>
-            <col />
-            <col className="col-grams" />
-            <col className="col-value" />
-            <col className="col-value" />
-            <col className="col-value" />
-            <col className="col-value" />
-            <col className="col-remove" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th scope="col">Alimento</th>
-              <th scope="col" className="num">
-                g
-              </th>
-              <th scope="col" className="num">
-                Proteine
-              </th>
-              <th scope="col" className="num">
-                Grassi
-              </th>
-              <th scope="col" className="num">
-                Carboidrati
-              </th>
-              <th scope="col" className="num">
-                Kcal
-              </th>
-              <th scope="col">
-                <span className="visually-hidden">Rimuovi</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {portions.map((planned, index) => {
-              const portion = meal[index];
-              if (!portion) return null;
-              const nutrients = portionNutrients(portion);
-              const { food } = portion;
-              return (
-                <tr key={planned.id}>
-                  <th scope="row">{food.name}</th>
-                  <td className="num">
-                    <GramsInput
-                      grams={planned.grams}
-                      label={`Grammi di ${food.name}`}
-                      onChange={(grams) => onGrams(planned.id, grams)}
-                    />
-                  </td>
-                  <td className="num">
-                    {formatNutrient(nutrients.proteinG, food.proteinG)}
-                  </td>
-                  <td className="num">
-                    {formatNutrient(nutrients.fatG, food.fatG)}
-                  </td>
-                  <td className="num">
-                    {formatNutrient(
-                      nutrients.carbohydratesG,
-                      food.carbohydratesG,
-                    )}
-                  </td>
-                  <td className="num">
-                    {formatNutrient(nutrients.caloriesKcal, food.caloriesKcal)}
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      className="remove"
-                      aria-label={`Rimuovi ${food.name}`}
-                      title="Rimuovi"
-                      onClick={() => onRemove(planned.id)}
-                    >
-                      ×
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-          <tfoot>
-            <tr>
-              <th scope="row">Totale</th>
-              <td />
-              <td className="num">{formatNumber(total.proteinG)}</td>
-              <td className="num">{formatNumber(total.fatG)}</td>
-              <td className="num">{formatNumber(total.carbohydratesG)}</td>
-              <td className="num">{formatNumber(total.caloriesKcal)}</td>
-              <td />
-            </tr>
-          </tfoot>
-        </table>
+        <div className="table-scroll">
+          <table>
+            <colgroup>
+              <col />
+              <col className="col-grams" />
+              <col className="col-value" />
+              <col className="col-value" />
+              <col className="col-value" />
+              <col className="col-value" />
+              <col className="col-remove" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th scope="col">Alimento</th>
+                <th scope="col" className="num">
+                  g
+                </th>
+                <th scope="col" className="num">
+                  Proteine
+                </th>
+                <th scope="col" className="num">
+                  Grassi
+                </th>
+                <th scope="col" className="num">
+                  Carboidrati
+                </th>
+                <th scope="col" className="num">
+                  Kcal
+                </th>
+                <th scope="col">
+                  <span className="visually-hidden">Rimuovi</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {portions.map((planned, index) => {
+                const portion = meal[index];
+                if (!portion) return null;
+                const nutrients = portionNutrients(portion);
+                const { food } = portion;
+                return (
+                  <tr key={planned.id}>
+                    <th scope="row">{food.name}</th>
+                    <td className="num">
+                      <GramsInput
+                        grams={planned.grams}
+                        label={`Grammi di ${food.name}`}
+                        onChange={(grams) => onGrams(planned.id, grams)}
+                      />
+                    </td>
+                    <td className="num">
+                      {formatNutrient(nutrients.proteinG, food.proteinG)}
+                    </td>
+                    <td className="num">
+                      {formatNutrient(nutrients.fatG, food.fatG)}
+                    </td>
+                    <td className="num">
+                      {formatNutrient(
+                        nutrients.carbohydratesG,
+                        food.carbohydratesG,
+                      )}
+                    </td>
+                    <td className="num">
+                      {formatNutrient(
+                        nutrients.caloriesKcal,
+                        food.caloriesKcal,
+                      )}
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="remove"
+                        aria-label={`Rimuovi ${food.name}`}
+                        title="Rimuovi"
+                        onClick={() => onRemove(planned.id)}
+                      >
+                        ×
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th scope="row">Totale</th>
+                <td />
+                <td className="num">{formatNumber(total.proteinG)}</td>
+                <td className="num">{formatNumber(total.fatG)}</td>
+                <td className="num">{formatNumber(total.carbohydratesG)}</td>
+                <td className="num">{formatNumber(total.caloriesKcal)}</td>
+                <td />
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       )}
       <FoodCombobox label={`Aggiungi alimento a ${slot}`} onAdd={onAdd} />
     </section>

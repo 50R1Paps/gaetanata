@@ -33,6 +33,16 @@ Schede dei giorni (come le schede standard WAI-ARIA):
 
 Le frecce scritte nei campi di ricerca alimento o dei grammi non cambiano giorno.
 
+## Interfaccia
+
+L'editor si adatta alla larghezza della finestra, anche con lo zoom del browser:
+
+- **Da 1280 px:** tre colonne affiancate, ricerca alimenti, giorni e pasti, riepilogo. Se la finestra è alta almeno 600 px l'app occupa lo schermo e ogni colonna scorre per conto suo; altrimenti scorre la pagina e ricerca e riepilogo restano visibili ai lati.
+- **Da 960 a 1279 px:** la ricerca resta a sinistra, sempre visibile; il riepilogo va sotto i pasti.
+- **Sotto 960 px:** i pannelli si dispongono in sequenza, ricerca, giorni e pasti, riepilogo. La ricerca indica sempre giorno e pasto a cui aggiunge l'alimento; ogni pasto ha comunque il proprio campo «Aggiungi alimento».
+
+I pulsanti dei giorni restano in cima mentre si scorrono i pasti e su schermi stretti vanno a capo. Quando la tabella di un pasto non entra in larghezza scorre orizzontalmente dentro il pasto, con il nome dell'alimento sempre visibile; la pagina non scorre mai di lato.
+
 ## Dati
 
 Il foglio originale contiene dati di pazienti reali. Il repository è pubblico: non committare mai file Excel/CSV (sono esclusi in `.gitignore`) né dati che identificano una persona. Tabelle di riferimento (alimenti, attività MET) possono entrare nel repo; i dati dei pazienti no.
