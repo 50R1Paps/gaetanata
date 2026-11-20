@@ -4,13 +4,17 @@ import { findFood, lookupFood, searchFoods } from "./foods";
 import { formatNumber, formatNutrient, parseGrams } from "./format";
 import {
   addPortion,
+  countedDays,
   emptyWeekPlan,
+  isDayEmpty,
+  type PlannedDay,
   removePortion,
   resolvePlan,
   setDayIncluded,
   setPortionFood,
   setPortionGrams,
   type WeekPlan,
+  weekAverage,
   weekDays,
 } from "./plan";
 
@@ -112,6 +116,8 @@ describe("week plan", () => {
     const second = { id: "unknown-b", food: "Quarzopane inventato", grams: 91 };
     let plan = addPortion(breakfastPlan(), 0, 0, first);
     plan = addPortion(plan, 2, 3, second);
+    for (const portion of [milk, rusks, walnuts])
+      plan = addPortion(plan, 1, 0, portion);
     const saved = JSON.stringify(plan);
     const result = resolvePlan(plan, lookupFood);
     expect(result.issues).toEqual([
@@ -121,15 +127,18 @@ describe("week plan", () => {
     expect(result.days[0]?.meals[0]?.total).toBeNull();
     expect(result.days[0]?.total).toBeNull();
     expect(result.days[0]?.meals[1]?.total?.caloriesKcal).toBe(0);
-    expect(result.days[1]?.total?.caloriesKcal).toBe(0);
+    expect(result.days[1]?.total?.caloriesKcal).toBeCloseTo(290.94);
     expect(result.averageIncomplete).toBe(true);
     expect(result.average).toBeNull();
+    expect(weekAverage(plan, lookupFood)).toBeNull();
+    expect(countedDays(plan).filter(Boolean)).toHaveLength(3);
     expect(JSON.stringify(plan)).toBe(saved);
     expect(JSON.parse(saved)).toEqual(plan);
     plan = setDayIncluded(setDayIncluded(plan, 0, false), 2, false);
     const excluded = resolvePlan(plan, lookupFood);
     expect(excluded.averageIncomplete).toBe(false);
-    expect(excluded.average?.caloriesKcal).toBe(0);
+    expect(excluded.average?.caloriesKcal).toBeCloseTo(290.94);
+    expect(weekAverage(plan, lookupFood)?.caloriesKcal).toBeCloseTo(290.94);
   });
 
   it("repairs exact row ids without changing quantities or the other rows", () => {
@@ -154,6 +163,74 @@ describe("week plan", () => {
       resolvePlan(removed, lookupFood).days[0]?.total?.caloriesKcal,
     ).toBeCloseTo(290.94);
     expect(plan.days[0]?.meals[0]?.[3]).toBe(unknown);
+  });
+});
+
+describe("weekly average of filled days", () => {
+  const average = (plan: WeekPlan) => weekAverage(plan, findFood);
+
+  it("has no average and no counted days for an empty week", () => {
+    const plan = emptyWeekPlan();
+    expect(plan.days.every(isDayEmpty)).toBe(true);
+    expect(countedDays(plan)).toEqual(weekDays.map(() => false));
+    expect(average(plan)).toBeNull();
+  });
+
+  it("equals the single filled day, not its total divided by seven", () => {
+    const plan = breakfastPlan();
+    expect(average(plan)?.caloriesKcal).toBeCloseTo(290.94);
+    expect(average(plan)?.proteinG).toBeCloseTo(10.7005);
+    expect(countedDays(plan)).toEqual([
+      true,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+  });
+
+  it("averages two filled days", () => {
+    const plan = addPortion(breakfastPlan(), 1, 0, rusks);
+    // Monday 290.94 kcal, Tuesday 32 g of rusks.
+    const tuesdayTotal = resolvePlan(plan, lookupFood).days[1]?.total;
+    if (!tuesdayTotal) throw new Error("Missing Tuesday total");
+    expect(average(plan)?.caloriesKcal).toBeCloseTo(
+      (290.94 + tuesdayTotal.caloriesKcal) / 2,
+    );
+  });
+
+  it("detects emptiness from portions, not from zero calories", () => {
+    const plan = addPortion(emptyWeekPlan(), 4, 5, {
+      id: "zero",
+      food: "Noci",
+      grams: 0,
+    });
+    expect(isDayEmpty(plan.days[4] as PlannedDay)).toBe(false);
+    expect(countedDays(plan)[4]).toBe(true);
+    expect(average(plan)?.caloriesKcal).toBe(0);
+  });
+
+  it("keeps a manually excluded day excluded when portions change", () => {
+    let plan = setDayIncluded(breakfastPlan(), 0, false);
+    expect(countedDays(plan)[0]).toBe(false);
+    expect(average(plan)).toBeNull();
+    plan = addPortion(plan, 0, 1, rusks);
+    expect(plan.days[0]?.included).toBe(false);
+    expect(average(plan)).toBeNull();
+    plan = removePortion(plan, 0, 1, "rusks");
+    expect(plan.days[0]?.included).toBe(false);
+    expect(countedDays(plan)[0]).toBe(false);
+  });
+
+  it("stops counting an emptied day and counts it again when refilled", () => {
+    let plan = addPortion(breakfastPlan(), 1, 0, rusks);
+    for (const id of ["rusks"]) plan = removePortion(plan, 1, 0, id);
+    expect(countedDays(plan)[1]).toBe(false);
+    expect(plan.days[1]?.included).toBe(true);
+    plan = addPortion(plan, 1, 0, rusks);
+    expect(countedDays(plan)[1]).toBe(true);
   });
 });
 

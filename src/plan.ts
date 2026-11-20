@@ -182,8 +182,9 @@ export function resolvePlan(
         : null,
     };
   });
+  const counted = countedDays(plan);
   const averageIncomplete = days.some(
-    (day, index) => plan.days[index]?.included && day.total === null,
+    (day, index) => counted[index] && day.total === null,
   );
   const average = averageIncomplete
     ? null
@@ -193,11 +194,32 @@ export function resolvePlan(
             ? [
                 {
                   total: day.total,
-                  included: plan.days[index]?.included ?? false,
+                  included: counted[index] ?? false,
                 },
               ]
             : [],
         ),
       );
   return { days, issues, average, averageIncomplete };
+}
+
+/** A day is empty when none of its meals has a portion; zero calories do not
+ * make a day empty. */
+export function isDayEmpty(day: PlannedDay): boolean {
+  return day.meals.every((meal) => meal.length === 0);
+}
+
+/** Per day: whether it enters the weekly average, i.e. it has at least one
+ * portion and was not excluded manually. */
+export function countedDays(plan: WeekPlan): boolean[] {
+  return plan.days.map((day) => day.included && !isDayEmpty(day));
+}
+
+/** Weekly average over counted days; `null` when none are counted or an
+ * included day is incomplete. Use resolvePlan to distinguish these states. */
+export function weekAverage(
+  plan: WeekPlan,
+  lookup: (name: string) => Food | undefined,
+): Nutrients | null {
+  return resolvePlan(plan, lookup).average;
 }

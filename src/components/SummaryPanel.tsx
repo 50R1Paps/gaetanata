@@ -67,13 +67,20 @@ export function SummaryPanel({
   dayName,
   dayTotal,
   days,
+  countedCount,
   average,
   averageIncomplete,
   onToggleDay,
 }: {
   dayName: string;
   dayTotal: Nutrients | null;
-  days: readonly { name: string; kcal: number | null; included: boolean }[];
+  days: readonly {
+    name: string;
+    kcal: number | null;
+    included: boolean;
+    empty: boolean;
+  }[];
+  countedCount: number;
   average: Nutrients | null;
   averageIncomplete: boolean;
   onToggleDay: (index: number, included: boolean) => void;
@@ -101,9 +108,11 @@ export function SummaryPanel({
               />
               <span>{day.name}</span>
               <span className="muted num">
-                {day.kcal === null
-                  ? "Incompleto"
-                  : `${formatNumber(day.kcal)} kcal`}
+                {day.empty
+                  ? "vuoto, non conteggiato"
+                  : day.kcal === null
+                    ? "Incompleto"
+                    : `${formatNumber(day.kcal)} kcal`}
               </span>
             </label>
           ))}
@@ -114,9 +123,17 @@ export function SummaryPanel({
             giorni coinvolti.
           </p>
         ) : average ? (
-          <MacroTable nutrients={average} />
+          <>
+            <p className="muted">
+              Media su {countedCount} {countedCount === 1 ? "giorno" : "giorni"}{" "}
+              su 7
+            </p>
+            <MacroTable nutrients={average} />
+          </>
         ) : (
-          <p className="muted">Nessun giorno incluso nella media.</p>
+          <p className="muted">
+            Nessun giorno compilato e incluso nella media.
+          </p>
         )}
       </section>
     </aside>

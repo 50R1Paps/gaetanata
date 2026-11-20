@@ -42,6 +42,26 @@ esiti di validazione e i calcoli: un futuro salvataggio deve conservare il piano
 originale; un'esportazione deve essere impedita e spiegata se `issues` non è
 vuoto. Al momento non è presente un comando di esportazione.
 
+## Scorciatoie da tastiera
+
+Schede dei giorni (come le schede standard WAI-ARIA):
+
+- **Tab** entra nel gruppo sul giorno selezionato; un altro **Tab** esce dal gruppo.
+- **Freccia destra / sinistra** seleziona il giorno successivo / precedente (da domenica si torna a lunedì e viceversa).
+- **Home** seleziona lunedì, **Fine** (End) seleziona domenica.
+
+Le frecce scritte nei campi di ricerca alimento o dei grammi non cambiano giorno.
+
+## Interfaccia
+
+L'editor si adatta alla larghezza della finestra, anche con lo zoom del browser:
+
+- **Da 1280 px:** tre colonne affiancate, ricerca alimenti, giorni e pasti, riepilogo. Se la finestra è alta almeno 600 px l'app occupa lo schermo e ogni colonna scorre per conto suo; altrimenti scorre la pagina e ricerca e riepilogo restano visibili ai lati.
+- **Da 960 a 1279 px:** la ricerca resta a sinistra, sempre visibile; il riepilogo va sotto i pasti.
+- **Sotto 960 px:** i pannelli si dispongono in sequenza, ricerca, giorni e pasti, riepilogo. La ricerca indica sempre giorno e pasto a cui aggiunge l'alimento; ogni pasto ha comunque il proprio campo «Aggiungi alimento».
+
+I pulsanti dei giorni restano in cima mentre si scorrono i pasti e su schermi stretti vanno a capo. Quando la tabella di un pasto non entra in larghezza scorre orizzontalmente dentro il pasto, con il nome dell'alimento sempre visibile; la pagina non scorre mai di lato.
+
 ## Dati
 
 Il foglio originale contiene dati di pazienti reali. Il repository è pubblico: non committare mai file Excel/CSV (sono esclusi in `.gitignore`) né dati che identificano una persona. Tabelle di riferimento (alimenti, attività MET) possono entrare nel repo; i dati dei pazienti no.
@@ -55,6 +75,10 @@ Per rigenerarli senza includere dati dei pazienti:
 ```sh
 npm run import:tables -- "percorso/al/file.xlsx"
 ```
+
+## Media settimanale
+
+La media dei nutrienti conta soltanto i giorni che contengono almeno una porzione in uno dei sei pasti e che non sono stati esclusi a mano con la casella "Giorni inclusi nella media". Un giorno senza porzioni è indicato come vuoto e non conteggiato (non conta il valore zero delle calorie); torna a contribuire appena viene ricompilato. L'esclusione manuale è una scelta separata e resta anche quando si aggiungono o tolgono porzioni. Se nessun giorno è compilato e incluso, compare un messaggio al posto della media. Il pannello mostra su quanti giorni è calcolata la media.
 
 ## Formule del metabolismo
 

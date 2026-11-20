@@ -50,20 +50,29 @@ input {
   font-variant-numeric: tabular-nums;
 }
 
+/* Layout. Narrow windows stack the panels and the page scrolls; from 960 px
+ * the food search sits beside the week, from 1280 px the summary gets its own
+ * column. Only tall enough desktop windows pin the app to the viewport with
+ * each panel scrolling on its own. */
+
+html {
+  scroll-padding-top: 72px;
+}
+
 .app {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr) 300px;
-  grid-template-rows: auto minmax(0, 1fr);
-  height: 100vh;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "header" "search" "week" "summary";
   gap: 12px;
   padding: 12px;
 }
 
 .app-header {
-  grid-column: 1 / -1;
+  grid-area: header;
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 12px;
+  column-gap: 12px;
 }
 
 .app-header h1 {
@@ -93,9 +102,10 @@ input {
 /* Food search */
 
 .food-search {
+  grid-area: search;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  max-height: max(16rem, 60vh);
 }
 
 .food-search input,
@@ -122,6 +132,7 @@ input {
 
 .food-list {
   flex: 1;
+  min-height: 8rem;
   overflow: auto;
 }
 
@@ -151,6 +162,10 @@ input {
 }
 
 /* Summary */
+
+.summary {
+  grid-area: summary;
+}
 
 .summary section + section {
   margin-top: 16px;
@@ -221,19 +236,27 @@ input {
   align-items: center;
   padding: 2px 0;
 }
+
 /* Days and meals */
 
 .week {
+  grid-area: week;
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
+/* Sticky so the days stay at hand while the page scrolls through the meals. */
 .day-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
   gap: 4px;
-  margin-bottom: 8px;
+  padding: 4px 0;
+  margin-bottom: 4px;
+  background: var(--bg);
 }
 
 .day-tabs button {
@@ -259,7 +282,6 @@ input {
 }
 
 .meals {
-  overflow: auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -323,11 +345,19 @@ input {
   font-variant-numeric: tabular-nums;
 }
 
+/* Narrow windows scroll the table sideways inside the card, keeping the food
+ * name pinned on the left. */
+.table-scroll {
+  position: relative;
+  overflow-x: auto;
+  margin: 4px 0 8px;
+}
+
 .meal-card table {
   width: 100%;
+  min-width: 600px;
   border-collapse: collapse;
   table-layout: fixed;
-  margin: 4px 0 8px;
 }
 
 .meal-card .col-grams {
@@ -362,6 +392,13 @@ input {
 .meal-card tbody th {
   text-align: left;
   font-weight: 400;
+}
+
+.meal-card table th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
 }
 
 .meal-card tfoot th,
@@ -410,7 +447,7 @@ input {
 
 .suggestions {
   position: absolute;
-  z-index: 1;
+  z-index: 3;
   left: 0;
   right: 0;
   top: 100%;
@@ -420,4 +457,63 @@ input {
   border-radius: 6px;
   box-shadow: 0 6px 16px rgb(0 0 0 / 12%);
   padding: 4px;
+}
+@media (min-width: 960px) {
+  .app {
+    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      "header header"
+      "search week"
+      "search summary";
+  }
+
+  .food-search {
+    position: sticky;
+    top: 12px;
+    align-self: start;
+    max-height: calc(100vh - 24px);
+  }
+}
+
+@media (min-width: 1280px) {
+  .app {
+    grid-template-columns: 260px minmax(0, 1fr) 300px;
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      "header header header"
+      "search week summary";
+  }
+
+  .summary {
+    position: sticky;
+    top: 12px;
+    align-self: start;
+    max-height: calc(100vh - 24px);
+  }
+}
+
+@media (min-width: 1280px) and (min-height: 600px) {
+  .app {
+    grid-template-rows: auto minmax(0, 1fr);
+    height: 100vh;
+  }
+
+  .food-search,
+  .summary {
+    position: static;
+    align-self: stretch;
+    max-height: none;
+  }
+
+  .meals {
+    overflow: auto;
+  }
+}
+
+@media (max-width: 607px) {
+  /* The day tabs wrap onto two rows. */
+  html {
+    scroll-padding-top: 124px;
+  }
 }
