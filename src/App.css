@@ -1,0 +1,423 @@
+:root {
+  --bg: #f3f4f6;
+  --surface: #ffffff;
+  --border: #d9dde3;
+  --text: #1f2933;
+  --muted: #6b7280;
+  --accent: #0f766e;
+  --accent-soft: #ccfbf1;
+  --danger: #b42318;
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr) 300px;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100vh;
+  gap: 12px;
+  padding: 12px;
+}
+
+.app-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.4rem;
+  color: var(--accent);
+}
+
+.app-header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  overflow: auto;
+}
+
+.panel h2 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+/* Food search */
+
+.food-search {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.food-search input,
+.combobox input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.hint {
+  margin: 6px 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.food-list,
+.suggestions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.food-list {
+  flex: 1;
+  overflow: auto;
+}
+
+.food-list > div,
+.suggestions > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.food-list .muted {
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+
+.food-list [aria-selected="true"],
+.suggestions [aria-selected="true"] {
+  background: var(--accent-soft);
+}
+
+.food-list .empty,
+.suggestions .empty {
+  cursor: default;
+}
+
+/* Summary */
+
+.summary section + section {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.kcal-total {
+  margin: 0 0 6px;
+  color: var(--muted);
+}
+
+.kcal-total .value {
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.macro-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.macro-table th,
+.macro-table td {
+  padding: 4px 4px;
+  border-bottom: 1px solid #eef0f3;
+  text-align: left;
+}
+
+.macro-table .num {
+  text-align: right;
+}
+
+.macro-table thead th {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.macro-table tbody th {
+  font-weight: 400;
+}
+
+.macro-table tfoot th,
+.macro-table tfoot td {
+  font-size: 0.85rem;
+  color: var(--muted);
+  border-bottom: 0;
+}
+
+.included-days {
+  border: 0;
+  padding: 0;
+  margin: 0 0 10px;
+}
+
+.included-days legend {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.included-days label {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 6px;
+  align-items: center;
+  padding: 2px 0;
+}
+/* Days and meals */
+
+.week {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.day-tabs {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.day-tabs button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.day-tabs button[aria-selected="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.tab-kcal {
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.meals {
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 4px;
+}
+
+.meal-card {
+  --meal: #94a3b8;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 6px solid var(--meal);
+  border-radius: 8px;
+  padding: 8px 10px 10px;
+}
+
+.meal-0 {
+  --meal: #f59e0b;
+}
+.meal-1 {
+  --meal: #10b981;
+}
+.meal-2 {
+  --meal: #3b82f6;
+}
+.meal-3 {
+  --meal: #ec4899;
+}
+.meal-4 {
+  --meal: #8b5cf6;
+}
+.meal-5 {
+  --meal: #64748b;
+}
+
+.meal-card.active {
+  box-shadow: 0 0 0 2px var(--meal);
+}
+
+.meal-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.meal-card h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.meal-card h3 button {
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.meal-kcal {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.meal-card table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin: 4px 0 8px;
+}
+
+.meal-card .col-grams {
+  width: 84px;
+}
+
+.meal-card .col-value {
+  width: 92px;
+}
+
+.meal-card .col-remove {
+  width: 36px;
+}
+
+.meal-card table th,
+.meal-card table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid #eef0f3;
+}
+
+.meal-card thead th {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+  text-align: left;
+}
+
+.meal-card thead th.num {
+  text-align: right;
+}
+
+.meal-card tbody th {
+  text-align: left;
+  font-weight: 400;
+}
+
+.meal-card tfoot th,
+.meal-card tfoot td {
+  font-weight: 600;
+  border-bottom: 0;
+  text-align: left;
+}
+
+.meal-card tfoot td.num {
+  text-align: right;
+}
+
+.grams {
+  width: 64px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  text-align: right;
+}
+
+.grams[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.remove {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.remove:hover {
+  color: var(--danger);
+  background: #fee4e2;
+}
+
+.combobox {
+  position: relative;
+  margin-top: 6px;
+}
+
+.suggestions {
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin-top: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 16px rgb(0 0 0 / 12%);
+  padding: 4px;
+}
