@@ -1,4 +1,11 @@
-import { type Day, type Food, type Meal, mealSlots } from "./calc";
+import {
+  type Food,
+  mealSlots,
+  mealTotal,
+  type Nutrients,
+  type Portion,
+  weeklyAverage,
+} from "./calc";
 
 export const weekDays = [
   "Lunedì",
@@ -101,6 +108,21 @@ export function setPortionGrams(
   );
 }
 
+/** Replacement keeps row identity and quantity, including for unknown names. */
+export function setPortionFood(
+  plan: WeekPlan,
+  dayIndex: number,
+  mealIndex: number,
+  portionId: string,
+  food: Food,
+): WeekPlan {
+  return updateMeal(plan, dayIndex, mealIndex, (meal) =>
+    meal.map((portion) =>
+      portion.id === portionId ? { ...portion, food: food.name } : portion,
+    ),
+  );
+}
+
 export function setDayIncluded(
   plan: WeekPlan,
   dayIndex: number,
@@ -109,15 +131,73 @@ export function setDayIncluded(
   return updateDay(plan, dayIndex, (day) => ({ ...day, included }));
 }
 
-/** Resolves food names into the shape used by `src/calc`. */
-export function toCalcDay(
-  day: PlannedDay,
-  findFood: (name: string) => Food,
-): Day {
-  const meal = (index: number): Meal =>
-    (day.meals[index] ?? []).map((portion) => ({
-      food: findFood(portion.food),
-      grams: portion.grams,
-    }));
-  return [meal(0), meal(1), meal(2), meal(3), meal(4), meal(5)];
+export type UnresolvedFood = {
+  dayIndex: number;
+  mealIndex: number;
+  portionId: string;
+  food: string;
+};
+
+export type ResolvedMeal = {
+  /** Same positions as stored rows; undefined means an unresolved food. */
+  portions: readonly (Portion | undefined)[];
+  total: Nutrients | null;
+};
+
+/** Derived validation only: never write resolved data back into the saved plan.
+ * Exporters must reject a plan while `issues` is nonempty. */
+export function resolvePlan(
+  plan: WeekPlan,
+  lookup: (name: string) => Food | undefined,
+) {
+  const issues: UnresolvedFood[] = [];
+  const days = plan.days.map((day, dayIndex) => {
+    const known: Portion[] = [];
+    const meals = day.meals.map((meal, mealIndex): ResolvedMeal => {
+      let complete = true;
+      const resolved: Portion[] = [];
+      const portions = meal.map((portion) => {
+        const food = lookup(portion.food);
+        if (!food) {
+          complete = false;
+          issues.push({
+            dayIndex,
+            mealIndex,
+            portionId: portion.id,
+            food: portion.food,
+          });
+          return undefined;
+        }
+        const result = { food, grams: portion.grams };
+        resolved.push(result);
+        known.push(result);
+        return result;
+      });
+      return { portions, total: complete ? mealTotal(resolved) : null };
+    });
+    return {
+      meals,
+      total: meals.every((meal) => meal.total !== null)
+        ? mealTotal(known)
+        : null,
+    };
+  });
+  const averageIncomplete = days.some(
+    (day, index) => plan.days[index]?.included && day.total === null,
+  );
+  const average = averageIncomplete
+    ? null
+    : weeklyAverage(
+        days.flatMap((day, index) =>
+          day.total
+            ? [
+                {
+                  total: day.total,
+                  included: plan.days[index]?.included ?? false,
+                },
+              ]
+            : [],
+        ),
+      );
+  return { days, issues, average, averageIncomplete };
 }

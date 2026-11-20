@@ -68,19 +68,25 @@ export function SummaryPanel({
   dayTotal,
   days,
   average,
+  averageIncomplete,
   onToggleDay,
 }: {
   dayName: string;
-  dayTotal: Nutrients;
-  days: readonly { name: string; kcal: number; included: boolean }[];
+  dayTotal: Nutrients | null;
+  days: readonly { name: string; kcal: number | null; included: boolean }[];
   average: Nutrients | null;
+  averageIncomplete: boolean;
   onToggleDay: (index: number, included: boolean) => void;
 }) {
   return (
     <aside className="panel summary" aria-label="Riepilogo">
       <section>
         <h2>Totale {dayName}</h2>
-        <MacroTable nutrients={dayTotal} />
+        {dayTotal ? (
+          <MacroTable nutrients={dayTotal} />
+        ) : (
+          <p>Totale incompleto: correggi gli alimenti non riconosciuti.</p>
+        )}
       </section>
       <section>
         <h2>Media settimanale</h2>
@@ -94,11 +100,20 @@ export function SummaryPanel({
                 onChange={(event) => onToggleDay(index, event.target.checked)}
               />
               <span>{day.name}</span>
-              <span className="muted num">{formatNumber(day.kcal)} kcal</span>
+              <span className="muted num">
+                {day.kcal === null
+                  ? "Incompleto"
+                  : `${formatNumber(day.kcal)} kcal`}
+              </span>
             </label>
           ))}
         </fieldset>
-        {average ? (
+        {averageIncomplete ? (
+          <p>
+            Media incompleta: correggi gli alimenti non riconosciuti o escludi i
+            giorni coinvolti.
+          </p>
+        ) : average ? (
           <MacroTable nutrients={average} />
         ) : (
           <p className="muted">Nessun giorno incluso nella media.</p>

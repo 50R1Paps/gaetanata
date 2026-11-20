@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { dayTotal, mealSlots } from "./calc";
-import { findFood, searchFoods } from "./foods";
+import { mealSlots } from "./calc";
+import { findFood, lookupFood, searchFoods } from "./foods";
 import { formatNumber, formatNutrient, parseGrams } from "./format";
 import {
   addPortion,
   emptyWeekPlan,
   removePortion,
+  resolvePlan,
   setDayIncluded,
+  setPortionFood,
   setPortionGrams,
-  toCalcDay,
   type WeekPlan,
   weekDays,
 } from "./plan";
@@ -98,13 +99,61 @@ describe("week plan", () => {
   });
 
   it("resolves a day into the workbook breakfast totals", () => {
-    const monday = breakfastPlan().days[0];
-    if (!monday) throw new Error("Missing Monday");
-    const total = dayTotal(toCalcDay(monday, findFood));
+    const total = resolvePlan(breakfastPlan(), lookupFood).days[0]?.total;
+    if (!total) throw new Error("Missing Monday total");
     expect(total.caloriesKcal).toBeCloseTo(290.94);
     expect(total.carbohydratesG).toBeCloseTo(33.7065);
     expect(total.fatG).toBeCloseTo(14.1015);
     expect(total.proteinG).toBeCloseTo(10.7005);
+  });
+
+  it("keeps unknown rows intact and marks only affected calculations incomplete", () => {
+    const first = { id: "unknown-a", food: "Zorbaluna inventata", grams: 37 };
+    const second = { id: "unknown-b", food: "Quarzopane inventato", grams: 91 };
+    let plan = addPortion(breakfastPlan(), 0, 0, first);
+    plan = addPortion(plan, 2, 3, second);
+    const saved = JSON.stringify(plan);
+    const result = resolvePlan(plan, lookupFood);
+    expect(result.issues).toEqual([
+      { dayIndex: 0, mealIndex: 0, portionId: first.id, food: first.food },
+      { dayIndex: 2, mealIndex: 3, portionId: second.id, food: second.food },
+    ]);
+    expect(result.days[0]?.meals[0]?.total).toBeNull();
+    expect(result.days[0]?.total).toBeNull();
+    expect(result.days[0]?.meals[1]?.total?.caloriesKcal).toBe(0);
+    expect(result.days[1]?.total?.caloriesKcal).toBe(0);
+    expect(result.averageIncomplete).toBe(true);
+    expect(result.average).toBeNull();
+    expect(JSON.stringify(plan)).toBe(saved);
+    expect(JSON.parse(saved)).toEqual(plan);
+    plan = setDayIncluded(setDayIncluded(plan, 0, false), 2, false);
+    const excluded = resolvePlan(plan, lookupFood);
+    expect(excluded.averageIncomplete).toBe(false);
+    expect(excluded.average?.caloriesKcal).toBe(0);
+  });
+
+  it("repairs exact row ids without changing quantities or the other rows", () => {
+    const unknown = { id: "unknown", food: "Zorbaluna inventata", grams: 37 };
+    const plan = addPortion(breakfastPlan(), 0, 0, unknown);
+    const repaired = setPortionFood(plan, 0, 0, unknown.id, findFood("Noci"));
+    expect(repaired.days[0]?.meals[0]).toEqual([
+      milk,
+      rusks,
+      walnuts,
+      { ...unknown, food: "Noci" },
+    ]);
+    expect(repaired.days[0]?.meals[0]?.[2]).toBe(walnuts);
+    expect(repaired.days[1]).toBe(plan.days[1]);
+    expect(resolvePlan(repaired, lookupFood).issues).toEqual([]);
+    expect(resolvePlan(repaired, lookupFood).days[0]?.total).not.toBeNull();
+    const removed = removePortion(plan, 0, 0, unknown.id);
+    expect(removed.days[0]?.meals[0]).toEqual([milk, rusks, walnuts]);
+    expect(removed.days[0]?.meals[0]?.[2]).toBe(walnuts);
+    expect(resolvePlan(removed, lookupFood).issues).toEqual([]);
+    expect(
+      resolvePlan(removed, lookupFood).days[0]?.total?.caloriesKcal,
+    ).toBeCloseTo(290.94);
+    expect(plan.days[0]?.meals[0]?.[3]).toBe(unknown);
   });
 });
 

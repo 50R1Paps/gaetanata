@@ -5,6 +5,11 @@ export const foods: readonly Food[] = foodData;
 
 const foodsByName = new Map(foods.map((food) => [food.name, food]));
 
+/** Exact lookup: missing names remain unresolved, never approximately matched. */
+export function lookupFood(name: string): Food | undefined {
+  return foodsByName.get(name);
+}
+
 export function findFood(name: string): Food {
   const food = foodsByName.get(name);
   if (!food) throw new Error(`Alimento sconosciuto: ${name}`);

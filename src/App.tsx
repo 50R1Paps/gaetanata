@@ -1,46 +1,34 @@
 import { useMemo, useState } from "react";
-import { dayTotal, type Food, mealSlots, weeklyAverage } from "./calc";
+import { type Food, mealSlots } from "./calc";
 import { FoodSearch } from "./components/FoodSearch";
 import { MealCard } from "./components/MealCard";
 import { SummaryPanel } from "./components/SummaryPanel";
-import { defaultGrams, findFood } from "./foods";
+import { defaultGrams, lookupFood } from "./foods";
 import { formatNumber } from "./format";
 import {
   addPortion,
   emptyWeekPlan,
   removePortion,
+  resolvePlan,
   setDayIncluded,
+  setPortionFood,
   setPortionGrams,
-  toCalcDay,
+  type WeekPlan,
   weekDays,
 } from "./plan";
 import "./App.css";
 
-export function App() {
-  const [plan, setPlan] = useState(emptyWeekPlan);
+export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
+  const [plan, setPlan] = useState(() => initialPlan ?? emptyWeekPlan());
   const [dayIndex, setDayIndex] = useState(0);
   const [mealIndex, setMealIndex] = useState(0);
 
-  const calcDays = useMemo(
-    () => plan.days.map((day) => toCalcDay(day, findFood)),
-    [plan],
-  );
-  const totals = useMemo(() => calcDays.map(dayTotal), [calcDays]);
-  const average = useMemo(
-    () =>
-      weeklyAverage(
-        totals.map((total, index) => ({
-          total,
-          included: plan.days[index]?.included ?? false,
-        })),
-      ),
-    [plan, totals],
-  );
-
+  const resolved = useMemo(() => resolvePlan(plan, lookupFood), [plan]);
+  const { days, average, averageIncomplete } = resolved;
   const day = plan.days[dayIndex];
-  const calcDay = calcDays[dayIndex];
-  const total = totals[dayIndex];
-  if (!day || !calcDay || !total) throw new Error("Giorno non valido");
+  const calcDay = days[dayIndex];
+  if (!day || !calcDay) throw new Error("Giorno non valido");
+  const total = calcDay.total;
   const dayName = weekDays[dayIndex] ?? "";
 
   function add(slotIndex: number, food: Food) {
@@ -59,6 +47,12 @@ export function App() {
         <h1>Gaetanata</h1>
         <p>Elaborazione dieta settimanale</p>
       </header>
+      {resolved.issues.length > 0 && (
+        <p role="alert">
+          Alimenti non riconosciuti: correggi le righe segnalate. I totali
+          coinvolti sono incompleti.
+        </p>
+      )}
       <FoodSearch
         targetLabel={`${dayName} · ${mealSlots[mealIndex]}`}
         onAdd={(food) => add(mealIndex, food)}
@@ -77,7 +71,9 @@ export function App() {
             >
               <span>{name}</span>
               <span className="tab-kcal">
-                {formatNumber(totals[index]?.caloriesKcal ?? 0)} kcal
+                {days[index]?.total
+                  ? `${formatNumber(days[index].total.caloriesKcal)} kcal`
+                  : "Incompleto"}
               </span>
             </button>
           ))}
@@ -94,13 +90,18 @@ export function App() {
               slot={slot}
               slotIndex={slotIndex}
               portions={day.meals[slotIndex] ?? []}
-              meal={calcDay[slotIndex] ?? []}
+              meal={calcDay.meals[slotIndex] ?? { portions: [], total: null }}
               active={slotIndex === mealIndex}
               onActivate={() => setMealIndex(slotIndex)}
               onAdd={(food) => add(slotIndex, food)}
               onRemove={(id) =>
                 setPlan((current) =>
                   removePortion(current, dayIndex, slotIndex, id),
+                )
+              }
+              onReplace={(id, food) =>
+                setPlan((current) =>
+                  setPortionFood(current, dayIndex, slotIndex, id, food),
                 )
               }
               onGrams={(id, grams) =>
@@ -117,10 +118,11 @@ export function App() {
         dayTotal={total}
         days={weekDays.map((name, index) => ({
           name,
-          kcal: totals[index]?.caloriesKcal ?? 0,
+          kcal: days[index]?.total?.caloriesKcal ?? null,
           included: plan.days[index]?.included ?? false,
         }))}
         average={average}
+        averageIncomplete={averageIncomplete}
         onToggleDay={(index, included) =>
           setPlan((current) => setDayIncluded(current, index, included))
         }

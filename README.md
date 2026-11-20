@@ -23,6 +23,25 @@ npm run check    # typecheck + lint
 npm test         # test
 ```
 
+## Recupero di alimenti non riconosciuti
+
+Un piano ripristinato può contenere nomi non più presenti nell'elenco. La riga
+resta visibile con nome e grammi originali: scegli un alimento nel campo
+«Sostituisci» oppure rimuovi esplicitamente la riga con ×. La sostituzione
+mantiene quantità e identità della riga, senza modificare le altre porzioni.
+Non vengono proposte correzioni automatiche per somiglianza del nome.
+
+Finché ci sono righe da correggere, i totali dei pasti e dei giorni coinvolti
+sono indicati come incompleti, non come zero. Anche la media è incompleta se
+include uno di questi giorni; puoi escluderlo manualmente dalla media.
+Gli altri pasti e giorni restano consultabili con i loro valori.
+
+Il formato `WeekPlan` conserva solo i dati originali serializzabili, comprese
+le righe irrisolte. `resolvePlan(plan, lookupFood)` produce separatamente gli
+esiti di validazione e i calcoli: un futuro salvataggio deve conservare il piano
+originale; un'esportazione deve essere impedita e spiegata se `issues` non è
+vuoto. Al momento non è presente un comando di esportazione.
+
 ## Dati
 
 Il foglio originale contiene dati di pazienti reali. Il repository è pubblico: non committare mai file Excel/CSV (sono esclusi in `.gitignore`) né dati che identificano una persona. Tabelle di riferimento (alimenti, attività MET) possono entrare nel repo; i dati dei pazienti no.

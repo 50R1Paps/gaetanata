@@ -1,6 +1,6 @@
-import { type Food, type Meal, mealTotal, portionNutrients } from "../calc";
+import { type Food, portionNutrients } from "../calc";
 import { formatNumber, formatNutrient } from "../format";
-import type { PlannedPortion } from "../plan";
+import type { PlannedPortion, ResolvedMeal } from "../plan";
 import { FoodCombobox } from "./FoodCombobox";
 import { GramsInput } from "./GramsInput";
 
@@ -13,20 +13,22 @@ export function MealCard({
   onActivate,
   onAdd,
   onRemove,
+  onReplace,
   onGrams,
 }: {
   slot: string;
   slotIndex: number;
   /** Rows as stored in the plan; `meal` is the same rows resolved for `src/calc`. */
   portions: readonly PlannedPortion[];
-  meal: Meal;
+  meal: ResolvedMeal;
   active: boolean;
   onActivate: () => void;
   onAdd: (food: Food) => void;
   onRemove: (portionId: string) => void;
+  onReplace: (portionId: string, food: Food) => void;
   onGrams: (portionId: string, grams: number) => void;
 }) {
-  const total = mealTotal(meal);
+  const { total } = meal;
   const headingId = `meal-${slotIndex}`;
 
   return (
@@ -42,7 +44,9 @@ export function MealCard({
           </button>
         </h3>
         <span className="meal-kcal">
-          {formatNumber(total.caloriesKcal)} kcal
+          {total
+            ? `${formatNumber(total.caloriesKcal)} kcal`
+            : "Totale incompleto"}
         </span>
       </header>
       {portions.length > 0 && (
@@ -81,8 +85,42 @@ export function MealCard({
           </thead>
           <tbody>
             {portions.map((planned, index) => {
-              const portion = meal[index];
-              if (!portion) return null;
+              const portion = meal.portions[index];
+              if (!portion) {
+                return (
+                  <tr key={planned.id}>
+                    <th scope="row">
+                      {planned.food}
+                      <p>
+                        <strong>Alimento non riconosciuto</strong>
+                      </p>
+                      <FoodCombobox
+                        label={`Sostituisci ${planned.food}`}
+                        onAdd={(food) => onReplace(planned.id, food)}
+                      />
+                    </th>
+                    <td className="num">
+                      <GramsInput
+                        grams={planned.grams}
+                        label={`Grammi di ${planned.food}`}
+                        onChange={(grams) => onGrams(planned.id, grams)}
+                      />
+                    </td>
+                    <td colSpan={4}>Nutrienti non disponibili</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="remove"
+                        aria-label={`Rimuovi ${planned.food}`}
+                        title="Rimuovi"
+                        onClick={() => onRemove(planned.id)}
+                      >
+                        ×
+                      </button>
+                    </td>
+                  </tr>
+                );
+              }
               const nutrients = portionNutrients(portion);
               const { food } = portion;
               return (
@@ -129,10 +167,16 @@ export function MealCard({
             <tr>
               <th scope="row">Totale</th>
               <td />
-              <td className="num">{formatNumber(total.proteinG)}</td>
-              <td className="num">{formatNumber(total.fatG)}</td>
-              <td className="num">{formatNumber(total.carbohydratesG)}</td>
-              <td className="num">{formatNumber(total.caloriesKcal)}</td>
+              {total ? (
+                <>
+                  <td className="num">{formatNumber(total.proteinG)}</td>
+                  <td className="num">{formatNumber(total.fatG)}</td>
+                  <td className="num">{formatNumber(total.carbohydratesG)}</td>
+                  <td className="num">{formatNumber(total.caloriesKcal)}</td>
+                </>
+              ) : (
+                <td colSpan={4}>Totale incompleto</td>
+              )}
               <td />
             </tr>
           </tfoot>
