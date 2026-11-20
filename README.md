@@ -23,6 +23,16 @@ npm run check    # typecheck + lint
 npm test         # test
 ```
 
+## Scorciatoie da tastiera
+
+Schede dei giorni (come le schede standard WAI-ARIA):
+
+- **Tab** entra nel gruppo sul giorno selezionato; un altro **Tab** esce dal gruppo.
+- **Freccia destra / sinistra** seleziona il giorno successivo / precedente (da domenica si torna a lunedì e viceversa).
+- **Home** seleziona lunedì, **Fine** (End) seleziona domenica.
+
+Le frecce scritte nei campi di ricerca alimento o dei grammi non cambiano giorno.
+
 ## Dati
 
 Il foglio originale contiene dati di pazienti reali. Il repository è pubblico: non committare mai file Excel/CSV (sono esclusi in `.gitignore`) né dati che identificano una persona. Tabelle di riferimento (alimenti, attività MET) possono entrare nel repo; i dati dei pazienti no.

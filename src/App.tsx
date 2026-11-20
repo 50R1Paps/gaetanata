@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { type KeyboardEvent, useMemo, useRef, useState } from "react";
 import { dayTotal, type Food, mealSlots } from "./calc";
 import { FoodSearch } from "./components/FoodSearch";
 import { MealCard } from "./components/MealCard";
@@ -23,6 +23,7 @@ export function App() {
   const [plan, setPlan] = useState(emptyWeekPlan);
   const [dayIndex, setDayIndex] = useState(0);
   const [mealIndex, setMealIndex] = useState(0);
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   const calcDays = useMemo(
     () => plan.days.map((day) => toCalcDay(day, findFood)),
@@ -48,6 +49,22 @@ export function App() {
     setMealIndex(slotIndex);
   }
 
+  /** WAI-ARIA horizontal tabs with automatic activation. */
+  function onTabKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    const last = weekDays.length - 1;
+    const targets: Record<string, number> = {
+      ArrowRight: dayIndex === last ? 0 : dayIndex + 1,
+      ArrowLeft: dayIndex === 0 ? last : dayIndex - 1,
+      Home: 0,
+      End: last,
+    };
+    const target = targets[event.key];
+    if (target === undefined) return;
+    event.preventDefault();
+    setDayIndex(target);
+    tabRefs.current[target]?.focus();
+  }
+
   return (
     <div className="app">
       <header className="app-header">
@@ -63,12 +80,17 @@ export function App() {
           {weekDays.map((name, index) => (
             <button
               key={name}
+              ref={(element) => {
+                tabRefs.current[index] = element;
+              }}
               type="button"
               role="tab"
               id={`tab-${index}`}
               aria-selected={index === dayIndex}
               aria-controls="day-panel"
+              tabIndex={index === dayIndex ? 0 : -1}
               onClick={() => setDayIndex(index)}
+              onKeyDown={onTabKeyDown}
             >
               <span>{name}</span>
               <span className="tab-kcal">
