@@ -1,4 +1,12 @@
-import { type Day, type Food, type Meal, mealSlots } from "./calc";
+import {
+  type Day,
+  dayTotal,
+  type Food,
+  type Meal,
+  mealSlots,
+  type Nutrients,
+  weeklyAverage,
+} from "./calc";
 
 export const weekDays = [
   "Lunedì",
@@ -120,4 +128,30 @@ export function toCalcDay(
       grams: portion.grams,
     }));
   return [meal(0), meal(1), meal(2), meal(3), meal(4), meal(5)];
+}
+
+/** A day is empty when none of its meals has a portion; zero calories do not
+ * make a day empty. */
+export function isDayEmpty(day: PlannedDay): boolean {
+  return day.meals.every((meal) => meal.length === 0);
+}
+
+/** Per day: whether it enters the weekly average, i.e. it has at least one
+ * portion and was not excluded manually. */
+export function countedDays(plan: WeekPlan): boolean[] {
+  return plan.days.map((day) => day.included && !isDayEmpty(day));
+}
+
+/** Weekly average over counted days; `null` when no day is counted. */
+export function weekAverage(
+  plan: WeekPlan,
+  findFood: (name: string) => Food,
+): Nutrients | null {
+  const counted = countedDays(plan);
+  return weeklyAverage(
+    plan.days.map((day, index) => ({
+      total: dayTotal(toCalcDay(day, findFood)),
+      included: counted[index] ?? false,
+    })),
+  );
 }

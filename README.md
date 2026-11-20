@@ -37,6 +37,10 @@ Per rigenerarli senza includere dati dei pazienti:
 npm run import:tables -- "percorso/al/file.xlsx"
 ```
 
+## Media settimanale
+
+La media dei nutrienti conta soltanto i giorni che contengono almeno una porzione in uno dei sei pasti e che non sono stati esclusi a mano con la casella "Giorni inclusi nella media". Un giorno senza porzioni è indicato come vuoto e non conteggiato (non conta il valore zero delle calorie); torna a contribuire appena viene ricompilato. L'esclusione manuale è una scelta separata e resta anche quando si aggiungono o tolgono porzioni. Se nessun giorno è compilato e incluso, compare un messaggio al posto della media. Il pannello mostra su quanti giorni è calcolata la media.
+
 ## Formule del metabolismo
 
 Decisioni prese (issue #1). P = peso in kg, H = altezza in cm, A = età in anni.

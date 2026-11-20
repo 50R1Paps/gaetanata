@@ -67,12 +67,19 @@ export function SummaryPanel({
   dayName,
   dayTotal,
   days,
+  countedCount,
   average,
   onToggleDay,
 }: {
   dayName: string;
   dayTotal: Nutrients;
-  days: readonly { name: string; kcal: number; included: boolean }[];
+  days: readonly {
+    name: string;
+    kcal: number;
+    included: boolean;
+    empty: boolean;
+  }[];
+  countedCount: number;
   average: Nutrients | null;
   onToggleDay: (index: number, included: boolean) => void;
 }) {
@@ -94,14 +101,26 @@ export function SummaryPanel({
                 onChange={(event) => onToggleDay(index, event.target.checked)}
               />
               <span>{day.name}</span>
-              <span className="muted num">{formatNumber(day.kcal)} kcal</span>
+              <span className="muted num">
+                {day.empty
+                  ? "vuoto, non conteggiato"
+                  : `${formatNumber(day.kcal)} kcal`}
+              </span>
             </label>
           ))}
         </fieldset>
         {average ? (
-          <MacroTable nutrients={average} />
+          <>
+            <p className="muted">
+              Media su {countedCount} {countedCount === 1 ? "giorno" : "giorni"}{" "}
+              su 7
+            </p>
+            <MacroTable nutrients={average} />
+          </>
         ) : (
-          <p className="muted">Nessun giorno incluso nella media.</p>
+          <p className="muted">
+            Nessun giorno compilato e incluso nella media.
+          </p>
         )}
       </section>
     </aside>
