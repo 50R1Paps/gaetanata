@@ -21,6 +21,11 @@ export const migrations: readonly string[] = [
     patient_id INTEGER PRIMARY KEY REFERENCES patients(id) ON DELETE CASCADE,
     plan_json TEXT NOT NULL
   );`,
+  // 3: current Schema inputs only; computed values are never persisted.
+  `CREATE TABLE schemas (
+    patient_id INTEGER PRIMARY KEY REFERENCES patients(id) ON DELETE CASCADE,
+    schema_json TEXT NOT NULL
+  );`,
 ];
 
 export function openDatabase(

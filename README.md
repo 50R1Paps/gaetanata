@@ -120,6 +120,31 @@ Per rigenerarli senza includere dati dei pazienti:
 npm run import:tables -- "percorso/al/file.xlsx"
 ```
 
+## Schema: modulo di calcolo e salvataggio
+
+`src/schemaCalc.ts` espone `calculateSchema(paziente, schema, oggi)`; l'interfaccia
+è documentata in testa al modulo. Calcola fabbisogno, ripartizione per 3–6 pasti,
+grammature ai 5 g, sostituzioni e proteine/kg sul peso reale e sui tre pesi ideali.
+I dati mancanti producono indicazioni da completare, senza risultati numerici.
+Ogni quantità distingue calcolo e correzione manuale; eliminare la correzione
+ripristina il calcolo. Le correzioni dei macro sono in grammi.
+
+Pasta, pane e patate seguono ADR 0005; la combinazione pasta+pane assegna metà
+carboidrati a ciascuno. Gnocchi, gallette di riso e cracker usano invece i
+carboidrati degli alimenti generici in `src/data/foods.json`, non coefficienti
+del foglio. La farina di mais non è presente: la polenta resta non disponibile,
+con avviso esplicito, senza inventare un coefficiente.
+
+`src/schema.ts` definisce gli input JSON (kcal inizialmente da inserire, LAF 1,4,
+5 pasti, macro 50/30/20) e le sole correzioni. `src/schemasApi.ts` offre
+`loadSchema`/`saveSchema`: `GET`/`PUT /api/patients/:id/schema`. Ogni paziente ha
+uno schema corrente, separato dal piano libero; la terza migrazione lo aggiunge
+senza alterare schede e piani. Resta dopo il riavvio e viene eliminato insieme
+alla scheda. I risultati calcolati non vengono salvati. La versione 1 può essere
+estesa con sezioni di input opzionali per fonti proteiche, pizza, colazione e
+spuntini, mantenendo i valori iniziali quando assenti. Questa parte non aggiunge
+una schermata né genera documenti.
+
 ## Media settimanale
 
 La media dei nutrienti conta soltanto i giorni che contengono almeno una porzione in uno dei sei pasti e che non sono stati esclusi a mano con la casella "Giorni inclusi nella media". Un giorno senza porzioni è indicato come vuoto e non conteggiato (non conta il valore zero delle calorie); torna a contribuire appena viene ricompilato. L'esclusione manuale è una scelta separata e resta anche quando si aggiungono o tolgono porzioni. Se nessun giorno è compilato e incluso, compare un messaggio al posto della media. Il pannello mostra su quanti giorni è calcolata la media.
