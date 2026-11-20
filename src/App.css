@@ -619,6 +619,17 @@ html {
   border-color: var(--accent);
 }
 
+@media (max-width: 599px) {
+  /* Too narrow for list and record side by side: list above the record. */
+  .patient-manager {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .patient-list ul {
+    max-height: 30vh;
+  }
+}
+
 .patient-form {
   display: flex;
   flex-direction: column;

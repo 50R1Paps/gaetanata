@@ -72,7 +72,10 @@ function Harness() {
       </output>
       <PatientManager
         selectedId={selected?.id ?? null}
-        onSelect={setSelected}
+        onSelect={async (patient) => {
+          setSelected(patient);
+          return true;
+        }}
       />
     </>
   );
@@ -241,6 +244,124 @@ describe("patient manager", () => {
     expect(screen.getByLabelText("Paziente attivo").textContent).toBe(
       "nessuno",
     );
+  });
+
+  it("drops the saved notice once the record changes or deletion starts", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await screen.findByText("Nessuna scheda salvata.");
+    await createPatient(user, "Paziente Prova");
+
+    await user.type(input("Peso (kg)"), "70");
+    expect(screen.queryByText("Scheda salvata.")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Salva scheda" }));
+    await screen.findByText("Scheda salvata.");
+    await user.selectOptions(input("Sesso"), "Femmina");
+    expect(screen.queryByText("Scheda salvata.")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Salva scheda" }));
+    await screen.findByText("Scheda salvata.");
+    await user.click(screen.getByRole("button", { name: "Elimina scheda" }));
+    expect(screen.queryByText("Scheda salvata.")).toBeNull();
+  });
+
+  it("names the birth date in the delete confirmation", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await screen.findByText("Nessuna scheda salvata.");
+    await user.type(input(/^Nome/), "Paziente Prova");
+    await user.type(input("Data di nascita"), "1990-03-04");
+    await user.click(screen.getByRole("button", { name: "Salva scheda" }));
+    await screen.findByText("Scheda salvata.");
+    await user.click(screen.getByRole("button", { name: "Elimina scheda" }));
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Paziente Prova (data di nascita 04/03/1990)",
+    );
+
+    await user.click(screen.getByRole("button", { name: "Annulla" }));
+    await user.clear(input("Data di nascita"));
+    await user.click(screen.getByRole("button", { name: "Salva scheda" }));
+    await screen.findByText("Scheda salvata.");
+    await user.click(screen.getByRole("button", { name: "Elimina scheda" }));
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Paziente Prova (data di nascita non indicata)",
+    );
+  });
+
+  it("keeps keyboard focus on the form while deleting", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await screen.findByText("Nessuna scheda salvata.");
+    await createPatient(user, "Paziente Prova");
+
+    screen.getByRole("button", { name: "Elimina scheda" }).focus();
+    await user.keyboard("{Enter}");
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Annulla" }),
+    );
+    await user.keyboard("{Enter}");
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Elimina scheda" }),
+    );
+
+    await user.keyboard("{Enter}");
+    screen.getByRole("button", { name: "Conferma eliminazione" }).focus();
+    await user.keyboard("{Enter}");
+    await screen.findByText("Scheda eliminata.");
+    expect(document.activeElement).toBe(input(/^Nome/));
+  });
+
+  it("returns focus to the delete button when deletion fails", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await screen.findByText("Nessuna scheda salvata.");
+    await createPatient(user, "Paziente Prova");
+    offline = true;
+
+    await user.click(screen.getByRole("button", { name: "Elimina scheda" }));
+    await user.click(
+      screen.getByRole("button", { name: "Conferma eliminazione" }),
+    );
+    await screen.findByText(/Eliminazione non riuscita/);
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Elimina scheda" }),
+    );
+  });
+
+  it("moves focus to the first invalid field after a rejected save", async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+    await screen.findByText("Nessuna scheda salvata.");
+
+    await user.type(input(/^Nome/), "Paziente Prova");
+    await user.type(input("Peso (kg)"), "abc");
+    await user.type(input("Altezza (cm)"), "0");
+    await user.click(screen.getByRole("button", { name: "Salva scheda" }));
+    expect(document.activeElement).toBe(input("Peso (kg)"));
+
+    await user.clear(input(/^Nome/));
+    await user.click(screen.getByRole("button", { name: "Salva scheda" }));
+    expect(document.activeElement).toBe(input(/^Nome/));
+  });
+
+  it("moves focus to the field the server rejected", async () => {
+    vi.stubGlobal("fetch", async (path: string, init: RequestInit = {}) =>
+      init.method === "POST"
+        ? json(400, {
+            error: "Dati non validi",
+            fields: { heightCm: "Altezza non valida." },
+          })
+        : fakeApi(path, init),
+    );
+    const user = userEvent.setup();
+    render(<Harness />);
+    await screen.findByText("Nessuna scheda salvata.");
+    await user.type(input(/^Nome/), "Paziente Prova");
+    await user.click(screen.getByRole("button", { name: "Salva scheda" }));
+
+    await screen.findByText("Altezza non valida.");
+    expect(document.activeElement).toBe(input("Altezza (cm)"));
   });
 
   it("shows a read error with a retry", async () => {

@@ -27,6 +27,15 @@ type ListState =
 const byName = (a: Patient, b: Patient) =>
   a.name.localeCompare(b.name, "it", { sensitivity: "base" }) || a.id - b.id;
 
+/** Form order, so focus goes to the first field the user has to fix. */
+const FIELD_ORDER: PatientField[] = [
+  "name",
+  "birthDate",
+  "sex",
+  "weightKg",
+  "heightCm",
+];
+
 /** Patient list plus the record ("scheda") of the selected patient. */
 export function PatientManager({
   selectedId,
@@ -34,7 +43,7 @@ export function PatientManager({
   onDeleted,
 }: {
   selectedId: number | null;
-  onSelect: (patient: Patient | null) => void | boolean | Promise<boolean>;
+  onSelect: (patient: Patient | null) => Promise<boolean>;
   onDeleted?: (() => void) | undefined;
 }) {
   const [list, setList] = useState<ListState>({ status: "loading" });
@@ -47,6 +56,18 @@ export function PatientManager({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const birthDateRef = useRef<HTMLInputElement>(null);
   const formId = useId();
+  const deleteId = `${formId}-delete`;
+  const cancelDeleteId = `${formId}-cancel-delete`;
+  // Id of the element to focus once the next render has put it on screen:
+  // the button that opened or closed a step, or the first invalid field.
+  const focusNext = useRef<string | null>(null);
+
+  useEffect(() => {
+    const id = focusNext.current;
+    if (!id) return;
+    focusNext.current = null;
+    document.getElementById(id)?.focus();
+  });
 
   const patients = list.status === "ready" ? list.patients : [];
   const selected = patients.find((patient) => patient.id === selectedId);
@@ -107,7 +128,7 @@ export function PatientManager({
     // A half-typed date reaches React as "", so ask the input itself.
     if (birthDateRef.current?.validity.badInput)
       found.birthDate = "Data di nascita non valida.";
-    setErrors(found);
+    showErrors(found);
     if (!parsed.ok || Object.keys(found).length > 0) return;
 
     setBusy(true);
@@ -125,7 +146,7 @@ export function PatientManager({
       if ((await onSelect(saved)) !== false) show(saved);
       setNotice("Scheda salvata.");
     } catch (error) {
-      if (error instanceof ApiError) setErrors(error.fields);
+      if (error instanceof ApiError) showErrors(error.fields);
       setFailure(`Salvataggio non riuscito: ${messageOf(error)}`);
     } finally {
       setBusy(false);
@@ -143,15 +164,34 @@ export function PatientManager({
         patients: patients.filter((other) => other.id !== patient.id),
       });
       show(null);
+      focusNext.current = `${formId}-name`;
       if (onDeleted) onDeleted();
       else await onSelect(null);
       setNotice("Scheda eliminata.");
     } catch (error) {
       setConfirmingDelete(false);
+      focusNext.current = deleteId;
       setFailure(`Eliminazione non riuscita: ${messageOf(error)}`);
     } finally {
       setBusy(false);
     }
+  }
+
+  function showErrors(found: FieldErrors) {
+    setErrors(found);
+    const first = FIELD_ORDER.find((name) => found[name]);
+    if (first) focusNext.current = `${formId}-${first}`;
+  }
+
+  function confirmDelete(asking: boolean) {
+    setNotice(null);
+    setConfirmingDelete(asking);
+    focusNext.current = asking ? cancelDeleteId : deleteId;
+  }
+
+  function edit(next: PatientForm) {
+    setForm(next);
+    setNotice(null);
   }
 
   function field(name: Exclude<PatientField, "sex">) {
@@ -161,7 +201,7 @@ export function PatientManager({
       "aria-invalid": errors[name] ? true : undefined,
       "aria-describedby": errors[name] ? `${formId}-${name}-error` : undefined,
       onChange: (event: { target: { value: string } }) =>
-        setForm({ ...form, [name]: event.target.value }),
+        edit({ ...form, [name]: event.target.value }),
     };
   }
 
@@ -244,7 +284,7 @@ export function PatientManager({
           value={form.sex}
           aria-invalid={errors.sex ? true : undefined}
           onChange={(event) =>
-            setForm({ ...form, sex: event.target.value as PatientForm["sex"] })
+            edit({ ...form, sex: event.target.value as PatientForm["sex"] })
           }
         >
           <option value="">Non indicato</option>
@@ -270,8 +310,9 @@ export function PatientManager({
           {selected && !confirmingDelete && (
             <button
               type="button"
+              id={deleteId}
               className="danger"
-              onClick={() => setConfirmingDelete(true)}
+              onClick={() => confirmDelete(true)}
               disabled={busy}
             >
               Elimina scheda
@@ -282,7 +323,11 @@ export function PatientManager({
           <div className="confirm-delete" role="alert">
             <p>
               Eliminare definitivamente la scheda di{" "}
-              <strong>{selected.name}</strong> e il suo piano settimanale?
+              <strong>{selected.name}</strong>{" "}
+              {selected.birthDate
+                ? `(data di nascita ${formatIsoDate(selected.birthDate)})`
+                : "(data di nascita non indicata)"}{" "}
+              e il suo piano settimanale?
             </p>
             <button
               type="button"
@@ -294,7 +339,8 @@ export function PatientManager({
             </button>
             <button
               type="button"
-              onClick={() => setConfirmingDelete(false)}
+              id={cancelDeleteId}
+              onClick={() => confirmDelete(false)}
               disabled={busy}
             >
               Annulla

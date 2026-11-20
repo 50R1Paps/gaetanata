@@ -12,7 +12,7 @@ export function PatientsDialog({
   closeDisabled = false,
 }: {
   patient: Patient | null;
-  onSelect: (patient: Patient | null) => void | boolean | Promise<boolean>;
+  onSelect: (patient: Patient | null) => Promise<boolean>;
   onDeleted?: () => void;
   children?: ReactNode;
   closeDisabled?: boolean;
