@@ -29,9 +29,11 @@ const byName = (a: Patient, b: Patient) =>
 export function PatientManager({
   selectedId,
   onSelect,
+  onDeleted,
 }: {
   selectedId: number | null;
-  onSelect: (patient: Patient | null) => void;
+  onSelect: (patient: Patient | null) => void | boolean | Promise<boolean>;
+  onDeleted?: (() => void) | undefined;
 }) {
   const [list, setList] = useState<ListState>({ status: "loading" });
   const [reloads, setReloads] = useState(0);
@@ -78,15 +80,20 @@ export function PatientManager({
     setConfirmingDelete(false);
   }
 
-  function select(patient: Patient | null) {
+  async function select(patient: Patient | null) {
     if (
       dirty &&
       !window.confirm("Le modifiche non salvate andranno perse. Continuare?")
     )
       return;
-    show(patient);
-    setNotice(null);
-    onSelect(patient);
+    setBusy(true);
+    try {
+      if ((await onSelect(patient)) === false) return;
+      show(patient);
+      setNotice(null);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function save(event: FormEvent) {
@@ -113,8 +120,7 @@ export function PatientManager({
           saved,
         ].sort(byName),
       });
-      show(saved);
-      onSelect(saved);
+      if ((await onSelect(saved)) !== false) show(saved);
       setNotice("Scheda salvata.");
     } catch (error) {
       if (error instanceof ApiError) setErrors(error.fields);
@@ -135,7 +141,8 @@ export function PatientManager({
         patients: patients.filter((other) => other.id !== patient.id),
       });
       show(null);
-      onSelect(null);
+      if (onDeleted) onDeleted();
+      else await onSelect(null);
       setNotice("Scheda eliminata.");
     } catch (error) {
       setConfirmingDelete(false);
@@ -271,7 +278,7 @@ export function PatientManager({
           <div className="confirm-delete" role="alert">
             <p>
               Eliminare definitivamente la scheda di{" "}
-              <strong>{selected.name}</strong>?
+              <strong>{selected.name}</strong> e il suo piano settimanale?
             </p>
             <button
               type="button"
