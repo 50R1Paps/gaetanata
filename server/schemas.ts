@@ -37,7 +37,7 @@ export function schemaHandler(db: DatabaseSync) {
     if (!isDietSchema(body))
       return send(400, {
         error:
-          "Schema non valido: controlla kcal, LAF, pasti, ripartizione e correzioni.",
+          "Schema non valido: controlla impostazioni, correzioni, fonti proteiche, pizza, colazione e spuntini.",
       });
     // Deletion may have occurred while the body was being received.
     if (!patient.get(id))

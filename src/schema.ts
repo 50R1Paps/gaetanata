@@ -2,8 +2,8 @@
  * emptySchema() creates independent defaults; kcal is deliberately unset.
  * Save ONLY this input model, never calculateSchema's result. Removing an
  * override key restores the calculation (0 is an intentional override).
- * Version 1 can grow optional input sections for days/protein/pizza (#24) and
- * breakfast/snacks (#25); absent sections must retain their future defaults.
+ * Optional proteinWeek/pizza/breakfast/snacks inputs preserve old v1 schemas.
+ * Missing days/meals mean no protein choice, not an automatic rotation.
  * No WeekPlan or patient copy is embedded: patient data is read at calculation.
  */
 export type SchemaMealCount = 3 | 4 | 5 | 6;
@@ -39,6 +39,41 @@ export type SchemaOverrides = {
     Record<"lunch" | "dinner", Partial<Record<SubstitutionKey, number>>>
   >;
 };
+export const schemaDays = [
+  "lunedi",
+  "martedi",
+  "mercoledi",
+  "giovedi",
+  "venerdi",
+  "sabato",
+  "domenica",
+] as const;
+export type SchemaDay = (typeof schemaDays)[number];
+// Kept browser-only: the server contract also imports Word-generation code.
+export const schemaProteinSources = [
+  "uova",
+  "pesce",
+  "carne_bianca",
+  "carne_rossa",
+  "legumi_secchi",
+  "legumi_scatola",
+  "formaggio_fresco",
+  "formaggio_stagionato",
+  "affettati",
+  "pesce_scatola",
+] as const;
+export type SchemaProteinSource = (typeof schemaProteinSources)[number];
+export type SchemaProteinChoice = {
+  source: SchemaProteinSource;
+  grams?: number;
+  exception?: boolean;
+};
+export type SchemaProteinWeek = {
+  redMeatGrams?: number;
+  days?: Partial<
+    Record<SchemaDay, Partial<Record<"lunch" | "dinner", SchemaProteinChoice>>>
+  >;
+};
 export type DietSchema = {
   version: 1;
   kcal: number | null;
@@ -46,6 +81,10 @@ export type DietSchema = {
   mealCount: SchemaMealCount;
   macroPercent: SchemaMacros;
   overrides: SchemaOverrides;
+  proteinWeek?: SchemaProteinWeek;
+  pizza?: { breadGrams?: number; oilMl?: number };
+  breakfast?: { choice?: "latte" | "yogurt"; quantity?: number };
+  snacks?: { nutsGrams?: number; yogurtGrams?: number };
 };
 export function emptySchema(): DietSchema {
   return {
@@ -78,6 +117,33 @@ function numbers(value: unknown, allowed: readonly string[]): boolean {
     Object.values(value).every(nonnegative)
   );
 }
+function proteinChoice(value: unknown): boolean {
+  return (
+    record(value) &&
+    keys(value, ["source", "grams", "exception"]) &&
+    schemaProteinSources.some((source) => source === value.source) &&
+    (value.grams === undefined || nonnegative(value.grams)) &&
+    (value.exception === undefined ||
+      (typeof value.exception === "boolean" &&
+        (value.source === "uova" || value.source === "pesce_scatola")))
+  );
+}
+function proteinWeek(value: unknown): boolean {
+  return (
+    record(value) &&
+    keys(value, ["redMeatGrams", "days"]) &&
+    (value.redMeatGrams === undefined || nonnegative(value.redMeatGrams)) &&
+    (value.days === undefined ||
+      (record(value.days) &&
+        keys(value.days, schemaDays) &&
+        Object.values(value.days).every(
+          (day) =>
+            record(day) &&
+            keys(day, ["lunch", "dinner"]) &&
+            Object.values(day).every(proteinChoice),
+        )))
+  );
+}
 /** Rejects unknown/computed fields, invalid settings and negative corrections.
  * A draft with kcal=null is valid for persistence, not for calculation. */
 export function isDietSchema(value: unknown): value is DietSchema {
@@ -90,6 +156,10 @@ export function isDietSchema(value: unknown): value is DietSchema {
       "mealCount",
       "macroPercent",
       "overrides",
+      "proteinWeek",
+      "pizza",
+      "breakfast",
+      "snacks",
     ])
   )
     return false;
@@ -137,6 +207,33 @@ export function isDietSchema(value: unknown): value is DietSchema {
       !Object.values(overrides.carbohydrates).every((value) =>
         numbers(value, substitutionKeys),
       ))
+  )
+    return false;
+  if (value.proteinWeek !== undefined && !proteinWeek(value.proteinWeek))
+    return false;
+  const pizza = value.pizza;
+  if (
+    pizza !== undefined &&
+    (!record(pizza) ||
+      !keys(pizza, ["breadGrams", "oilMl"]) ||
+      (pizza.breadGrams !== undefined && !nonnegative(pizza.breadGrams)) ||
+      (pizza.oilMl !== undefined && !nonnegative(pizza.oilMl)))
+  )
+    return false;
+  const breakfast = value.breakfast;
+  if (
+    breakfast !== undefined &&
+    (!record(breakfast) ||
+      !keys(breakfast, ["choice", "quantity"]) ||
+      (breakfast.choice !== undefined &&
+        breakfast.choice !== "latte" &&
+        breakfast.choice !== "yogurt") ||
+      (breakfast.quantity !== undefined && !nonnegative(breakfast.quantity)))
+  )
+    return false;
+  if (
+    value.snacks !== undefined &&
+    !numbers(value.snacks, ["nutsGrams", "yogurtGrams"])
   )
     return false;
   return true;

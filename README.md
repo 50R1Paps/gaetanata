@@ -173,10 +173,35 @@ con avviso esplicito, senza inventare un coefficiente.
 `loadSchema`/`saveSchema`: `GET`/`PUT /api/patients/:id/schema`. Ogni paziente ha
 uno schema corrente, separato dal piano libero; la terza migrazione lo aggiunge
 senza alterare schede e piani. Resta dopo il riavvio e viene eliminato insieme
-alla scheda. I risultati calcolati non vengono salvati. La versione 1 può essere
-estesa con sezioni di input opzionali per fonti proteiche, pizza, colazione e
-spuntini, mantenendo i valori iniziali quando assenti. Questa parte non aggiunge
-una schermata né genera documenti.
+alla scheda. I risultati calcolati non vengono salvati. La versione 1 accetta
+le sezioni opzionali seguenti; anche i salvataggi precedenti restano validi.
+Questa parte non aggiunge una schermata né genera documenti.
+
+- `proteinWeek: { redMeatGrams?, days? }`: `days` usa `lunedi`…`domenica`,
+  ciascuno con `lunch`/`dinner` opzionali: `{ source, grams?, exception? }`.
+  Le dieci chiavi `source` sono esportate da `schemaProteinSources` e verificate
+  contro il contratto Word. Un pasto assente non ha una fonte preassegnata.
+  Le porzioni proposte sono uova 120 g (eccezione 180), pesce in scatola 52 g
+  (eccezione 78), legumi secchi 50 g/in scatola 150 g, formaggio fresco 100 g/
+  stagionato 50 g, affettati 80 g. La base carne rossa si inserisce a mano;
+  carne bianca ×1,3 e pesce ×1,5 vengono arrotondati ai 5 g e ricalcolati quando
+  cambia la base. `grams` prevale sul calcolo (anche zero); eliminarlo ripristina
+  la proposta. Senza base, la quantità calcolata delle carni/pesce è `null`,
+  non zero; un inserimento manuale resta utilizzabile.
+- Il risultato `proteinWeek` espone sette `days`, `counts` per ciascuna fonte e
+  `frequencies` con `sources`, `count`, `min`, `max`, `outOfRange`. I formaggi
+  si contano insieme (1–2), come i legumi (2–4); carne bianca 2–4, carne rossa
+  0–1, pesce 2–4, pesce in scatola 1–2, affettati 0–1, uova 1–2. I limiti sono
+  inclusivi; si contano le scelte, non i grammi né le eccezioni come pasti extra.
+- `pizza: { breadGrams?, oilMl? }`: sempre presente nel risultato con pane 50 g
+  e olio 10 ml iniziali. È un ottavo giorno intercambiabile con un giorno della
+  settimana, al massimo una volta: non è assegnato a un giorno fisso e non
+  modifica le sette scelte o i conteggi delle fonti proteiche.
+- `breakfast: { choice?, quantity? }`: `latte` (150 ml, predefinito) oppure
+  `yogurt` (125 g). `snacks: { nutsGrams?, yogurtGrams? }`: frutta secca 20 g
+  e yogurt 125 g. Quantità manuali, modificabili anche a zero; non cambiano
+  automaticamente con kcal o numero di pasti. Eliminare le quantità ripristina
+  i valori proposti; latte e olio restano in ml, senza conversioni in grammi.
 
 ## Media settimanale
 

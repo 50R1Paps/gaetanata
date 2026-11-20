@@ -13,7 +13,19 @@
  * to 5 g. Unavailable food-table substitutions are null + an explicit warning.
  * Protein/kg sums unrounded meal protein allocations, replacing each manually
  * overridden meal with its entered grams. Display rounding alone has no effect.
- * Store only DietSchema, never this result. #24/#25 add optional input sections.
+ * proteinWeek resolves seven days × lunch/dinner; missing choices stay null.
+ * Portions use fixed defaults (eggs 120/180, canned fish 52/78, dry/canned
+ * legumes 50/150, fresh/aged cheese 100/50, cold cuts 80 g). White meat/fish
+ * use manually entered redMeatGrams ×1.3/×1.5 rounded to 5 g; without a base
+ * their calculated quantity is null, never invented. Explicit grams win.
+ * Counts count choices, even with zero grams; cheese/legume recommendations
+ * combine their two sources. Out-of-range flags include both weekly limits.
+ * Pizza is an extra interchangeable day, never a weekday or a protein count:
+ * always 50 g bread/10 ml oil unless overridden. Breakfast defaults to latte
+ * 150 ml (or yogurt 125 g); snacks to nuts 20 g/yogurt 125 g. All are manual,
+ * independent of kcal/meal count, with no implied milk ml-to-g conversion.
+ * Store only DietSchema, never this result. Missing optional sections retain
+ * these defaults, so saved version-1 inputs remain valid.
  */
 import {
   ageAt,
@@ -26,10 +38,15 @@ import { type PatientInput, validatePatient } from "./patient";
 import {
   type DietSchema,
   isDietSchema,
+  type SchemaDay,
   type SchemaMacros,
   type SchemaMealCount,
   type SchemaMealSlot,
+  type SchemaProteinChoice,
+  type SchemaProteinSource,
   type SubstitutionKey,
+  schemaDays,
+  schemaProteinSources,
 } from "./schema";
 
 export type SchemaQuantity = {
@@ -76,8 +93,40 @@ export type SchemaCalculation =
           { weightKg: number; gramsPerKg: number }
         >;
       };
+      proteinWeek: {
+        days: {
+          day: SchemaDay;
+          lunch: SchemaProteinPortion | null;
+          dinner: SchemaProteinPortion | null;
+        }[];
+        counts: Record<SchemaProteinSource, number>;
+        frequencies: {
+          key: string;
+          sources: readonly SchemaProteinSource[];
+          count: number;
+          min: number;
+          max: number;
+          outOfRange: boolean;
+        }[];
+      };
+      pizza: { bread: SchemaQuantity; oil: SchemaQuantity };
+      breakfast: {
+        choice: "latte" | "yogurt";
+        unit: "ml" | "g";
+        quantity: SchemaQuantity;
+      };
+      snacks: { nuts: SchemaQuantity; yogurt: SchemaQuantity };
       warnings: SchemaWarning[];
     };
+export type SchemaProteinPortion = {
+  source: SchemaProteinSource;
+  exception: boolean;
+  quantity: {
+    calculated: number | null;
+    value: number;
+    overridden: boolean;
+  } | null;
+};
 
 const allocations: Record<
   SchemaMealCount,
@@ -162,6 +211,85 @@ function quantity(
     value: override ?? calculated,
     overridden: override !== undefined,
   };
+}
+
+function proteinPortion(
+  choice: SchemaProteinChoice | undefined,
+  base: number | undefined,
+): SchemaProteinPortion | null {
+  if (!choice) return null;
+  const defaults: Record<SchemaProteinSource, number | null> = {
+    uova: choice.exception ? 180 : 120,
+    pesce_scatola: choice.exception ? 78 : 52,
+    legumi_secchi: 50,
+    legumi_scatola: 150,
+    formaggio_fresco: 100,
+    formaggio_stagionato: 50,
+    affettati: 80,
+    carne_rossa: base ?? null,
+    carne_bianca: base === undefined ? null : roundSchemaGrams(base * 1.3),
+    pesce: base === undefined ? null : roundSchemaGrams(base * 1.5),
+  };
+  const calculated = defaults[choice.source];
+  return {
+    source: choice.source,
+    exception: choice.exception ?? false,
+    quantity:
+      calculated === null && choice.grams === undefined
+        ? null
+        : {
+            calculated,
+            value: choice.grams ?? (calculated as number),
+            overridden: choice.grams !== undefined,
+          },
+  };
+}
+
+const recommendedFrequencies: readonly [
+  string,
+  readonly SchemaProteinSource[],
+  number,
+  number,
+][] = [
+  ["carne_bianca", ["carne_bianca"], 2, 4],
+  ["carne_rossa", ["carne_rossa"], 0, 1],
+  ["pesce", ["pesce"], 2, 4],
+  ["formaggi", ["formaggio_fresco", "formaggio_stagionato"], 1, 2],
+  ["pesce_scatola", ["pesce_scatola"], 1, 2],
+  ["affettati", ["affettati"], 0, 1],
+  ["uova", ["uova"], 1, 2],
+  ["legumi", ["legumi_secchi", "legumi_scatola"], 2, 4],
+];
+
+function proteinWeek(schema: DietSchema) {
+  const counts = Object.fromEntries(
+    schemaProteinSources.map((source) => [source, 0]),
+  ) as Record<SchemaProteinSource, number>;
+  const days = schemaDays.map((day) => {
+    const lunch = proteinPortion(
+      schema.proteinWeek?.days?.[day]?.lunch,
+      schema.proteinWeek?.redMeatGrams,
+    );
+    const dinner = proteinPortion(
+      schema.proteinWeek?.days?.[day]?.dinner,
+      schema.proteinWeek?.redMeatGrams,
+    );
+    if (lunch) counts[lunch.source]++;
+    if (dinner) counts[dinner.source]++;
+    return { day, lunch, dinner };
+  });
+  const frequencies = recommendedFrequencies.map(([key, sources, min, max]) => {
+    const count = sources.reduce((sum, source) => sum + counts[source], 0);
+    return {
+      key,
+      sources,
+      count,
+      min,
+      max,
+      outOfRange: count < min || count > max,
+    };
+  });
+  return { days, counts, frequencies };
 }
 
 export function calculateSchema(
@@ -353,6 +481,23 @@ export function calculateSchema(
     meals,
     carbohydrates,
     protein: { grams: proteinGrams, real, ideal },
+    proteinWeek: proteinWeek(schema),
+    pizza: {
+      bread: quantity(50, schema.pizza?.breadGrams),
+      oil: quantity(10, schema.pizza?.oilMl),
+    },
+    breakfast: {
+      choice: schema.breakfast?.choice ?? "latte",
+      unit: schema.breakfast?.choice === "yogurt" ? "g" : "ml",
+      quantity: quantity(
+        schema.breakfast?.choice === "yogurt" ? 125 : 150,
+        schema.breakfast?.quantity,
+      ),
+    },
+    snacks: {
+      nuts: quantity(20, schema.snacks?.nutsGrams),
+      yogurt: quantity(125, schema.snacks?.yogurtGrams),
+    },
     warnings,
   };
 }
