@@ -1,4 +1,5 @@
 import { type FormEvent, useEffect, useId, useRef, useState } from "react";
+import { formatIsoDate } from "../format";
 import {
   emptyPatientForm,
   type FieldErrors,
@@ -16,6 +17,7 @@ import {
   listPatients,
   updatePatient,
 } from "../patientsApi";
+import { MetabolismPanel } from "./MetabolismPanel";
 
 type ListState =
   | { status: "loading" }
@@ -204,7 +206,7 @@ export function PatientManager({
                   {patient.birthDate && (
                     <span className="muted">
                       {" "}
-                      · {formatDate(patient.birthDate)}
+                      · {formatIsoDate(patient.birthDate)}
                     </span>
                   )}
                 </button>
@@ -251,6 +253,8 @@ export function PatientManager({
         <label htmlFor={`${formId}-heightCm`}>Altezza (cm)</label>
         <input type="text" inputMode="decimal" {...field("heightCm")} />
         {errorFor("heightCm")}
+
+        <MetabolismPanel form={form} today={localToday()} />
 
         <div className="form-actions">
           <button type="submit" className="primary" disabled={busy}>
@@ -303,9 +307,4 @@ export function PatientManager({
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-function formatDate(isoDate: string): string {
-  const [year, month, day] = isoDate.split("-");
-  return `${day}/${month}/${year}`;
 }

@@ -20,6 +20,12 @@ export function formatGrams(grams: number): string {
   return gramsFormat.format(grams);
 }
 
+/** ISO `YYYY-MM-DD` as Italian `DD/MM/YYYY`. */
+export function formatIsoDate(isoDate: string): string {
+  const [year, month, day] = isoDate.split("-");
+  return `${day}/${month}/${year}`;
+}
+
 /** Accepts "32", "32,5" or "32.5"; null if the text is not a valid amount. */
 export function parseGrams(text: string): number | null {
   const trimmed = text.trim();

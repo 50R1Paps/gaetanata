@@ -655,3 +655,59 @@ html {
 .notice {
   color: var(--accent);
 }
+
+.metabolism {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.metabolism h4 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.metabolism p {
+  margin: 6px 0 0;
+}
+
+.metabolism .muted {
+  font-size: 0.85rem;
+}
+
+.metabolism-chosen {
+  font-weight: 600;
+}
+
+.metabolism-problem {
+  color: var(--danger);
+}
+
+.metabolism table {
+  width: 100%;
+  margin-top: 8px;
+  border-collapse: collapse;
+}
+
+.metabolism :is(th, td) {
+  padding: 4px 6px;
+  border-top: 1px solid var(--border);
+  text-align: left;
+}
+
+.metabolism thead th {
+  border-top: none;
+  font-size: 0.85rem;
+  font-weight: normal;
+  color: var(--muted);
+}
+
+.metabolism .num {
+  text-align: right;
+}
+
+.metabolism tr.chosen {
+  background: var(--accent-soft);
+  font-weight: 600;
+}

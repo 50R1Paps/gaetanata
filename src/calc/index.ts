@@ -71,9 +71,12 @@ export function bernstein(
     : 7.48 * weightKg - 0.42 * heightCm - 3 * age + 844;
 }
 
-export function formulaForBmi(
-  bmi: number,
-): "harrisBenedict" | "mifflinStJeor" | "bernstein" {
+export type MetabolismFormula =
+  | "harrisBenedict"
+  | "mifflinStJeor"
+  | "bernstein";
+
+export function formulaForBmi(bmi: number): MetabolismFormula {
   return bmi <= 25
     ? "harrisBenedict"
     : bmi <= 30
