@@ -89,16 +89,12 @@ export function MealCard({
                 const portion = meal.portions[index];
                 if (!portion) {
                   return (
-                    <tr key={planned.id}>
+                    <tr key={planned.id} className="unknown">
                       <th scope="row">
                         {planned.food}
-                        <p>
+                        <p className="unknown-note">
                           <strong>Alimento non riconosciuto</strong>
                         </p>
-                        <FoodCombobox
-                          label={`Sostituisci ${planned.food}`}
-                          onAdd={(food) => onReplace(planned.id, food)}
-                        />
                       </th>
                       <td className="num">
                         <GramsInput
@@ -189,7 +185,25 @@ export function MealCard({
           </table>
         </div>
       )}
-      <FoodCombobox label={`Aggiungi alimento a ${slot}`} onAdd={onAdd} />
+      {/* Below the table, not in the row: the table's scroll box would clip
+       * the suggestions. */}
+      {portions.map(
+        (planned, index) =>
+          !meal.portions[index] && (
+            <div key={planned.id} className="replace-unknown">
+              <FoodCombobox
+                label={`Sostituisci ${planned.food}`}
+                placeholder={`Sostituisci ${planned.food} con…`}
+                onAdd={(food) => onReplace(planned.id, food)}
+              />
+            </div>
+          ),
+      )}
+      <FoodCombobox
+        label={`Aggiungi alimento a ${slot}`}
+        placeholder="+ Aggiungi alimento…"
+        onAdd={onAdd}
+      />
     </section>
   );
 }

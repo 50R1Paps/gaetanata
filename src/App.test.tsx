@@ -107,6 +107,41 @@ describe("day tabs", () => {
     ]);
     expect(document.activeElement).toBe(grams);
   });
+
+  it("an empty day reads as empty on its tab, a day with food shows its kcal", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await addFoodToSelectedDay(user);
+
+    expect(dayTab("Lunedì").textContent).toMatch(/\d kcal$/);
+    expect(dayTab("Martedì").textContent).toBe("MartedìVuoto");
+  });
+});
+
+it("the replace field of an unknown food sits outside the scrolling table and says what it replaces", async () => {
+  const plan = addPortion(emptyWeekPlan(), 0, 0, {
+    id: "unknown",
+    food: "Zorbaluna inventata",
+    grams: 37,
+  });
+  const user = userEvent.setup();
+  render(<App initialPlan={plan} />);
+
+  const replace = screen.getByRole("combobox", {
+    name: "Sostituisci Zorbaluna inventata",
+  });
+  // Inside the table its suggestions would be clipped by the scroll box.
+  expect(screen.getByRole("table").contains(replace)).toBe(false);
+  expect(replace.getAttribute("placeholder")).toBe(
+    "Sostituisci Zorbaluna inventata con…",
+  );
+  await user.type(replace, "Noc");
+  const list = document.getElementById(
+    replace.getAttribute("aria-controls") ?? "",
+  );
+  if (!list) throw new Error("suggestions missing");
+  expect(list.hidden).toBe(false);
+  expect(within(list).getByRole("option", { name: "Noci" })).toBeDefined();
 });
 
 it("opens a loaded plan, replaces or removes unknown rows without losing other portions", async () => {
