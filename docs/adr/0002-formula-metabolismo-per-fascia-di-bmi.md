@@ -18,4 +18,4 @@ Si usano i coefficienti completi delle pubblicazioni originali, non le versioni 
 
 Non esiste una scelta manuale della formula: chi vuole un risultato diverso deve cambiare le fasce, non un'opzione nell'interfaccia. Quando il BMI attraversa una soglia (25 o 30) il metabolismo basale può cambiare in modo discontinuo; è un effetto voluto della scelta per fasce.
 
-Il coefficiente Bernstein femmina, `7.48·P − 0.42·H − 3.0·A + 844`, è quello del foglio originale e resta in attesa di conferma (issue #6). Se la conferma lo correggerà, basterà modificare il coefficiente in `src/calc/` e il README, senza toccare questa decisione.
+Il coefficiente Bernstein femmina, `7.48·P − 0.42·H − 3.0·A + 844`, è quello del foglio originale ed è stato confermato dalla nutrizionista (issue #6); non è stato indicato un riferimento ufficiale ulteriore.
