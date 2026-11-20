@@ -92,7 +92,7 @@ it("loads, saves, cancels or discards switches, and preserves edits after failed
   ]);
   expect(
     screen.getByRole("status", { name: "Piano settimanale" }).textContent,
-  ).toBe("Piano caricato.");
+  ).toBe("Piano precedente salvato. Piano caricato.");
   await user.click(screen.getByRole("button", { name: "Modifica piano" }));
   await user.click(within(dialog).getByRole("button", { name: "Prova 1" }));
   await user.click(screen.getByRole("button", { name: "Scarta e cambia" }));
@@ -101,6 +101,90 @@ it("loads, saves, cancels or discards switches, and preserves edits after failed
   expect(
     screen.getByRole("status", { name: "Piano settimanale" }).textContent,
   ).toBe("Piano caricato.");
+});
+
+it("keeps keyboard focus on a sensible control through switches and saves", async () => {
+  let offline = false;
+  vi.stubGlobal("fetch", async (path: string, init: RequestInit = {}) => {
+    if (offline) throw new Error("offline");
+    if (path === "/api/patients")
+      return Response.json({
+        patients: [1, 2].map((id) => ({
+          id,
+          name: `Prova ${id}`,
+          birthDate: null,
+          sex: null,
+          weightKg: null,
+          heightCm: null,
+        })),
+      });
+    if (init.method === "PUT")
+      return Response.json(JSON.parse(String(init.body)));
+    return Response.json(emptyWeekPlan());
+  });
+  render(<Harness />);
+  const user = userEvent.setup();
+  HTMLDialogElement.prototype.showModal = function () {
+    this.setAttribute("open", "");
+  };
+  HTMLDialogElement.prototype.close = function () {
+    this.removeAttribute("open");
+  };
+  const status = () =>
+    screen.getByRole("status", { name: "Piano settimanale" }).textContent;
+  await user.click(screen.getByRole("button", { name: /Paziente:/ }));
+  const dialog = within(screen.getByRole("dialog"));
+  const button = (name: string) => screen.getByRole("button", { name });
+  await user.click(await dialog.findByRole("button", { name: "Prova 1" }));
+  await screen.findByText("Piano caricato.");
+  expect(document.activeElement).toBe(button("Prova 1"));
+
+  // Unsaved changes: the safe choice first, then back to what was pressed.
+  await user.click(button("Modifica piano"));
+  button("Prova 2").focus();
+  await user.keyboard("{Enter}");
+  expect(document.activeElement).toBe(button("Annulla cambio"));
+  await user.keyboard("{Enter}");
+  expect(document.activeElement).toBe(button("Prova 2"));
+  button("Nuova scheda").focus();
+  await user.keyboard("{Enter}");
+  expect(document.activeElement).toBe(button("Annulla cambio"));
+  await user.keyboard("{Enter}");
+  expect(document.activeElement).toBe(button("Nuova scheda"));
+
+  // A failed "Salva e cambia" keeps focus on it for a retry.
+  button("Prova 2").focus();
+  await user.keyboard("{Enter}");
+  offline = true;
+  button("Salva e cambia").focus();
+  await user.keyboard("{Enter}");
+  await screen.findAllByText(/Salvataggio piano non riuscito/);
+  expect(document.activeElement).toBe(button("Salva e cambia"));
+  offline = false;
+  await user.keyboard("{Enter}");
+  await screen.findByRole("button", { name: "Paziente: Prova 2" });
+  expect(status()).toBe("Piano precedente salvato. Piano caricato.");
+  expect(document.activeElement).toBe(button("Prova 2"));
+
+  // Switching to a new record lands on its first field.
+  await user.click(button("Modifica piano"));
+  button("Nuova scheda").focus();
+  await user.keyboard("{Enter}");
+  button("Scarta e cambia").focus();
+  await user.keyboard("{Enter}");
+  await screen.findByRole("button", { name: "Paziente: nessuno" });
+  expect(status()).toBe("Seleziona un paziente per salvare il piano.");
+  expect(document.activeElement).toBe(
+    dialog.getByLabelText("Nome (obbligatorio)"),
+  );
+
+  await user.click(button("Prova 1"));
+  await screen.findByText("Piano caricato.");
+  await user.click(button("Modifica piano"));
+  button("Salva piano").focus();
+  await user.keyboard("{Enter}");
+  await screen.findByText("Piano salvato.");
+  expect(document.activeElement).toBe(button("Salva piano"));
 });
 
 it("reopens unknown foods through the editor and retains the current patient on load failure", async () => {

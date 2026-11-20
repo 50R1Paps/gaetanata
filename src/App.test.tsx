@@ -3,6 +3,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import { type UserEvent, userEvent } from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "./App";
+import { mealSlots } from "./calc";
 import { addPortion, emptyWeekPlan } from "./plan";
 
 afterEach(cleanup);
@@ -181,6 +182,8 @@ it("opens a loaded plan, replaces or removes unknown rows without losing other p
     "37",
     "15",
   ]);
+  // The replaced row keeps focus on its grams, ready to adjust them.
+  expect(document.activeElement).toBe(grams[0]);
   expect(screen.getByText(/Media incompleta/)).toBeTruthy();
   await user.click(screen.getByRole("tab", { name: /Martedì/ }));
   expect(
@@ -190,6 +193,11 @@ it("opens a loaded plan, replaces or removes unknown rows without losing other p
   ).toBe("91");
   await user.click(
     screen.getByRole("button", { name: "Rimuovi Quarzopane inventato" }),
+  );
+  expect(document.activeElement).toBe(
+    screen.getByRole("combobox", {
+      name: `Aggiungi alimento a ${mealSlots[2]}`,
+    }),
   );
   expect(screen.queryByText(/Media incompleta/)).toBeNull();
   expect(screen.queryByText(/Alimento non riconosciuto/)).toBeNull();

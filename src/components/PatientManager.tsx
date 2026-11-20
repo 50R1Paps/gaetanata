@@ -58,6 +58,9 @@ export function PatientManager({
   const formId = useId();
   const deleteId = `${formId}-delete`;
   const cancelDeleteId = `${formId}-cancel-delete`;
+  const newId = `${formId}-new`;
+  const submitId = `${formId}-submit`;
+  const patientId = (patient: Patient) => `${formId}-patient-${patient.id}`;
   // Id of the element to focus once the next render has put it on screen:
   // the button that opened or closed a step, or the first invalid field.
   const focusNext = useRef<string | null>(null);
@@ -109,12 +112,18 @@ export function PatientManager({
       !window.confirm("Le modifiche non salvate andranno perse. Continuare?")
     )
       return;
+    // The pressed button is disabled meanwhile, which drops keyboard focus:
+    // give it back, or move to the first field of a new record.
+    let switched = false;
     setBusy(true);
     try {
-      if ((await onSelect(patient)) === false) return;
+      switched = await onSelect(patient);
+      if (!switched) return;
       show(patient);
       setNotice(null);
     } finally {
+      if (patient) focusNext.current = patientId(patient);
+      else focusNext.current = switched ? `${formId}-name` : newId;
       setBusy(false);
     }
   }
@@ -149,6 +158,9 @@ export function PatientManager({
       if (error instanceof ApiError) showErrors(error.fields);
       setFailure(`Salvataggio non riuscito: ${messageOf(error)}`);
     } finally {
+      // Unless an invalid field already claimed it, focus goes back to the
+      // submit button, disabled while saving.
+      focusNext.current ??= submitId;
       setBusy(false);
     }
   }
@@ -219,6 +231,7 @@ export function PatientManager({
       <section className="patient-list" aria-label="Pazienti">
         <button
           type="button"
+          id={newId}
           className="primary"
           onClick={() => select(null)}
           disabled={busy}
@@ -245,6 +258,7 @@ export function PatientManager({
               <li key={patient.id}>
                 <button
                   type="button"
+                  id={patientId(patient)}
                   aria-current={patient.id === selectedId ? "true" : undefined}
                   onClick={() => select(patient)}
                   disabled={busy}
@@ -304,7 +318,12 @@ export function PatientManager({
         <MetabolismPanel form={form} today={localToday()} />
 
         <div className="form-actions">
-          <button type="submit" className="primary" disabled={busy}>
+          <button
+            type="submit"
+            id={submitId}
+            className="primary"
+            disabled={busy}
+          >
             {busy ? "Attendere…" : "Salva scheda"}
           </button>
           {selected && !confirmingDelete && (

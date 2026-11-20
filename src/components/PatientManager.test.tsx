@@ -461,10 +461,10 @@ describe("basal metabolism in the patient record", () => {
     // Height 2 m: BMI = weight / 4.
     const cases: [string, string, string][] = [
       ["99,96", "24,99", "Harris-Benedict"],
-      ["100", "25", "Harris-Benedict"],
+      ["100", "25,00", "Harris-Benedict"],
       ["100,04", "25,01", "Mifflin-St Jeor"],
       ["119,96", "29,99", "Mifflin-St Jeor"],
-      ["120", "30", "Mifflin-St Jeor"],
+      ["120", "30,00", "Mifflin-St Jeor"],
       ["120,04", "30,01", "Bernstein"],
     ];
     for (const [weight, shownBmi, formula] of cases) {

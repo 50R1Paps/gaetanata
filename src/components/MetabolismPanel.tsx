@@ -20,7 +20,11 @@ const requiredFields = [
   ["heightCm", "altezza"],
 ] as const;
 
-const bmiFormat = new Intl.NumberFormat("it-IT", { maximumFractionDigits: 2 });
+// Always two decimals (25,00, not 25), like a measured value.
+const bmiFormat = new Intl.NumberFormat("it-IT", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 
 /** Basal metabolism derived from the record being edited (saved or not), with
  * age at `today` (`YYYY-MM-DD`). Nothing is stored: it is recomputed on
@@ -130,7 +134,7 @@ function MetabolismResult({
               className={key === result.formula ? "chosen" : undefined}
             >
               <th scope="row">{name}</th>
-              <td>{band}</td>
+              <td className="band">{band}</td>
               <td className="num">
                 {formatNumber(result.formulas[key])} kcal/giorno
               </td>

@@ -4,10 +4,12 @@ import { formatGrams, parseGrams } from "../format";
 /** Keeps the typed text while editing, so "32," or an empty field don't get
  * overwritten; only valid amounts reach the plan. */
 export function GramsInput({
+  id,
   grams,
   label,
   onChange,
 }: {
+  id: string;
   grams: number;
   label: string;
   onChange: (grams: number) => void;
@@ -17,6 +19,7 @@ export function GramsInput({
 
   return (
     <input
+      id={id}
       className="grams"
       type="text"
       inputMode="decimal"

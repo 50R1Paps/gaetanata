@@ -6,10 +6,13 @@ const maxSuggestions = 8;
 
 /** Type-ahead field in a meal card: adds a food, or replaces an unknown one. */
 export function FoodCombobox({
+  id,
   label,
   placeholder,
   onAdd,
 }: {
+  /** Id of the text field, for moving focus to it. */
+  id?: string;
   label: string;
   placeholder: string;
   onAdd: (food: Food) => void;
@@ -24,6 +27,7 @@ export function FoodCombobox({
   return (
     <div className="combobox">
       <input
+        id={id}
         type="text"
         role="combobox"
         aria-label={label}

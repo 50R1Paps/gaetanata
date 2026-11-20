@@ -537,13 +537,25 @@ html {
 
 /* Patients */
 
+/* Left-aligned after the title, so the buttons don't move when the status
+ * text beside them changes. */
 .patient-button {
-  margin-left: auto;
   padding: 6px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface);
   cursor: pointer;
+}
+
+.patient-button:disabled,
+.patients-dialog :where(button):disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* Header alerts get their own line below the controls. */
+.app-header > [role="alert"] {
+  flex-basis: 100%;
 }
 
 .patients-dialog {
@@ -582,11 +594,6 @@ html {
   border-radius: 6px;
   background: var(--surface);
   cursor: pointer;
-}
-
-.patients-dialog :where(button):disabled {
-  cursor: default;
-  opacity: 0.6;
 }
 
 .patient-manager .primary {
@@ -661,7 +668,8 @@ html {
 }
 
 .field-error,
-.patient-manager .error {
+.patient-manager .error,
+.app-header .error {
   color: var(--danger);
   font-size: 0.85rem;
 }
@@ -678,6 +686,12 @@ html {
 .confirm-delete p {
   flex-basis: 100%;
   margin: 0;
+}
+
+/* The switch prompt and plan errors sit above the patient list. */
+.confirm-switch,
+.patients-dialog > .error {
+  margin: 0 0 16px;
 }
 
 .notice {
@@ -722,6 +736,10 @@ html {
   padding: 4px 6px;
   border-top: 1px solid var(--border);
   text-align: left;
+}
+
+.metabolism .band {
+  white-space: nowrap;
 }
 
 .metabolism thead th {

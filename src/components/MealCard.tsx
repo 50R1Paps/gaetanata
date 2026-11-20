@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { type Food, portionNutrients } from "../calc";
 import { formatNumber, formatNutrient } from "../format";
 import type { PlannedPortion, ResolvedMeal } from "../plan";
@@ -30,6 +31,23 @@ export function MealCard({
 }) {
   const { total } = meal;
   const headingId = `meal-${slotIndex}`;
+  const addId = `${headingId}-add`;
+  const gramsId = (portionId: string) => `${headingId}-grams-${portionId}`;
+  // Removing or replacing a row takes away the control that had focus: the
+  // next render moves it to the add field or to the replaced row's grams.
+  const focusNext = useRef<string | null>(null);
+
+  useEffect(() => {
+    const id = focusNext.current;
+    if (!id) return;
+    focusNext.current = null;
+    document.getElementById(id)?.focus();
+  });
+
+  function remove(portionId: string) {
+    focusNext.current = addId;
+    onRemove(portionId);
+  }
 
   return (
     <section
@@ -98,6 +116,7 @@ export function MealCard({
                       </th>
                       <td className="num">
                         <GramsInput
+                          id={gramsId(planned.id)}
                           grams={planned.grams}
                           label={`Grammi di ${planned.food}`}
                           onChange={(grams) => onGrams(planned.id, grams)}
@@ -110,7 +129,7 @@ export function MealCard({
                           className="remove"
                           aria-label={`Rimuovi ${planned.food}`}
                           title="Rimuovi"
-                          onClick={() => onRemove(planned.id)}
+                          onClick={() => remove(planned.id)}
                         >
                           ×
                         </button>
@@ -125,6 +144,7 @@ export function MealCard({
                     <th scope="row">{food.name}</th>
                     <td className="num">
                       <GramsInput
+                        id={gramsId(planned.id)}
                         grams={planned.grams}
                         label={`Grammi di ${food.name}`}
                         onChange={(grams) => onGrams(planned.id, grams)}
@@ -154,7 +174,7 @@ export function MealCard({
                         className="remove"
                         aria-label={`Rimuovi ${food.name}`}
                         title="Rimuovi"
-                        onClick={() => onRemove(planned.id)}
+                        onClick={() => remove(planned.id)}
                       >
                         ×
                       </button>
@@ -194,12 +214,16 @@ export function MealCard({
               <FoodCombobox
                 label={`Sostituisci ${planned.food}`}
                 placeholder={`Sostituisci ${planned.food} con…`}
-                onAdd={(food) => onReplace(planned.id, food)}
+                onAdd={(food) => {
+                  focusNext.current = gramsId(planned.id);
+                  onReplace(planned.id, food);
+                }}
               />
             </div>
           ),
       )}
       <FoodCombobox
+        id={addId}
         label={`Aggiungi alimento a ${slot}`}
         placeholder="+ Aggiungi alimento…"
         onAdd={onAdd}

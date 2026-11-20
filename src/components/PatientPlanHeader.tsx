@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { Patient } from "../patient";
 import { emptyWeekPlan, type WeekPlan } from "../plan";
 import { loadPlan, savePlan } from "../plansApi";
 import { PatientsDialog } from "./PatientsDialog";
+
+/** Answer to the prompt shown when switching patient with unsaved changes. */
+type SwitchChoice = "saved" | "discarded" | "cancelled";
 
 /** Patient changes commit only after loading succeeds; failed reads keep the old editor. */
 export function PatientPlanHeader({
@@ -22,9 +25,23 @@ export function PatientPlanHeader({
   );
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const decision = useRef<((accepted: boolean) => void) | null>(null);
+  const decision = useRef<((choice: SwitchChoice) => void) | null>(null);
   const dirty = plan !== baseline;
+  const baseId = useId();
+  const savePlanId = `${baseId}-save`;
+  const saveSwitchId = `${baseId}-save-switch`;
+  const cancelSwitchId = `${baseId}-cancel-switch`;
+  // Id of the element to focus once the next render has put it on screen:
+  // the safe answer of the switch prompt, or a save button that saving
+  // disabled (which drops keyboard focus).
+  const focusNext = useRef<string | null>(null);
 
+  useEffect(() => {
+    const id = focusNext.current;
+    if (!id) return;
+    focusNext.current = null;
+    document.getElementById(id)?.focus();
+  });
   useEffect(() => {
     onBusyChange?.(busy || pending);
   }, [busy, pending, onBusyChange]);
@@ -38,7 +55,9 @@ export function PatientPlanHeader({
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
 
-  async function save() {
+  /** Focus returns to `button` afterwards, except when a successful save
+   * lets a pending patient switch go ahead. */
+  async function save(button: string) {
     if (!patient || busy) return false;
     setBusy(true);
     setError(null);
@@ -47,12 +66,14 @@ export function PatientPlanHeader({
       await savePlan(patient.id, plan);
       setBaseline(plan);
       setNotice("Piano salvato.");
+      if (!pending) focusNext.current = button;
       return true;
     } catch (failure) {
       setNotice("Piano non salvato.");
       setError(
         `Salvataggio piano non riuscito: ${failure instanceof Error ? failure.message : String(failure)}`,
       );
+      focusNext.current = button;
       return false;
     } finally {
       setBusy(false);
@@ -65,11 +86,14 @@ export function PatientPlanHeader({
       setPatient(next);
       return true;
     }
+    let choice: SwitchChoice = "discarded";
     if (dirty) {
-      const { promise, resolve } = Promise.withResolvers<boolean>();
+      const { promise, resolve } = Promise.withResolvers<SwitchChoice>();
       decision.current = resolve;
       setPending(true);
-      if (!(await promise)) return false;
+      focusNext.current = cancelSwitchId;
+      choice = await promise;
+      if (choice === "cancelled") return false;
     }
     setBusy(true);
     setError(null);
@@ -80,9 +104,11 @@ export function PatientPlanHeader({
       setBaseline(loaded);
       setPatient(next);
       setNotice(
-        next
-          ? "Piano caricato."
-          : "Seleziona un paziente per salvare il piano.",
+        `${choice === "saved" ? "Piano precedente salvato. " : ""}${
+          next
+            ? "Piano caricato."
+            : "Seleziona un paziente per salvare il piano."
+        }`,
       );
       return true;
     } catch (failure) {
@@ -96,9 +122,9 @@ export function PatientPlanHeader({
     }
   }
 
-  function decide(accepted: boolean) {
+  function decide(choice: SwitchChoice) {
     setPending(false);
-    decision.current?.(accepted);
+    decision.current?.(choice);
     decision.current = null;
   }
 
@@ -125,42 +151,64 @@ export function PatientPlanHeader({
         closeDisabled={pending || busy}
       >
         {pending && (
-          <section className="confirm-delete" aria-label="Modifiche al piano">
+          <section
+            className="confirm-delete confirm-switch"
+            aria-label="Modifiche al piano"
+          >
             <p>
               Il piano contiene modifiche non salvate. Salvarle o scartarle
               prima di cambiare paziente?
             </p>
             <button
               type="button"
+              id={saveSwitchId}
               disabled={!patient || busy}
               onClick={async () => {
-                if (await save()) decide(true);
+                if (await save(saveSwitchId)) decide("saved");
               }}
             >
               Salva e cambia
             </button>
-            <button type="button" disabled={busy} onClick={() => decide(true)}>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => decide("discarded")}
+            >
               Scarta e cambia
             </button>
-            <button type="button" disabled={busy} onClick={() => decide(false)}>
+            <button
+              type="button"
+              id={cancelSwitchId}
+              disabled={busy}
+              onClick={() => decide("cancelled")}
+            >
               Annulla cambio
             </button>
           </section>
         )}
-        {error && <p role="alert">{error}</p>}
+        {error && (
+          <p role="alert" className="error">
+            {error}
+          </p>
+        )}
       </PatientsDialog>
       <button
         type="button"
+        id={savePlanId}
         className="patient-button"
         disabled={!patient || busy || pending}
-        onClick={save}
+        onClick={() => save(savePlanId)}
       >
         Salva piano
       </button>
       <span role="status" aria-label="Piano settimanale">
         {status}
       </span>
-      {error && !pending && <p role="alert">{error}</p>}
+      {error && !pending && (
+        <p role="alert" className="error">
+          {error}
+        </p>
+      )}
     </>
   );
 }

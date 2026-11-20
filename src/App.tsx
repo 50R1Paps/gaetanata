@@ -68,17 +68,17 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
       <header className="app-header">
         <h1>Gaetanata</h1>
         <p>Elaborazione dieta settimanale</p>
+        <PatientPlanHeader
+          plan={plan}
+          setPlan={setPlan}
+          onBusyChange={setPlanBusy}
+        />
         {resolved.issues.length > 0 && (
           <p role="alert">
             Alimenti non riconosciuti: correggi le righe segnalate. I totali
             coinvolti sono incompleti.
           </p>
         )}
-        <PatientPlanHeader
-          plan={plan}
-          setPlan={setPlan}
-          onBusyChange={setPlanBusy}
-        />
       </header>
       <div style={{ display: "contents" }} inert={planBusy}>
         <FoodSearch
