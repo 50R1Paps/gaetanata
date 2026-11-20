@@ -4,12 +4,14 @@ import { useFoodPicker } from "../useFoodPicker";
 
 const maxSuggestions = 8;
 
-/** Type-ahead field at the bottom of a meal card. */
+/** Type-ahead field in a meal card: adds a food, or replaces an unknown one. */
 export function FoodCombobox({
   label,
+  placeholder,
   onAdd,
 }: {
   label: string;
+  placeholder: string;
   onAdd: (food: Food) => void;
 }) {
   const picker = useFoodPicker(onAdd);
@@ -33,7 +35,7 @@ export function FoodCombobox({
             ? optionId(Math.min(picker.highlighted, suggestions.length - 1))
             : undefined
         }
-        placeholder="+ Aggiungi alimento…"
+        placeholder={placeholder}
         value={picker.query}
         onChange={(event) => picker.setQuery(event.target.value)}
         onKeyDown={(event) => {

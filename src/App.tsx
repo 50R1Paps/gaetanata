@@ -100,9 +100,11 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
             >
               <span>{name}</span>
               <span className="tab-kcal">
-                {days[index]?.total
-                  ? `${formatNumber(days[index].total.caloriesKcal)} kcal`
-                  : "Incompleto"}
+                {plan.days[index] && isDayEmpty(plan.days[index])
+                  ? "Vuoto"
+                  : days[index]?.total
+                    ? `${formatNumber(days[index].total.caloriesKcal)} kcal`
+                    : "Incompleto"}
               </span>
             </button>
           ))}
