@@ -1,5 +1,7 @@
 # 4. Sostituzioni calcolate e arrotondate per difetto
 
+> Sostituita da [ADR 0005](0005-quantita-dai-carboidrati-arrotondate-a-5-g.md): il foglio Excel calcola sui carboidrati, non sulle kcal, e la nutrizionista lo ha confermato.
+
 ## Contesto
 
 Nello schema Word ogni alimento ha alternative con le stesse kcal. Le quantità del Word sono scritte a mano e a volte si discostano dal calcolo per comodità di pesata: 300 g di patate invece di 350 g. La nutrizionista ha chiarito di persona (issue #2, #4) che la regola è il calcolo e che lei corregge il Word solo se glielo si segnala.
