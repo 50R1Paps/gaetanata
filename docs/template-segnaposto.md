@@ -7,22 +7,21 @@ La copia reale resta fuori dal repository (ADR 0003). Questo documento elenca so
 | Tag | Significato | Unità |
 | --- | --- | --- |
 | `{data}` | Data di generazione, GG/MM/AAAA | testo |
-| `{saluto}` | Saluto scelto dal sesso: Gent.mo / Gent.ma | testo |
+| `{saluto}` | Saluto completo scelto dal sesso: Gent.mo Sig. / Gent.ma Sig.ra | testo |
 | `{nome_paziente}` | Nome completo del paziente | testo |
-| `{olio_ml}` | Olio giornaliero escluso il giorno pizza | ml |
 | `{pizza_pane_g}` | Pane del giorno pizza | g |
 | `{pizza_olio_ml}` | Olio del giorno pizza | ml |
+| `{pizza_olio_cucchiai}` | Cucchiai del giorno pizza: ml / 10, senza arrotondamento | numero |
+| `{pizza_olio_cucchiaini}` | Cucchiaini del giorno pizza: ml / 5, senza arrotondamento | numero |
 | `{pranzo_pasta_g}` | Pasta del pranzo e riferimento delle sostituzioni | g |
 | `{cena_pane_g}` | Pane della cena e riferimento delle sostituzioni | g |
-| `{cena_gallette_g}` | Gallette alternative al pane nei pasti della settimana | g |
 | `{pranzo_sost_pane_g}` | Pane alternativo a pranzo | g |
 | `{pranzo_sost_patate_g}` | Patate alternative a pranzo | g |
 | `{pranzo_sost_pasta_mista_g}` | Pasta nella sostituzione mista a pranzo | g |
 | `{pranzo_sost_pane_misto_g}` | Pane nella sostituzione mista a pranzo | g |
 | `{pranzo_sost_gnocchi_g}` | Gnocchi alternativi a pranzo | g |
-| `{pranzo_sost_farina_mais_g}` | Farina di mais alternativa a pranzo | g |
 | `{cena_sost_pasta_g}` | Pasta alternativa a cena | g |
-| `{cena_sost_gallette_g}` | Gallette alternative nella lista della cena | g |
+| `{cena_sost_gallette_g}` | Gallette alternative al pane: stesso valore nei pasti e nella lista della cena | g |
 | `{cena_sost_cracker_g}` | Cracker/grissini alternativi a cena | g |
 | `{cena_sost_patate_g}` | Patate alternative a cena | g |
 | `{conversione_pasta_cruda_g}` | Pasta cruda usata per la conversione | g |
@@ -183,11 +182,53 @@ Fonti: `uova`, `pesce`, `carne_bianca`, `carne_rossa`, `legumi_secchi`, `legumi_
 | `{#domenica_cena_affettati}` / `{/domenica_cena_affettati}` | `{domenica_cena_affettati_g}` |
 | `{#domenica_cena_pesce_scatola}` / `{/domenica_cena_pesce_scatola}` | `{domenica_cena_pesce_scatola_g}` |
 
-I 140 blocchi coprono tutte le dieci fonti in tutti i quattordici pasti. Con i 140 valori delle quantità e i 23 valori globali, il contratto contiene 303 nomi distinti (le chiusure ripetono il nome del blocco). Le quantità delle uova sono in grammi, non in numero di uova; quelle del pesce in scatola supportano anche l’eccezione da 78 g.
+## Valori aggiuntivi delle fonti
+
+`proteinQuantityTemplateValues(blocco, grammi)` restituisce `_g` e, dove richiesto, il conteggio uova (grammi / 60: 2 per 120 g, 3 per 180 g) o l’alternativa stagionata del formaggio fresco (grammi / 2). Tutti i valori sono nello scope principale; i tag sono collocati dentro il rispettivo blocco.
+
+| Tag | Significato | Unità |
+| --- | --- | --- |
+| `{lunedi_pranzo_uova_n}` | Conteggio uova, grammi / 60 | numero |
+| `{lunedi_pranzo_formaggio_fresco_alt_stagionato_g}` | Alternativa stagionata nel blocco fresco, grammi / 2 | g |
+| `{lunedi_cena_uova_n}` | Conteggio uova, grammi / 60 | numero |
+| `{lunedi_cena_formaggio_fresco_alt_stagionato_g}` | Alternativa stagionata nel blocco fresco, grammi / 2 | g |
+| `{martedi_pranzo_uova_n}` | Conteggio uova, grammi / 60 | numero |
+| `{martedi_pranzo_formaggio_fresco_alt_stagionato_g}` | Alternativa stagionata nel blocco fresco, grammi / 2 | g |
+| `{martedi_cena_uova_n}` | Conteggio uova, grammi / 60 | numero |
+| `{martedi_cena_formaggio_fresco_alt_stagionato_g}` | Alternativa stagionata nel blocco fresco, grammi / 2 | g |
+| `{mercoledi_pranzo_uova_n}` | Conteggio uova, grammi / 60 | numero |
+| `{mercoledi_pranzo_formaggio_fresco_alt_stagionato_g}` | Alternativa stagionata nel blocco fresco, grammi / 2 | g |
+| `{mercoledi_cena_uova_n}` | Conteggio uova, grammi / 60 | numero |
+| `{mercoledi_cena_formaggio_fresco_alt_stagionato_g}` | Alternativa stagionata nel blocco fresco, grammi / 2 | g |
+| `{giovedi_pranzo_uova_n}` | Conteggio uova, grammi / 60 | numero |
+| `{giovedi_pranzo_formaggio_fresco_alt_stagionato_g}` | Alternativa stagionata nel blocco fresco, grammi / 2 | g |
+| `{giovedi_cena_uova_n}` | Conteggio uova, grammi / 60 | numero |
+| `{giovedi_cena_formaggio_fresco_alt_stagionato_g}` | Alternativa stagionata nel blocco fresco, grammi / 2 | g |
+| `{venerdi_pranzo_uova_n}` | Conteggio uova, grammi / 60 | numero |
+| `{venerdi_pranzo_formaggio_fresco_alt_stagionato_g}` | Alternativa stagionata nel blocco fresco, grammi / 2 | g |
+| `{venerdi_cena_uova_n}` | Conteggio uova, grammi / 60 | numero |
+| `{venerdi_cena_formaggio_fresco_alt_stagionato_g}` | Alternativa stagionata nel blocco fresco, grammi / 2 | g |
+| `{sabato_pranzo_uova_n}` | Conteggio uova, grammi / 60 | numero |
+| `{sabato_pranzo_formaggio_fresco_alt_stagionato_g}` | Alternativa stagionata nel blocco fresco, grammi / 2 | g |
+| `{sabato_cena_uova_n}` | Conteggio uova, grammi / 60 | numero |
+| `{sabato_cena_formaggio_fresco_alt_stagionato_g}` | Alternativa stagionata nel blocco fresco, grammi / 2 | g |
+| `{domenica_pranzo_uova_n}` | Conteggio uova, grammi / 60 | numero |
+| `{domenica_pranzo_formaggio_fresco_alt_stagionato_g}` | Alternativa stagionata nel blocco fresco, grammi / 2 | g |
+| `{domenica_cena_uova_n}` | Conteggio uova, grammi / 60 | numero |
+| `{domenica_cena_formaggio_fresco_alt_stagionato_g}` | Alternativa stagionata nel blocco fresco, grammi / 2 | g |
+
+## Polenta opzionale e misure dell’olio
+
+`{#pranzo_sost_polenta}` apre e `{/pranzo_sost_polenta}` chiude l’intera sostituzione polenta. La condizione è un booleano: `false` se il calcolo non è disponibile (comportamento corrente), `true` solo quando viene fornita una quantità valida. Dentro il blocco `{pranzo_sost_farina_mais_g}` indica i grammi di farina di mais. Il tag resta obbligatorio nel template anche quando la sezione non viene stampata.
+
+`pizzaOilTemplateValues(ml)` restituisce `{pizza_olio_ml}`, `{pizza_olio_cucchiai}` (ml / 10) e `{pizza_olio_cucchiaini}` (ml / 5), senza arrotondare; ad esempio 10 ml → 1 e 2, 15 ml → 1,5 e 3. Il testo e le posizioni delle misure casalinghe restano nel documento locale.
+
+
+I 140 blocchi proteici coprono tutte le dieci fonti in tutti i quattordici pasti. A questi si aggiunge il blocco opzionale della polenta. Con 22 valori globali e 169 valori nelle sezioni, il contratto contiene 332 nomi distinti (le chiusure ripetono il nome del blocco). L’olio giornaliero fuori dal giorno pizza resta fisso a 30 ml con le misure casalinghe originali: non ha un tag.
 
 ## Verifica automatica
 
-`buildSyntheticTemplate()` produce in memoria un DOCX minimo e anonimo con tutti questi tag. Non legge né incorpora il documento reale. `validateTemplate(bytes)` compila con docxtemplater e verifica tutti i valori globali e la presenza della quantità dentro ciascuna sezione. Word può spezzare un segnaposto tra più run: la verifica usa il parser di docxtemplater, non una ricerca nel solo XML grezzo. `lodash` è una dipendenza esplicita dell’inspector di docxtemplater.
+`buildSyntheticTemplate()` produce in memoria un DOCX minimo e anonimo con tutti questi tag. Non legge né incorpora il documento reale. `validateTemplate(bytes)` compila con docxtemplater e verifica tutti i valori globali e tutti i valori richiesti dentro ciascuna sezione, inclusi conteggio uova, alternativa stagionata e polenta. `templateBlockValueTags` esporta questa relazione. Word può spezzare un segnaposto tra più run: la verifica usa il parser di docxtemplater, non una ricerca nel solo XML grezzo. `lodash` è una dipendenza esplicita dell’inspector di docxtemplater.
 
 Eseguire `npx vitest run server/template-contract.test.ts`. Il test locale cerca la copia con suffisso `(segnaposto).docx` nella cartella Downloads dell’utente; `GAETANATA_TEMPLATE_PATH` consente un percorso diverso. In assenza del file salta esclusivamente il test locale. Nessun testo del documento reale viene scritto nei test o nei messaggi di successo.
 
@@ -195,6 +236,6 @@ Eseguire `npx vitest run server/template-contract.test.ts`. Il test locale cerca
 
 Aprire la copia con segnaposto e, quando disponibile la generazione dell’app, anche un risultato compilato. Confermare margini, intestazioni, immagini, tabelle, stili, interruzioni di pagina e numero di pagine del risultato; il sorgente con tutti i blocchi è inevitabilmente più lungo. Verificare tutti i giorni, entrambi i pasti, entrambe le formule di saluto, le dieci fonti e le eccezioni uova/tonno, le sostituzioni, la conversione crudo-cotto e il giorno pizza. Controllare che non rimangano segnaposto stampati, spazi dei carboidrati a colazione o la nota sulle grammature uguali; firma della professionista solo Dr.ssa e spazio libero.
 
-La fonte legumi in scatola non aveva una propria descrizione: è stata aggiunta una riga neutra con alimento, grammi e indicazione del peso sgocciolato. Le due categorie di formaggi sono separate nei rispettivi blocchi; i riferimenti fissi a due uova/una scatoletta piccola sono resi indipendenti dal numero per non contraddire le porzioni d’eccezione. Le alternative descrittive già presenti restano nel documento locale. Gli esempi di ricette nei titoli dei pasti sono quelli originali: controllarne la pertinenza rispetto alla fonte selezionata. Le misure casalinghe dell’olio sono omesse nei due paragrafi variabili per non contraddire la quantità in ml modificabile.
+La fonte legumi in scatola non aveva una propria descrizione: è stata aggiunta una riga neutra con alimento, grammi e indicazione del peso sgocciolato. Il blocco formaggio fresco conserva tutte le alternative originali, compresa quella stagionata con quantità derivata; resta anche il blocco separato formaggio stagionato. Il conteggio delle uova è variabile; la descrizione del tonno, i titoli con esempi di ricette e la frase dei condimenti quotidiani sono quelli originali. Nel giorno pizza sono conservate le misure casalinghe, con valori derivati dai ml. Gli indicatori dei blocchi sono in run separati per non alterare il grassetto del prefisso delle fonti.
 
 La conferma di impaginazione e testi è una verifica umana: i test del contratto non la sostituiscono.

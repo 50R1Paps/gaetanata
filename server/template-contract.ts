@@ -27,18 +27,17 @@ export const templateValueTags = [
   "data",
   "saluto",
   "nome_paziente",
-  "olio_ml",
   "pizza_pane_g",
   "pizza_olio_ml",
+  "pizza_olio_cucchiai",
+  "pizza_olio_cucchiaini",
   "pranzo_pasta_g",
   "cena_pane_g",
-  "cena_gallette_g",
   "pranzo_sost_pane_g",
   "pranzo_sost_patate_g",
   "pranzo_sost_pasta_mista_g",
   "pranzo_sost_pane_misto_g",
   "pranzo_sost_gnocchi_g",
-  "pranzo_sost_farina_mais_g",
   "cena_sost_pasta_g",
   "cena_sost_gallette_g",
   "cena_sost_cracker_g",
@@ -53,6 +52,42 @@ export const templateBlocks = templateDays.flatMap((day) =>
     templateProteinSources.map((source) => `${day}_${meal}_${source}`),
   ),
 );
+export const templateBlockValueTags: Record<string, string[]> = {
+  ...Object.fromEntries(
+    templateBlocks.map((block) => [
+      block,
+      [
+        `${block}_g`,
+        ...(block.endsWith("_uova") ? [`${block}_n`] : []),
+        ...(block.endsWith("_formaggio_fresco")
+          ? [`${block}_alt_stagionato_g`]
+          : []),
+      ],
+    ]),
+  ),
+  pranzo_sost_polenta: ["pranzo_sost_farina_mais_g"],
+};
+
+export function proteinQuantityTemplateValues(
+  block: string,
+  grams: number,
+): Record<string, number> {
+  return {
+    [`${block}_g`]: grams,
+    ...(block.endsWith("_uova") ? { [`${block}_n`]: grams / 60 } : {}),
+    ...(block.endsWith("_formaggio_fresco")
+      ? { [`${block}_alt_stagionato_g`]: grams / 2 }
+      : {}),
+  };
+}
+
+export function pizzaOilTemplateValues(ml: number) {
+  return {
+    pizza_olio_ml: ml,
+    pizza_olio_cucchiai: ml / 10,
+    pizza_olio_cucchiaini: ml / 5,
+  };
+}
 
 /** Compile first: Word may split a tag across multiple text runs. */
 export function validateTemplate(bytes: Buffer): void {
@@ -63,14 +98,12 @@ export function validateTemplate(bytes: Buffer): void {
   });
   const tags = inspect.getAllTags();
   const missing: string[] = templateValueTags.filter((tag) => !(tag in tags));
-  for (const block of templateBlocks) {
+  for (const [block, values] of Object.entries(templateBlockValueTags)) {
     const children = tags[block];
-    if (
-      typeof children !== "object" ||
-      children === null ||
-      !(`${block}_g` in children)
-    ) {
+    if (typeof children !== "object" || children === null) {
       missing.push(block);
+    } else {
+      missing.push(...values.filter((tag) => !(tag in children)));
     }
   }
   if (missing.length)
@@ -92,8 +125,9 @@ export function buildSyntheticTemplate(): Buffer {
   );
   const paragraphs = [
     ...templateValueTags.map((tag) => `${tag}={${tag}}`),
-    ...templateBlocks.map(
-      (block) => `{#${block}}${block}={${block}_g}{/${block}}`,
+    ...Object.entries(templateBlockValueTags).map(
+      ([block, values]) =>
+        `{#${block}}${values.map((tag) => `${tag}={${tag}}`).join(" ")}{/${block}}`,
     ),
   ]
     .map((text) => `<w:p><w:r><w:t>${text}</w:t></w:r></w:p>`)
