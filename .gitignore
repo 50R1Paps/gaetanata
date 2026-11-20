@@ -1,0 +1,32 @@
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Environment files and credentials
+.env
+.env.*
+!.env.example
+
+# Patient data: never commit the source spreadsheets (the repo is public)
+*.xlsx
+*.xlsm
+*.xls
+*.csv
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs and temporary files
+*.log
+npm-debug.log*
+.tmp/
+tmp/
+
+# Editor and OS files
+.DS_Store
+.vscode/
+.idea/
