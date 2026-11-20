@@ -2,9 +2,11 @@ import { type KeyboardEvent, useMemo, useRef, useState } from "react";
 import { type Food, mealSlots } from "./calc";
 import { FoodSearch } from "./components/FoodSearch";
 import { MealCard } from "./components/MealCard";
+import { PatientsDialog } from "./components/PatientsDialog";
 import { SummaryPanel } from "./components/SummaryPanel";
 import { defaultGrams, lookupFood } from "./foods";
 import { formatNumber } from "./format";
+import type { Patient } from "./patient";
 import {
   addPortion,
   countedDays,
@@ -25,6 +27,7 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
   const [dayIndex, setDayIndex] = useState(0);
   const [mealIndex, setMealIndex] = useState(0);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const [patient, setPatient] = useState<Patient | null>(null);
 
   const resolved = useMemo(() => resolvePlan(plan, lookupFood), [plan]);
   const { days, average, averageIncomplete } = resolved;
@@ -72,6 +75,7 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
             coinvolti sono incompleti.
           </p>
         )}
+        <PatientsDialog patient={patient} onSelect={setPatient} />
       </header>
       <FoodSearch
         targetLabel={`${dayName} · ${mealSlots[mealIndex]}`}

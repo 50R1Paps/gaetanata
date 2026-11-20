@@ -62,6 +62,18 @@ L'editor si adatta alla larghezza della finestra, anche con lo zoom del browser:
 
 I pulsanti dei giorni restano in cima mentre si scorrono i pasti e su schermi stretti vanno a capo. Quando la tabella di un pasto non entra in larghezza scorre orizzontalmente dentro il pasto, con il nome dell'alimento sempre visibile; la pagina non scorre mai di lato.
 
+## Schede pazienti
+
+Il pulsante **Paziente** in alto apre l'elenco delle schede, in ordine alfabetico.
+
+- **Nuova scheda**: compila i campi e premi **Salva scheda**. Solo il nome è obbligatorio; data di nascita, sesso (usato dalle formule del metabolismo), peso in kg e altezza in cm si possono aggiungere in seguito. Per i decimali va bene sia la virgola sia il punto (`72,5`).
+- **Aprire o modificare**: fai clic su un nome nell'elenco, cambia i campi e premi **Salva scheda**. Il paziente selezionato è quello attivo nell'editor. Due persone con lo stesso nome restano schede distinte; la data di nascita accanto al nome aiuta a riconoscerle.
+- **Eliminare**: con la scheda aperta premi **Elimina scheda**, poi **Conferma eliminazione**. Cambiare selezione annulla la richiesta; l'eliminazione non si può annullare.
+
+Nome vuoto, data di nascita futura o non valida, peso o altezza non numerici o non positivi vengono segnalati accanto al campo e nulla viene salvato. «Scheda salvata» compare solo dopo che i dati sono stati scritti nel database; se il salvataggio o la lettura non riescono, compare il motivo.
+
+Le schede restano in `data/gaetanata.db` anche dopo la chiusura. Al primo avvio di questa versione il database viene aggiornato automaticamente, senza perdere dati.
+
 ## Dati
 
 Il foglio originale contiene dati di pazienti reali. Il repository è pubblico: non committare mai file Excel/CSV (sono esclusi in `.gitignore`) né dati che identificano una persona. Tabelle di riferimento (alimenti, attività MET) possono entrare nel repo; i dati dei pazienti no.
