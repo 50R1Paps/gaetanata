@@ -6,7 +6,13 @@ import {
   type ServerResponse,
 } from "node:http";
 import { extname, join, normalize, sep } from "node:path";
+import {
+  localToday,
+  type PatientInput,
+  validatePatient,
+} from "../src/patient.ts";
 import { openDatabase, schemaVersion } from "./db.ts";
+import { type PatientStore, patientStore } from "./patients.ts";
 
 export const APP_ID = "gaetanata";
 
@@ -33,11 +39,23 @@ const contentTypes: Record<string, string> = {
 /** Listens on 127.0.0.1 only: patient data must never be reachable from the network. */
 export async function startServer(options: ServerOptions): Promise<Server> {
   const db = openDatabase(options.databaseFile);
+  const patients = patientStore(db);
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     if (url.pathname === "/api/health") {
       sendJson(res, 200, { app: APP_ID, schemaVersion: schemaVersion(db) });
+      return;
+    }
+    if (
+      url.pathname === "/api/patients" ||
+      url.pathname.startsWith("/api/patients/")
+    ) {
+      handlePatients(patients, url.pathname, req, res).catch((error) => {
+        console.error(error);
+        if (res.headersSent) res.end();
+        else sendJson(res, 500, { error: "Errore interno del server" });
+      });
       return;
     }
     if (url.pathname.startsWith("/api/")) {
@@ -73,6 +91,69 @@ export async function startServer(options: ServerOptions): Promise<Server> {
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, { "content-type": contentTypes[".json"] });
   res.end(JSON.stringify(body));
+}
+
+const patientNotFound = { error: "Scheda paziente non trovata" };
+
+async function handlePatients(
+  patients: PatientStore,
+  pathname: string,
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
+  if (pathname === "/api/patients") {
+    if (req.method === "GET") {
+      sendJson(res, 200, { patients: patients.list() });
+    } else if (req.method === "POST") {
+      const input = await readPatient(req, res);
+      if (input) sendJson(res, 201, patients.create(input));
+    } else {
+      sendJson(res, 405, { error: "Metodo non consentito" });
+    }
+    return;
+  }
+
+  const idText = pathname.slice("/api/patients/".length);
+  const id = /^[1-9]\d{0,15}$/.test(idText) ? Number(idText) : null;
+  if (id === null) {
+    sendJson(res, 404, patientNotFound);
+  } else if (req.method === "GET") {
+    const patient = patients.get(id);
+    sendJson(res, patient ? 200 : 404, patient ?? patientNotFound);
+  } else if (req.method === "PUT") {
+    const input = await readPatient(req, res);
+    if (!input) return;
+    const patient = patients.update(id, input);
+    sendJson(res, patient ? 200 : 404, patient ?? patientNotFound);
+  } else if (req.method === "DELETE") {
+    if (patients.delete(id)) res.writeHead(204).end();
+    else sendJson(res, 404, patientNotFound);
+  } else {
+    sendJson(res, 405, { error: "Metodo non consentito" });
+  }
+}
+
+/** Parses and validates the body; on failure answers 400 and returns null. */
+async function readPatient(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<PatientInput | null> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(chunk as Buffer);
+  let body: unknown;
+  try {
+    body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  } catch {
+    body = undefined;
+  }
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    sendJson(res, 400, { error: "Richiesta non valida" });
+    return null;
+  }
+  const result = validatePatient(body, localToday());
+  if (result.ok) return result.value;
+  sendJson(res, 400, { error: "Dati non validi", fields: result.errors });
+  return null;
 }
 
 async function serveStatic(

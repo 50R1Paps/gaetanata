@@ -421,3 +421,141 @@ input {
   box-shadow: 0 6px 16px rgb(0 0 0 / 12%);
   padding: 4px;
 }
+
+/* Patients */
+
+.patient-button {
+  margin-left: auto;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.patients-dialog {
+  width: min(760px, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+}
+
+.patients-dialog::backdrop {
+  background: rgb(0 0 0 / 30%);
+}
+
+.patients-dialog > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.patients-dialog h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.patient-manager {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 16px;
+}
+
+.patients-dialog :where(button) {
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.patients-dialog :where(button):disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.patient-manager .primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.patient-manager .danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.patient-list ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.patient-list li button {
+  width: 100%;
+  margin-bottom: 4px;
+  text-align: left;
+}
+
+.patient-list li button[aria-current="true"] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.patient-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.patient-form h3 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+}
+
+.patient-form label {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.patient-form input,
+.patient-form select {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  font: inherit;
+}
+
+.patient-form [aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.field-error,
+.patient-manager .error {
+  color: var(--danger);
+  font-size: 0.85rem;
+}
+
+.form-actions,
+.confirm-delete {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.confirm-delete p {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.notice {
+  color: var(--accent);
+}

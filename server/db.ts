@@ -6,7 +6,17 @@ import { DatabaseSync } from "node:sqlite";
  * Schema changes, applied in order. Never edit or reorder a shipped entry:
  * append a new one. `PRAGMA user_version` stores how many have been applied.
  */
-export const migrations: readonly string[] = [];
+export const migrations: readonly string[] = [
+  // 1: patient records. AUTOINCREMENT so a deleted patient's id is never reused.
+  `CREATE TABLE patients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL CHECK (trim(name) <> ''),
+    birth_date TEXT,
+    sex TEXT CHECK (sex IN ('male', 'female')),
+    weight_kg REAL CHECK (weight_kg > 0),
+    height_cm REAL CHECK (height_cm > 0)
+  );`,
+];
 
 export function openDatabase(
   file: string,

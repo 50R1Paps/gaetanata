@@ -2,9 +2,11 @@ import { useMemo, useState } from "react";
 import { dayTotal, type Food, mealSlots, weeklyAverage } from "./calc";
 import { FoodSearch } from "./components/FoodSearch";
 import { MealCard } from "./components/MealCard";
+import { PatientsDialog } from "./components/PatientsDialog";
 import { SummaryPanel } from "./components/SummaryPanel";
 import { defaultGrams, findFood } from "./foods";
 import { formatNumber } from "./format";
+import type { Patient } from "./patient";
 import {
   addPortion,
   emptyWeekPlan,
@@ -20,6 +22,7 @@ export function App() {
   const [plan, setPlan] = useState(emptyWeekPlan);
   const [dayIndex, setDayIndex] = useState(0);
   const [mealIndex, setMealIndex] = useState(0);
+  const [patient, setPatient] = useState<Patient | null>(null);
 
   const calcDays = useMemo(
     () => plan.days.map((day) => toCalcDay(day, findFood)),
@@ -58,6 +61,7 @@ export function App() {
       <header className="app-header">
         <h1>Gaetanata</h1>
         <p>Elaborazione dieta settimanale</p>
+        <PatientsDialog patient={patient} onSelect={setPatient} />
       </header>
       <FoodSearch
         targetLabel={`${dayName} · ${mealSlots[mealIndex]}`}
