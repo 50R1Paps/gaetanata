@@ -4,11 +4,16 @@ import {
   activityCalories,
   activityLevel,
   ageAt,
+  basalMetabolism,
+  bernstein,
   bmi,
   dayTotal,
+  formulaForBmi,
+  harrisBenedict,
   idealWeights,
   macroCalories,
   mealTotal,
+  mifflinStJeor,
   portionNutrients,
   weeklyAverage,
 } from "./index";
@@ -42,6 +47,36 @@ describe("workbook calculations", () => {
     expect(ideal.bmi25.delta).toBeCloseTo(-11.66);
     expect(ideal.lorenz.delta).toBe(-19.5);
     expect(idealWeights(156, 72.5, "male").lorenz.weight).toBe(54.5);
+  });
+
+  it("calculates female basal metabolism and selects the BMI formula", () => {
+    const result = basalMetabolism({
+      sex: "female",
+      weightKg: 72.5,
+      heightCm: 156,
+      age: 58,
+    });
+    expect(result.formulas.harrisBenedict).toBeCloseTo(1365.7948, 4);
+    expect(result.formulas.mifflinStJeor).toBeCloseTo(1252.915, 3);
+    expect(result.formulas.bernstein).toBeCloseTo(1146.78, 2);
+    expect(result.formula).toBe("mifflinStJeor");
+    expect(result.kcal).toBe(result.formulas.mifflinStJeor);
+  });
+
+  it("calculates each male basal metabolism formula", () => {
+    // 66.473 + 13.7516 * 80 + 5.0033 * 180 - 6.755 * 40 = 1796.995
+    expect(harrisBenedict("male", 80, 180, 40)).toBeCloseTo(1796.995, 3);
+    // 9.99 * 80 + 6.25 * 180 - 4.92 * 40 + 5 = 1732.4
+    expect(mifflinStJeor("male", 80, 180, 40)).toBeCloseTo(1732.4, 3);
+    // 11.02 * 80 + 10.23 * 180 - 5.8 * 40 - 1032 = 1459
+    expect(bernstein("male", 80, 180, 40)).toBeCloseTo(1459, 3);
+  });
+
+  it("selects a basal metabolism formula at BMI thresholds", () => {
+    expect(formulaForBmi(25)).toBe("harrisBenedict");
+    expect(formulaForBmi(25.01)).toBe("mifflinStJeor");
+    expect(formulaForBmi(30)).toBe("mifflinStJeor");
+    expect(formulaForBmi(30.01)).toBe("bernstein");
   });
 
   it("matches the cached breakfast and its individual portions", () => {

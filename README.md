@@ -39,13 +39,14 @@ npm run import:tables -- "percorso/al/file.xlsx"
 
 ## Formule del metabolismo
 
-Decisioni prese (issue #1):
+Decisioni prese (issue #1). P = peso in kg, H = altezza in cm, A = età in anni.
+
+| Formula | Maschio | Femmina | Fonte |
+|---|---|---|---|
+| Harris-Benedict | `66.4730 + 13.7516·P + 5.0033·H − 6.7550·A` | `655.0955 + 9.5634·P + 1.8496·H − 4.6756·A` | Harris & Benedict, 1918 |
+| Mifflin-St Jeor | `9.99·P + 6.25·H − 4.92·A + 5` | `9.99·P + 6.25·H − 4.92·A − 161` | Mifflin et al., 1990 |
+| Bernstein | `11.02·P + 10.23·H − 5.8·A − 1032` | `7.48·P − 0.42·H − 3.0·A + 844` | Bernstein et al., 1983 |
 
 - **Scelta automatica della formula** in base al BMI: BMI ≤ 25 → Harris-Benedict, 25 < BMI ≤ 30 → Mifflin, BMI > 30 → Bernstein.
 - **"Eq. Giuseppe"**: tolta, non viene implementata.
 - **Unità in stampa**: latte e olio in ml, tutto il resto in g.
-
-Ancora da confermare con il nutrizionista:
-
-1. **Bernstein, maschio**: in "Calcolo metabolismo" è `11.02·peso − 0.47·altezza − 4.3·età + 889`, in "Elenco pz" è `11.02·peso + 10.23·altezza − 5.8·età − 1032`. Quale è corretta?
-2. **Coefficienti arrotondati o completi**: Harris-Benedict è `66.5 + 13.75·peso …` in un foglio e `66.473 + 13.7516·peso …` nell'altro; Mifflin è `10·peso + 6.25·altezza − 5·età` in un foglio e `9.99·peso + 6.25·altezza − 4.92·età` nell'altro. Quali usare?

@@ -35,6 +35,72 @@ export function bmi(weightKg: number, heightCm: number): number {
   return weightKg / (heightCm / 100) ** 2;
 }
 
+/** Harris and Benedict, "A Biometric Study of Human Basal Metabolism" (1918). */
+export function harrisBenedict(
+  sex: "male" | "female",
+  weightKg: number,
+  heightCm: number,
+  age: number,
+): number {
+  return sex === "male"
+    ? 66.473 + 13.7516 * weightKg + 5.0033 * heightCm - 6.755 * age
+    : 655.0955 + 9.5634 * weightKg + 1.8496 * heightCm - 4.6756 * age;
+}
+
+/** Mifflin et al., "A new predictive equation for resting energy expenditure in healthy individuals" (1990). */
+export function mifflinStJeor(
+  sex: "male" | "female",
+  weightKg: number,
+  heightCm: number,
+  age: number,
+): number {
+  return (
+    9.99 * weightKg + 6.25 * heightCm - 4.92 * age + (sex === "male" ? 5 : -161)
+  );
+}
+
+/** Bernstein et al., "Prediction of the resting metabolic rate in obese patients" (1983). */
+export function bernstein(
+  sex: "male" | "female",
+  weightKg: number,
+  heightCm: number,
+  age: number,
+): number {
+  return sex === "male"
+    ? 11.02 * weightKg + 10.23 * heightCm - 5.8 * age - 1032
+    : 7.48 * weightKg - 0.42 * heightCm - 3 * age + 844;
+}
+
+export function formulaForBmi(
+  bmi: number,
+): "harrisBenedict" | "mifflinStJeor" | "bernstein" {
+  return bmi <= 25
+    ? "harrisBenedict"
+    : bmi <= 30
+      ? "mifflinStJeor"
+      : "bernstein";
+}
+
+export function basalMetabolism({
+  sex,
+  weightKg,
+  heightCm,
+  age,
+}: {
+  sex: "male" | "female";
+  weightKg: number;
+  heightCm: number;
+  age: number;
+}) {
+  const formulas = {
+    harrisBenedict: harrisBenedict(sex, weightKg, heightCm, age),
+    mifflinStJeor: mifflinStJeor(sex, weightKg, heightCm, age),
+    bernstein: bernstein(sex, weightKg, heightCm, age),
+  };
+  const formula = formulaForBmi(bmi(weightKg, heightCm));
+  return { formula, kcal: formulas[formula], formulas };
+}
+
 export function idealWeights(
   heightCm: number,
   weightKg: number,
