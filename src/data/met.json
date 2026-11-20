@@ -1,0 +1,452 @@
+[
+  {
+    "activity": "Dormire",
+    "detail": null,
+    "pace": null,
+    "met": 0.9
+  },
+  {
+    "activity": "Sdraiato sveglio",
+    "detail": null,
+    "pace": null,
+    "met": 1
+  },
+  {
+    "activity": "Guardare la TV",
+    "detail": null,
+    "pace": null,
+    "met": 1
+  },
+  {
+    "activity": "Seduto a leggere",
+    "detail": null,
+    "pace": null,
+    "met": 1.3
+  },
+  {
+    "activity": "Seduto a parlare",
+    "detail": null,
+    "pace": null,
+    "met": 1.3
+  },
+  {
+    "activity": "Lavoro d'ufficio",
+    "detail": null,
+    "pace": null,
+    "met": 1.5
+  },
+  {
+    "activity": "Scrivere al computer",
+    "detail": null,
+    "pace": null,
+    "met": 1.8
+  },
+  {
+    "activity": "Cucinare",
+    "detail": null,
+    "pace": null,
+    "met": 2
+  },
+  {
+    "activity": "Fare la doccia",
+    "detail": null,
+    "pace": null,
+    "met": 2
+  },
+  {
+    "activity": "Pulizie leggere",
+    "detail": null,
+    "pace": null,
+    "met": 2.3
+  },
+  {
+    "activity": "Camminare in casa",
+    "detail": null,
+    "pace": null,
+    "met": 2
+  },
+  {
+    "activity": "Fare la spesa",
+    "detail": null,
+    "pace": null,
+    "met": 2.3
+  },
+  {
+    "activity": "Giardinaggio leggero",
+    "detail": null,
+    "pace": null,
+    "met": 2.5
+  },
+  {
+    "activity": "Camminare (2 km/h)",
+    "detail": null,
+    "pace": null,
+    "met": 2
+  },
+  {
+    "activity": "Camminare (3 km/h)",
+    "detail": null,
+    "pace": null,
+    "met": 2.5
+  },
+  {
+    "activity": "Camminare (4 km/h)",
+    "detail": null,
+    "pace": null,
+    "met": 2.9
+  },
+  {
+    "activity": "Camminare (5 km/h)",
+    "detail": null,
+    "pace": null,
+    "met": 3.3
+  },
+  {
+    "activity": "Camminare (6 km/h)",
+    "detail": null,
+    "pace": null,
+    "met": 3.9
+  },
+  {
+    "activity": "Camminare in salita (5 km/h)",
+    "detail": null,
+    "pace": null,
+    "met": 6
+  },
+  {
+    "activity": "Pulizie energiche",
+    "detail": null,
+    "pace": null,
+    "met": 3.5
+  },
+  {
+    "activity": "Passare l'aspirapolvere",
+    "detail": null,
+    "pace": null,
+    "met": 3.5
+  },
+  {
+    "activity": "Lavare i pavimenti",
+    "detail": null,
+    "pace": null,
+    "met": 3.8
+  },
+  {
+    "activity": "Costruzione leggera",
+    "detail": null,
+    "pace": null,
+    "met": 3.8
+  },
+  {
+    "activity": "Muratura",
+    "detail": null,
+    "pace": null,
+    "met": 4.5
+  },
+  {
+    "activity": "Sollevare scatole pesanti",
+    "detail": null,
+    "pace": null,
+    "met": 5.8
+  },
+  {
+    "activity": "Imbiancare",
+    "detail": null,
+    "pace": null,
+    "met": 4.5
+  },
+  {
+    "activity": "Bici (10-12 km/h)",
+    "detail": null,
+    "pace": null,
+    "met": 4
+  },
+  {
+    "activity": "Bici (12-14 km/h)",
+    "detail": null,
+    "pace": null,
+    "met": 6
+  },
+  {
+    "activity": "Bici (14-16 km/h)",
+    "detail": null,
+    "pace": null,
+    "met": 8
+  },
+  {
+    "activity": "Bici (>20 km/h)",
+    "detail": null,
+    "pace": null,
+    "met": 15.8
+  },
+  {
+    "activity": "Salire le scale",
+    "detail": null,
+    "pace": null,
+    "met": 8
+  },
+  {
+    "activity": "Scendere le scale",
+    "detail": null,
+    "pace": null,
+    "met": 3.5
+  },
+  {
+    "activity": "Stretching",
+    "detail": null,
+    "pace": null,
+    "met": 2.3
+  },
+  {
+    "activity": "Tai Chi",
+    "detail": null,
+    "pace": null,
+    "met": 3
+  },
+  {
+    "activity": "Yoga",
+    "detail": null,
+    "pace": null,
+    "met": 3.3
+  },
+  {
+    "activity": "Pilates",
+    "detail": null,
+    "pace": null,
+    "met": 3.8
+  },
+  {
+    "activity": "Camminata nordica",
+    "detail": null,
+    "pace": null,
+    "met": 4.5
+  },
+  {
+    "activity": "Pesistica (moderata)",
+    "detail": null,
+    "pace": null,
+    "met": 5
+  },
+  {
+    "activity": "Aerobica (bassa intensità)",
+    "detail": null,
+    "pace": null,
+    "met": 5.5
+  },
+  {
+    "activity": "Step aerobico",
+    "detail": null,
+    "pace": null,
+    "met": 6.5
+  },
+  {
+    "activity": "Zumba",
+    "detail": null,
+    "pace": null,
+    "met": 6
+  },
+  {
+    "activity": "Danza da sala",
+    "detail": null,
+    "pace": null,
+    "met": 5.5
+  },
+  {
+    "activity": "Nuoto (moderato)",
+    "detail": null,
+    "pace": null,
+    "met": 8
+  },
+  {
+    "activity": "Pesistica (intensa)",
+    "detail": null,
+    "pace": null,
+    "met": 6
+  },
+  {
+    "activity": "Corsa (8 km/h)",
+    "detail": null,
+    "pace": null,
+    "met": 8.3
+  },
+  {
+    "activity": "Corsa (10 km/h)",
+    "detail": null,
+    "pace": null,
+    "met": 10
+  },
+  {
+    "activity": "Corsa (12 km/h)",
+    "detail": null,
+    "pace": null,
+    "met": 11.5
+  },
+  {
+    "activity": "Corda (ritmo moderato)",
+    "detail": null,
+    "pace": null,
+    "met": 10
+  },
+  {
+    "activity": "Calcio",
+    "detail": null,
+    "pace": null,
+    "met": 7
+  },
+  {
+    "activity": "Basket",
+    "detail": null,
+    "pace": null,
+    "met": 6.5
+  },
+  {
+    "activity": "Tennis singolo",
+    "detail": null,
+    "pace": null,
+    "met": 8
+  },
+  {
+    "activity": "Arti marziali",
+    "detail": null,
+    "pace": null,
+    "met": 10.3
+  },
+  {
+    "activity": "Boxe (sparo al sacco)",
+    "detail": null,
+    "pace": null,
+    "met": 6
+  },
+  {
+    "activity": "Boxe (incontro)",
+    "detail": null,
+    "pace": null,
+    "met": 12.8
+  },
+  {
+    "activity": "Jogging lento",
+    "detail": 6.4,
+    "pace": "9:22",
+    "met": 6
+  },
+  {
+    "activity": "Corsa leggera",
+    "detail": 8,
+    "pace": "7:30",
+    "met": 8.3
+  },
+  {
+    "activity": "Corsa moderata",
+    "detail": 9.7,
+    "pace": "6:11",
+    "met": 9.8
+  },
+  {
+    "activity": "Corsa media",
+    "detail": 10.8,
+    "pace": "5:33",
+    "met": 10.5
+  },
+  {
+    "activity": "Corsa media",
+    "detail": 11.3,
+    "pace": "5:18",
+    "met": 11
+  },
+  {
+    "activity": "Corsa sostenuta",
+    "detail": 12.1,
+    "pace": "4:58",
+    "met": 11.5
+  },
+  {
+    "activity": "Corsa sostenuta",
+    "detail": 13.8,
+    "pace": "4:20",
+    "met": 12.8
+  },
+  {
+    "activity": "Corsa intensa",
+    "detail": 14.5,
+    "pace": "4:08",
+    "met": 13.5
+  },
+  {
+    "activity": "Corsa intensa",
+    "detail": 16.1,
+    "pace": "3:43",
+    "met": 14.5
+  },
+  {
+    "activity": "Corsa veloce",
+    "detail": 17.5,
+    "pace": "3:25",
+    "met": 15
+  },
+  {
+    "activity": "Corsa veloce",
+    "detail": 19.3,
+    "pace": "3:07",
+    "met": 16
+  },
+  {
+    "activity": "Corsa agonistica",
+    "detail": 20.9,
+    "pace": "2:52",
+    "met": 19
+  },
+  {
+    "activity": "CrossFit (moderato)",
+    "detail": null,
+    "pace": null,
+    "met": 5.5
+  },
+  {
+    "activity": "CrossFit (intenso)",
+    "detail": null,
+    "pace": null,
+    "met": 8
+  },
+  {
+    "activity": "HIIT (moderato)",
+    "detail": null,
+    "pace": null,
+    "met": 6
+  },
+  {
+    "activity": "HIIT (intenso)",
+    "detail": null,
+    "pace": null,
+    "met": 8.5
+  },
+  {
+    "activity": "Tabata",
+    "detail": null,
+    "pace": null,
+    "met": 9
+  },
+  {
+    "activity": "Bootcamp",
+    "detail": null,
+    "pace": null,
+    "met": 10.1
+  },
+  {
+    "activity": "Functional training",
+    "detail": null,
+    "pace": null,
+    "met": 7
+  },
+  {
+    "activity": "Calisthenics (base)",
+    "detail": null,
+    "pace": null,
+    "met": 5
+  },
+  {
+    "activity": "Calisthenics (avanzato)",
+    "detail": null,
+    "pace": null,
+    "met": 8
+  }
+]

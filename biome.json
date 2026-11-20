@@ -1,5 +1,5 @@
 {
-  "files": { "includes": ["src/**", "*.json", "*.ts"] },
+  "files": { "includes": ["src/**", "scripts/**", "*.json", "*.ts"] },
   "formatter": { "indentStyle": "space" },
   "linter": { "enabled": true, "rules": { "preset": "recommended" } }
 }

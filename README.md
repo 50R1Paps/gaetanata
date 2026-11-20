@@ -18,6 +18,16 @@ npm run build    # build di produzione in dist/
 
 Il foglio originale contiene dati di pazienti reali. Il repository è pubblico: non committare mai file Excel/CSV (sono esclusi in `.gitignore`) né dati che identificano una persona. Tabelle di riferimento (alimenti, attività MET) possono entrare nel repo; i dati dei pazienti no.
 
+## Dati di riferimento
+
+I file `src/data/foods.json` e `src/data/met.json` provengono esclusivamente dai fogli «Elenco Alimenti» e «MET» del file Excel originale. I valori nutrizionali sono riferiti a 100 g; valori mancanti, errori e valori testuali incerti sono importati come `null` e trattati come zero nei totali, come nel foglio.
+
+Per rigenerarli senza includere dati dei pazienti:
+
+```sh
+npm run import:tables -- "percorso/al/file.xlsx"
+```
+
 ## Domande aperte per il nutrizionista
 
 Il foglio Excel ha formule in conflitto o con buchi. Vanno confermate prima di portarle nel codice:
