@@ -4,14 +4,23 @@ Web app che sostituisce il foglio Excel "DIETA GAETANATA": calcolo del metabolis
 
 ## Avvio
 
-Serve Node 22.12 o successivo (la CI usa la versione in `.nvmrc`).
+È sufficiente scaricare lo ZIP del progetto ed estrarlo, oppure clonarlo con Git. Per clonare serve Git; su macOS, se manca, il sistema propone l'installazione degli strumenti da riga di comando. Il download ZIP non richiede Git.
+
+- **Windows:** fai doppio clic su `avvia.cmd`.
+- **macOS:** fai doppio clic su `avvia.command`. Al primo avvio macOS potrebbe bloccarlo, specialmente se il progetto proviene da uno ZIP scaricato dal browser: fai clic destro → **Apri**, oppure usa **Impostazioni di Sistema → Privacy e sicurezza → Apri comunque**.
+- **Linux:** esegui `./avvia.sh` dal terminale.
+
+Al primo avvio, se necessario, viene scaricato Node portabile; vengono poi installate le dipendenze e compilata l'app. Gli avvii successivi riutilizzano quanto già installato e ricompilano solo se necessario. Lascia aperta la finestra per usare l'app; chiudila per fermarla.
+
+I dati sono salvati sul computer in `data/gaetanata.db`. Per un backup, chiudi l'app e copia l'intera cartella `data/`.
+
+Per sviluppare, con Node 22.13 o successivo installato:
 
 ```sh
 npm install
 npm run dev      # server di sviluppo
 npm run check    # typecheck + lint
 npm test         # test
-npm run build    # build di produzione in dist/
 ```
 
 ## Dati

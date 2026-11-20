@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "node --experimental-strip-types --disable-warning=ExperimentalWarning server/dev.ts",
+    "start": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/start.ts",
     "import:tables": "node --experimental-strip-types scripts/import-tables.ts",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",

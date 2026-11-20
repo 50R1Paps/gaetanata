@@ -14,8 +14,15 @@ coverage/
 *.xlsm
 *.xls
 *.csv
+*.docx
+*.doc
+*.dotx
+*.odt
+*.pdf
 
 # Local databases
+/data/
+/.runtime/
 *.db
 *.sqlite
 *.sqlite3
