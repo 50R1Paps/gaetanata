@@ -246,7 +246,7 @@ I 140 blocchi proteici coprono tutte le dieci fonti in tutti i quattordici pasti
 
 `buildSyntheticTemplate()` produce in memoria un DOCX minimo e anonimo con tutti questi tag. Non legge né incorpora il documento reale. `validateTemplate(bytes)` compila con docxtemplater e verifica tutti i valori globali e tutti i valori richiesti dentro ciascuna sezione, inclusi conteggio uova, alternativa stagionata e polenta. `templateBlockValueTags` esporta questa relazione. Word può spezzare un segnaposto tra più run: la verifica usa il parser di docxtemplater, non una ricerca nel solo XML grezzo. `lodash` è una dipendenza esplicita dell’inspector di docxtemplater.
 
-La suite usa esclusivamente il template sintetico. La verifica della copia locale è un comando esplicito separato: `npm run verify:template -- "<percorso.docx>"`. Controlla il contratto e genera in memoria con tutte le fonti e i due saluti, senza salvare documenti o stampare testi del template. Non cerca file in Downloads né usa variabili d’ambiente.
+La suite usa esclusivamente il template sintetico. La verifica della copia locale è un comando esplicito separato: `npm run verify:template -- "<percorso.docx>"`. Controlla il contratto e genera in memoria con tutte le fonti e i due saluti, senza salvare documenti o stampare testi del template. Non cerca file nelle cartelle personali né usa variabili d’ambiente.
 
 ## Controllo umano in Word
 

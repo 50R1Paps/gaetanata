@@ -1,0 +1,14 @@
+or {
+  JsImportBareClause(source=$source),
+  JsImportDefaultClause(source=$source),
+  JsImportNamedClause(source=$source),
+  JsImportNamespaceClause(source=$source),
+  JsImportCombinedClause(source=$source),
+  JsExportFromClause(source=$source),
+  JsExportNamedFromClause(source=$source)
+} as $statement where {
+  $source <: r"[\"']\..*",
+  not $source <: r".*\.ts[\"']",
+  not $statement <: r"(?s).*\.json[\"']\s+with\s*\{\s*type\s*:\s*[\"']json[\"']\s*,?\s*\}.*",
+  register_diagnostic(span=$statement, message="Import relativi: .ts oppure .json con with { type: json }.")
+}

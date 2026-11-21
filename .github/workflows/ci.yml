@@ -18,7 +18,16 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - run: npm ci
-      - run: npm run check
-      - run: npm test
-      - run: npm run build
+      - name: Install without deprecated dependencies
+        shell: bash
+        run: |
+          set +e
+          npm ci 2> >(tee "$RUNNER_TEMP/npm-ci.stderr" >&2)
+          npm_status=$?
+          wait
+          if [ "$npm_status" -ne 0 ]; then exit "$npm_status"; fi
+          if grep -qi 'npm warn deprecated' "$RUNNER_TEMP/npm-ci.stderr"; then
+            echo "Deprecated npm dependency detected" >&2
+            exit 1
+          fi
+      - run: npm run verify

@@ -1,4 +1,18 @@
 {
+  "plugins": [
+    {
+      "path": "./scripts/no-promise.grit",
+      "includes": ["src/**", "server/**", "scripts/**"]
+    },
+    {
+      "path": "./scripts/no-dynamic-import.grit",
+      "includes": ["src/**", "server/**", "scripts/**"]
+    },
+    {
+      "path": "./scripts/native-imports.grit",
+      "includes": ["server/**", "scripts/**"]
+    }
+  ],
   "files": {
     "includes": ["src/**", "scripts/**", "server/**", "*.json", "*.ts"]
   },

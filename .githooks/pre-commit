@@ -1,0 +1,3 @@
+#!/bin/sh
+set -eu
+node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/check-public-boundary.ts --staged

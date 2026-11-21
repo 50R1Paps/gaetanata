@@ -1,0 +1,6 @@
+or {
+  `new Promise($args)`,
+  `new Promise<$types>($args)`
+} as $call where {
+  register_diagnostic(span=$call, message="Usare Promise.withResolvers().")
+}

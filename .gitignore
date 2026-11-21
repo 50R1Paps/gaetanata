@@ -19,6 +19,7 @@ coverage/
 *.dotx
 *.odt
 *.pdf
+.private-patterns
 
 # Local databases
 /data/

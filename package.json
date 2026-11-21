@@ -18,7 +18,12 @@
     "lint": "biome check .",
     "format": "biome check --write .",
     "test": "vitest run --passWithNoTests",
-    "check": "npm run typecheck && npm run lint"
+    "check": "npm run typecheck && npm run lint && npm run check:imports && npm run check:public",
+    "check:imports": "biome lint src server scripts --only=plugin",
+    "check:public": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/check-public-boundary.ts",
+    "smoke": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/smoke.ts",
+    "verify": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/verify.ts",
+    "prepare": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/install-hooks.ts"
   },
   "dependencies": {
     "docxtemplater": "3.71.1",
