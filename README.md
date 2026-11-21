@@ -120,6 +120,10 @@ Per rigenerarli senza includere dati dei pazienti:
 npm run import:tables -- "percorso/al/file.xlsx"
 ```
 
+L'importazione legge direttamente l'archivio XLSX con PizZip e il relativo XML,
+senza ExcelJS. Le formule usano il risultato salvato nel file: ricalcolare e
+salvare il foglio in Excel prima di importarlo se le formule sono cambiate.
+
 ### Categorie dello Schema e misure casalinghe
 
 `src/data/food-schema.json` estende i dati di riferimento senza cambiare il

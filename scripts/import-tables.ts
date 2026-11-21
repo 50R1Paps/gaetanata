@@ -1,12 +1,14 @@
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import ExcelJS, { type Cell, type Worksheet } from "exceljs";
+import { type CellValue, readTableSheets, type Sheet } from "./xlsx-tables.ts";
 
 const path = process.argv[2];
 if (!path) throw new Error("Usage: npm run import:tables -- <path-to-xlsx>");
 
-const workbook = new ExcelJS.Workbook();
-await workbook.xlsx.readFile(path);
+const workbook = readTableSheets(await readFile(path), [
+  "Elenco Alimenti",
+  "MET",
+]);
 
 // Keys encode the units used by the original per-100-g table.
 const columns = {
@@ -50,31 +52,17 @@ const columns = {
   "A. Fitico": "phyticAcidG",
 } as const;
 
-type CellValue = string | number | boolean | Date | null;
-
-function value(cell: Cell): CellValue {
-  const v = cell.value;
-  if (v && typeof v === "object" && !(v instanceof Date)) {
-    if ("result" in v) return (v.result as CellValue | undefined) ?? null;
-    if ("richText" in v) return v.richText.map((part) => part.text).join("");
-    if ("error" in v) return null;
-    if ("text" in v) return v.text;
-    return null;
-  }
-  return v ?? null;
-}
-
-function sheet(name: string): Worksheet {
-  const result = workbook.getWorksheet(name);
+function sheet(name: string): Sheet {
+  const result = workbook.get(name);
   if (!result) throw new Error(`Missing sheet: ${name}`);
   return result;
 }
 
-function headerMap(ws: Worksheet, rowNumber: number): Map<CellValue, number> {
+function headerMap(ws: Sheet, rowNumber: number): Map<CellValue, number> {
   const result = new Map<CellValue, number>();
-  ws.getRow(rowNumber).eachCell((cell, index) =>
-    result.set(value(cell), index),
-  );
+  for (const [index, value] of ws.get(rowNumber) ?? []) {
+    if (value !== null) result.set(value, index);
+  }
   return result;
 }
 
@@ -92,22 +80,22 @@ const foodColumns = Object.entries(columns).map(
 const nameColumn = column(foodHeaders, "Alimenti");
 const foods: Record<string, string | number | null>[] = [];
 const names = new Set<string>();
-foodSheet.eachRow((row, index) => {
-  if (index === 1) return;
-  const name = value(row.getCell(nameColumn));
-  if (name == null || name === "") return;
+for (const [index, row] of foodSheet) {
+  if (index === 1) continue;
+  const name = row.get(nameColumn) ?? null;
+  if (name == null || name === "") continue;
   if (typeof name !== "string")
     throw new Error(`Invalid food name at row ${index}`);
   if (names.has(name)) throw new Error(`Duplicate food name: ${name}`);
   names.add(name);
   const food: Record<string, string | number | null> = {};
   for (const [key, col] of foodColumns) {
-    const raw = value(row.getCell(col));
+    const raw = row.get(col) ?? null;
     // Excel errors and uncertain textual values are unavailable, not zeros.
     food[key] = key === "name" ? name : typeof raw === "number" ? raw : null;
   }
   foods.push(food);
-});
+}
 
 const metSheet = sheet("MET");
 const metHeaders = headerMap(metSheet, 2);
@@ -121,21 +109,21 @@ const activities: {
   pace: CellValue;
   met: number;
 }[] = [];
-metSheet.eachRow((row, index) => {
-  if (index <= 2) return;
-  const activity = value(row.getCell(activityColumn));
-  if (activity == null || activity === "") return;
-  const met = value(row.getCell(metColumn));
+for (const [index, row] of metSheet) {
+  if (index <= 2) continue;
+  const activity = row.get(activityColumn) ?? null;
+  if (activity == null || activity === "") continue;
+  const met = row.get(metColumn) ?? null;
   if (typeof activity !== "string" || typeof met !== "number") {
     throw new Error(`Invalid MET data at row ${index}`);
   }
   activities.push({
     activity,
-    detail: value(row.getCell(detailColumn)),
-    pace: value(row.getCell(paceColumn)),
+    detail: row.get(detailColumn) ?? null,
+    pace: row.get(paceColumn) ?? null,
     met,
   });
-});
+}
 
 for (const [name, data] of [
   ["foods", foods],
