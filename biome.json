@@ -11,6 +11,10 @@
     {
       "path": "./scripts/native-imports.grit",
       "includes": ["server/**", "scripts/**"]
+    },
+    {
+      "path": "./scripts/launcher-imports.grit",
+      "includes": ["scripts/start.ts"]
     }
   ],
   "files": {

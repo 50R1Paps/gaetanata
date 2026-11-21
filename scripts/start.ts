@@ -11,7 +11,6 @@ import {
 } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { startServer } from "../server/app.ts";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const port = Number(process.env.PORT ?? 5174);
@@ -26,18 +25,49 @@ if (await alreadyRunning()) {
 ensureDependencies();
 ensureBuild();
 
-await startServer({
-  port,
-  databaseFile: join(root, "data", "gaetanata.db"),
-  staticDir: join(root, "dist"),
+// IPC also lets the server notice a closed launcher window on every platform.
+const child = spawn(
+  process.execPath,
+  [...process.execArgv, join(root, "scripts", "serve.ts")],
+  {
+    cwd: root,
+    env: process.env,
+    stdio: ["inherit", "inherit", "inherit", "ipc"],
+  },
+);
+const { promise: stopped, resolve } = Promise.withResolvers<void>();
+child.on("message", async (message) => {
+  if (message !== "ready" || !(await alreadyRunning())) return;
+  console.log(
+    `Gaetanata è aperta su ${url}  (chiudi questa finestra per fermarla)`,
+  );
+  console.log(
+    `I dati sono in ${join(root, "data")}: copia quella cartella per fare un backup.`,
+  );
+  openBrowser(url);
 });
-console.log(
-  `Gaetanata è aperta su ${url}  (chiudi questa finestra per fermarla)`,
-);
-console.log(
-  `I dati sono in ${join(root, "data")}: copia quella cartella per fare un backup.`,
-);
-openBrowser(url);
+child.on("error", (error) => {
+  console.error(error);
+  process.exitCode = 1;
+  resolve();
+});
+child.on("exit", (code, signal) => {
+  process.exitCode =
+    code ?? (signal === "SIGINT" ? 130 : signal === "SIGHUP" ? 129 : 143);
+  resolve();
+});
+const interrupt = () => child.kill("SIGINT");
+const terminate = () => child.kill("SIGTERM");
+const hangup = () => child.kill("SIGHUP");
+process.on("SIGINT", interrupt);
+process.on("SIGTERM", terminate);
+process.on("SIGHUP", hangup);
+process.on("exit", terminate);
+await stopped;
+process.off("SIGINT", interrupt);
+process.off("SIGTERM", terminate);
+process.off("SIGHUP", hangup);
+process.off("exit", terminate);
 
 async function alreadyRunning(): Promise<boolean> {
   try {

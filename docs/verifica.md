@@ -6,6 +6,8 @@
 - `npm run check:imports`: vieta costruttori Promise e import dinamici in
   src/server/scripts; in server/scripts gli import relativi richiedono `.ts`
   oppure `.json` con `with { type: "json" }`. Vale anche per i re-export.
+  `scripts/start.ts` può importare soltanto moduli `node:`, così l'avvio da
+  clone pulito non carica dipendenze prima di `npm ci`.
 - `npm run check:public`: controlla file tracciati, estensioni sensibili,
   percorsi personali e accessi alla home nei test. Nessuna allowlist.
 - `.private-patterns` è facoltativo, locale e ignorato da Git: una parola o frase

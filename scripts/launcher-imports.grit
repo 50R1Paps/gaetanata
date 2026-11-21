@@ -1,0 +1,12 @@
+or {
+  JsImportBareClause(source=$source),
+  JsImportDefaultClause(source=$source),
+  JsImportNamedClause(source=$source),
+  JsImportNamespaceClause(source=$source),
+  JsImportCombinedClause(source=$source),
+  JsExportFromClause(source=$source),
+  JsExportNamedFromClause(source=$source)
+} as $statement where {
+  not $source <: r"[\"']node:.*",
+  register_diagnostic(span=$statement, message="Il launcher può importare soltanto moduli node: prima di npm ci.")
+}
