@@ -15,6 +15,7 @@ import { openDatabase, schemaVersion } from "./db.ts";
 import { documentHandler } from "./documents.ts";
 import { type PatientStore, patientStore } from "./patients.ts";
 import { planHandler } from "./plans.ts";
+import { readBody } from "./request-body.ts";
 import { schemaHandler } from "./schemas.ts";
 
 export const APP_ID = "gaetanata";
@@ -180,11 +181,11 @@ async function readPatient(
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<PatientInput | null> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) chunks.push(chunk as Buffer);
+  const bytes = await readBody(req, res);
+  if (bytes === null) return null;
   let body: unknown;
   try {
-    body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    body = JSON.parse(bytes.toString("utf8"));
   } catch {
     body = undefined;
   }

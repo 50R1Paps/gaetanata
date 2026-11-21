@@ -1,5 +1,9 @@
 import type { PatientInput } from "../src/patient.ts";
-import type { DietSchema } from "../src/schema.ts";
+import {
+  type DietSchema,
+  schemaDays,
+  schemaProteinSources,
+} from "../src/schema.ts";
 import {
   cookedSchemaGrams,
   type SchemaCalculation,
@@ -9,8 +13,6 @@ import {
   pizzaOilTemplateValues,
   proteinQuantityTemplateValues,
   templateBlockValueTags,
-  templateDays,
-  templateProteinSources,
 } from "./template-contract.ts";
 
 export class IncompleteDocumentError extends Error {
@@ -60,6 +62,18 @@ export function documentValues(
     data: today.split("-").reverse().join("/"),
     saluto: patient.sex === "male" ? "Gent.mo Sig." : "Gent.ma Sig.ra",
     nome_paziente: patient.name,
+    colazione_latte: result.breakfast.choice === "latte",
+    colazione_yogurt: result.breakfast.choice === "yogurt",
+    colazione_latte_ml:
+      result.breakfast.choice === "latte"
+        ? result.breakfast.quantity.value
+        : 150,
+    colazione_yogurt_g:
+      result.breakfast.choice === "yogurt"
+        ? result.breakfast.quantity.value
+        : 125,
+    spuntino_frutta_secca_g: result.snacks.nuts.value,
+    spuntino_yogurt_g: result.snacks.yogurt.value,
     pizza_pane_g: result.pizza.bread.value,
     ...pizzaOilTemplateValues(result.pizza.oil.value),
     pranzo_sost_polenta: lunch.cornmeal !== null,
@@ -77,7 +91,7 @@ export function documentValues(
     conversione_riso_crudo_g: raw,
     conversione_riso_cotto_g: cookedSchemaGrams("rice", raw),
   });
-  for (const day of templateDays) {
+  for (const day of schemaDays) {
     const portions = result.proteinWeek.days.find((entry) => entry.day === day);
     for (const [meal, key] of [
       ["pranzo", "lunch"],
@@ -89,7 +103,7 @@ export function documentValues(
           field: `${day}.${key}.grams`,
           message: `Inserisci i grammi di ${portion.source} per ${day} ${meal}.`,
         });
-      for (const source of templateProteinSources) {
+      for (const source of schemaProteinSources) {
         const block = `${day}_${meal}_${source}`;
         values[block] = portion?.source === source;
         for (const tag of templateBlockValueTags[block] ?? []) values[tag] = 0;

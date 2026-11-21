@@ -1,6 +1,6 @@
 # Contratto del template Word con segnaposto
 
-La copia reale resta fuori dal repository (ADR 0003). Questo documento elenca solo il contratto dati, non i testi o il layout dell’istituto. `server/template-contract.ts` esporta gli elenchi condivisi e il validatore. I nomi sono ASCII, case-sensitive. Le unità appartengono al documento: i valori forniti dall’app non devono contenerle.
+La copia reale resta fuori dal repository (ADR 0003). Questo documento elenca solo il contratto dati, non i testi o il layout dell’istituto. `server/template-contract.ts` importa giorni e fonti da `src/schema.ts` ed esporta il validatore. I nomi sono ASCII, case-sensitive. Le unità appartengono al documento: i valori forniti dall’app non devono contenerle.
 
 ## Valori globali
 
@@ -9,6 +9,10 @@ La copia reale resta fuori dal repository (ADR 0003). Questo documento elenca so
 | `{data}` | Data di generazione, GG/MM/AAAA | testo |
 | `{saluto}` | Saluto completo scelto dal sesso: Gent.mo Sig. / Gent.ma Sig.ra | testo |
 | `{nome_paziente}` | Nome completo del paziente | testo |
+| `{colazione_latte_ml}` | Latte: quantità scelta, oppure proposta 150 se è scelto yogurt | ml |
+| `{colazione_yogurt_g}` | Yogurt: quantità scelta, oppure proposta 125 se è scelto latte | g |
+| `{spuntino_frutta_secca_g}` | Frutta secca degli spuntini | g |
+| `{spuntino_yogurt_g}` | Yogurt degli spuntini | g |
 | `{pizza_pane_g}` | Pane del giorno pizza | g |
 | `{pizza_olio_ml}` | Olio del giorno pizza | ml |
 | `{pizza_olio_cucchiai}` | Cucchiai del giorno pizza: ml / 10, senza arrotondamento | numero |
@@ -28,6 +32,18 @@ La copia reale resta fuori dal repository (ADR 0003). Questo documento elenca so
 | `{conversione_pasta_cotta_g}` | Pasta cotta (cruda ×2) | g |
 | `{conversione_riso_crudo_g}` | Riso crudo usato per la conversione | g |
 | `{conversione_riso_cotto_g}` | Riso cotto (crudo ×2,5) | g |
+
+## Colazione e spuntini
+
+Le quattro quantità sono obbligatorie, includono le correzioni manuali e accettano zero.
+Per un template che mostra solo la scelta sono disponibili i booleani opzionali
+`{#colazione_latte}` / `{/colazione_latte}` e
+`{#colazione_yogurt}` / `{/colazione_yogurt}`: esattamente uno è vero.
+La copia locale mantiene invece tutte le alternative e la frase originale:
+si sostituiscono solo le quantità fisse di latte e yogurt con i rispettivi tag,
+senza condizioni né riordino. La bevanda non scelta conserva la quantità proposta.
+Lo yogurt usa g anche a colazione. Negli spuntini si sostituiscono le quantità
+di frutta secca e yogurt; gli altri testi restano invariati.
 
 ## Fonti proteiche: tutti i giorni e pasti
 
@@ -224,13 +240,13 @@ Fonti: `uova`, `pesce`, `carne_bianca`, `carne_rossa`, `legumi_secchi`, `legumi_
 `pizzaOilTemplateValues(ml)` restituisce `{pizza_olio_ml}`, `{pizza_olio_cucchiai}` (ml / 10) e `{pizza_olio_cucchiaini}` (ml / 5), senza arrotondare; ad esempio 10 ml → 1 e 2, 15 ml → 1,5 e 3. Il testo e le posizioni delle misure casalinghe restano nel documento locale.
 
 
-I 140 blocchi proteici coprono tutte le dieci fonti in tutti i quattordici pasti. A questi si aggiunge il blocco opzionale della polenta. Con 22 valori globali e 169 valori nelle sezioni, il contratto contiene 332 nomi distinti (le chiusure ripetono il nome del blocco). L’olio giornaliero fuori dal giorno pizza resta fisso a 30 ml con le misure casalinghe originali: non ha un tag.
+I 140 blocchi proteici coprono tutte le dieci fonti in tutti i quattordici pasti. A questi si aggiunge il blocco opzionale della polenta. L’olio giornaliero fuori dal giorno pizza resta fisso a 30 ml con le misure casalinghe originali: non ha un tag.
 
 ## Verifica automatica
 
 `buildSyntheticTemplate()` produce in memoria un DOCX minimo e anonimo con tutti questi tag. Non legge né incorpora il documento reale. `validateTemplate(bytes)` compila con docxtemplater e verifica tutti i valori globali e tutti i valori richiesti dentro ciascuna sezione, inclusi conteggio uova, alternativa stagionata e polenta. `templateBlockValueTags` esporta questa relazione. Word può spezzare un segnaposto tra più run: la verifica usa il parser di docxtemplater, non una ricerca nel solo XML grezzo. `lodash` è una dipendenza esplicita dell’inspector di docxtemplater.
 
-Eseguire `npx vitest run server/template-contract.test.ts`. Il test locale cerca la copia con suffisso `(segnaposto).docx` nella cartella Downloads dell’utente; `GAETANATA_TEMPLATE_PATH` consente un percorso diverso. In assenza del file salta esclusivamente il test locale. Nessun testo del documento reale viene scritto nei test o nei messaggi di successo.
+La suite usa esclusivamente il template sintetico. La verifica della copia locale è un comando esplicito separato: `npm run verify:template -- "<percorso.docx>"`. Controlla il contratto e genera in memoria con tutte le fonti e i due saluti, senza salvare documenti o stampare testi del template. Non cerca file in Downloads né usa variabili d’ambiente.
 
 ## Controllo umano in Word
 

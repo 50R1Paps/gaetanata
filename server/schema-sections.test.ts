@@ -9,12 +9,6 @@ import {
   schemaProteinSources,
 } from "../src/schema.ts";
 import { startServer } from "./app.ts";
-import { templateDays, templateProteinSources } from "./template-contract.ts";
-
-it("keeps the browser day/source keys aligned with the Word contract", () => {
-  expect(schemaDays).toEqual(templateDays);
-  expect(schemaProteinSources).toEqual(templateProteinSources);
-});
 
 async function stop(server: Server) {
   const { promise, resolve, reject } = Promise.withResolvers<void>();

@@ -83,6 +83,8 @@ it("generates schema values and conditional blocks, refusing incomplete inputs",
     const schema = {
       ...emptySchema(),
       kcal: 1800,
+      breakfast: { choice: "latte", quantity: 210.5 },
+      snacks: { nutsGrams: 35.5, yogurtGrams: 190 },
       overrides: { carbohydrates: { lunch: { pasta: 87.5 } } },
       proteinWeek: {
         redMeatGrams: 100,
@@ -113,6 +115,11 @@ it("generates schema values and conditional blocks, refusing incomplete inputs",
     for (const value of [
       "saluto=Gent.ma Sig.ra",
       "nome_paziente=Prova / Anònima:*?",
+      "colazione_latte_ml=210,5",
+      "colazione_yogurt_g=125",
+      "scelta=latte",
+      "spuntino_frutta_secca_g=35,5",
+      "spuntino_yogurt_g=190",
       "pranzo_pasta_g=87,5",
       "conversione_pasta_cotta_g=175",
       "conversione_riso_cotto_g=218,75",
@@ -141,6 +148,8 @@ it("generates schema values and conditional blocks, refusing incomplete inputs",
     await json("PUT", `/api/patients/${patient.id}/schema`, {
       ...emptySchema(),
       kcal: 1800,
+      breakfast: { choice: "yogurt", quantity: 175.5 },
+      snacks: { nutsGrams: 0, yogurtGrams: 220.5 },
       overrides: {
         carbohydrates: { lunch: { pasta: 95, bread: 1234.5 } },
       },
@@ -160,6 +169,11 @@ it("generates schema values and conditional blocks, refusing incomplete inputs",
       .file("word/document.xml")
       ?.asText();
     for (const value of [
+      "colazione_latte_ml=150",
+      "colazione_yogurt_g=175,5",
+      "scelta=yogurt",
+      "spuntino_frutta_secca_g=0",
+      "spuntino_yogurt_g=220,5",
       "pranzo_pasta_g=95",
       "conversione_riso_cotto_g=237,5",
       "pranzo_sost_pane_g=1234,5",
@@ -173,6 +187,7 @@ it("generates schema values and conditional blocks, refusing incomplete inputs",
     ])
       expect(italianText).toContain(value);
     expect(italianText).not.toMatch(/=\d+\.\d+/);
+    expect(italianText).not.toContain("scelta=latte");
     await json("PUT", `/api/patients/${patient.id}/schema`, {
       ...emptySchema(),
       kcal: 1800,

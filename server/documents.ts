@@ -7,6 +7,7 @@ import { type DietSchema, emptySchema } from "../src/schema.ts";
 import { IncompleteDocumentError } from "./document-values.ts";
 import { generateDocument } from "./generate-document.ts";
 import { patientStore } from "./patients.ts";
+import { readBody, templateBodyLimit } from "./request-body.ts";
 import { validateTemplate } from "./template-contract.ts";
 
 function send(res: ServerResponse, status: number, body: unknown) {
@@ -117,9 +118,8 @@ export function documentHandler(databaseFile: string, db: DatabaseSync) {
     }
     if (req.method !== "PUT")
       return send(res, 405, { error: "Metodo non consentito" });
-    const chunks: Buffer[] = [];
-    for await (const chunk of req) chunks.push(chunk as Buffer);
-    const bytes = Buffer.concat(chunks);
+    const bytes = await readBody(req, res, templateBodyLimit);
+    if (bytes === null) return;
     try {
       validateTemplate(bytes);
     } catch (error) {

@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { DatabaseSync } from "node:sqlite";
 import { emptySchema, isDietSchema } from "../src/schema.ts";
+import { readBody } from "./request-body.ts";
 
 /** One current input-only Schema per patient, matching the plan HTTP contract. */
 export function schemaHandler(db: DatabaseSync) {
@@ -26,11 +27,11 @@ export function schemaHandler(db: DatabaseSync) {
     }
     if (req.method !== "PUT")
       return send(405, { error: "Metodo non consentito" });
-    const chunks: Buffer[] = [];
-    for await (const chunk of req) chunks.push(chunk as Buffer);
+    const bytes = await readBody(req, res);
+    if (bytes === null) return;
     let body: unknown;
     try {
-      body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+      body = JSON.parse(bytes.toString("utf8"));
     } catch {
       body = null;
     }

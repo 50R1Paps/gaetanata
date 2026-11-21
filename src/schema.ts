@@ -49,7 +49,6 @@ export const schemaDays = [
   "domenica",
 ] as const;
 export type SchemaDay = (typeof schemaDays)[number];
-// Kept browser-only: the server contract also imports Word-generation code.
 export const schemaProteinSources = [
   "uova",
   "pesce",

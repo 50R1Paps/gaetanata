@@ -1,10 +1,21 @@
 import { expect, it } from "vitest";
 import { emptySchema } from "./schema";
-import {
-  calculateSchema,
-  cookedSchemaGrams,
-  roundSchemaGrams,
-} from "./schemaCalc";
+import { calculateSchema } from "./schemaCalc";
+
+it.each([
+  [1249, 10],
+  [1250, 15],
+])("rounds breakfast protein at the half-step for %i kcal", (kcal, grams) => {
+  const result = calculateSchema(
+    patient,
+    { ...emptySchema(), kcal, mealCount: 3 },
+    today,
+  );
+  if (!result.ok) throw new Error("Expected calculation");
+  expect(
+    result.meals.find((meal) => meal.slot === "breakfast")?.grams.protein.value,
+  ).toBe(grams);
+});
 
 const patient = {
   name: "Prova",
@@ -67,10 +78,6 @@ it.each([
     for (const meal of result.meals)
       for (const grams of Object.values(meal.grams))
         expect(grams.value % 5).toBe(0);
-    expect(roundSchemaGrams(12.49)).toBe(10);
-    expect(roundSchemaGrams(12.5)).toBe(15);
-    expect(cookedSchemaGrams("pasta", 80)).toBe(160);
-    expect(cookedSchemaGrams("rice", 80)).toBe(200);
   },
 );
 

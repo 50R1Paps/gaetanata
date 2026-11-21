@@ -322,3 +322,18 @@ Template e documenti non vengono inviati a servizi esterni né committati.
 Template e storico restano dopo il riavvio ed entrano nel backup della cartella `data/`.
 La firma e tutti i testi descrittivi restano nel template locale: la generazione
 non aggiunge nomi professionali. I test usano soltanto il template sintetico.
+
+### Verifica esplicita del template locale
+
+`npm run verify:template -- "<percorso.docx>"` verifica il contratto e la
+generazione con tutte le fonti proteiche e i due saluti. Non modifica il file
+e non stampa i suoi testi; l'impaginazione va controllata in Word.
+La suite automatica non cerca né legge mai template reali, anche se presenti.
+Colazione e spuntini includono le quantità salvate; nella copia locale con
+tutte le alternative, la bevanda non scelta conserva la proposta (latte 150 ml,
+yogurt 125 g). Le condizioni di scelta sono disponibili per altri layout.
+
+Le richieste JSON (schede, piani, schemi) sono limitate a 1 MiB e il template
+a 10 MiB: oltre il limite il server risponde 413 senza trattenere il resto
+del corpo. Un DOCX con più di 40 MiB complessivi decompressi è rifiutato con
+422 prima della compilazione; il template precedente resta intatto.

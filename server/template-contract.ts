@@ -2,31 +2,17 @@ import Docxtemplater from "docxtemplater";
 import InspectModule from "docxtemplater/js/inspect-module.js";
 import PizZip from "pizzip";
 
-export const templateDays = [
-  "lunedi",
-  "martedi",
-  "mercoledi",
-  "giovedi",
-  "venerdi",
-  "sabato",
-  "domenica",
-] as const;
-export const templateProteinSources = [
-  "uova",
-  "pesce",
-  "carne_bianca",
-  "carne_rossa",
-  "legumi_secchi",
-  "legumi_scatola",
-  "formaggio_fresco",
-  "formaggio_stagionato",
-  "affettati",
-  "pesce_scatola",
-] as const;
+import { schemaDays, schemaProteinSources } from "../src/schema.ts";
+import { boundedTemplateZip } from "./template-zip.ts";
+
 export const templateValueTags = [
   "data",
   "saluto",
   "nome_paziente",
+  "colazione_latte_ml",
+  "colazione_yogurt_g",
+  "spuntino_frutta_secca_g",
+  "spuntino_yogurt_g",
   "pizza_pane_g",
   "pizza_olio_ml",
   "pizza_olio_cucchiai",
@@ -47,9 +33,9 @@ export const templateValueTags = [
   "conversione_riso_crudo_g",
   "conversione_riso_cotto_g",
 ] as const;
-export const templateBlocks = templateDays.flatMap((day) =>
+export const templateBlocks = schemaDays.flatMap((day) =>
   ["pranzo", "cena"].flatMap((meal) =>
-    templateProteinSources.map((source) => `${day}_${meal}_${source}`),
+    schemaProteinSources.map((source) => `${day}_${meal}_${source}`),
   ),
 );
 export const templateBlockValueTags: Record<string, string[]> = {
@@ -92,7 +78,7 @@ export function pizzaOilTemplateValues(ml: number) {
 /** Compile first: Word may split a tag across multiple text runs. */
 export function validateTemplate(bytes: Buffer): void {
   const inspect = new InspectModule();
-  new Docxtemplater(new PizZip(bytes), {
+  new Docxtemplater(boundedTemplateZip(bytes), {
     modules: [inspect],
     paragraphLoop: true,
   });
@@ -125,6 +111,12 @@ export function buildSyntheticTemplate(): Buffer {
   );
   const paragraphs = [
     ...templateValueTags.map((tag) => `${tag}={${tag}}`),
+    "{#colazione_latte}",
+    "scelta=latte",
+    "{/colazione_latte}",
+    "{#colazione_yogurt}",
+    "scelta=yogurt",
+    "{/colazione_yogurt}",
     ...Object.entries(templateBlockValueTags).flatMap(([block, values]) => {
       const content = values.map((tag) => `${tag}={${tag}}`).join(" ");
       return block === "pranzo_sost_polenta"

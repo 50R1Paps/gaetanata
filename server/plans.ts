@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { DatabaseSync } from "node:sqlite";
 import type { WeekPlan } from "../src/plan.ts";
+import { readBody } from "./request-body.ts";
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -75,11 +76,11 @@ export function planHandler(db: DatabaseSync) {
     }
     if (req.method !== "PUT")
       return send(405, { error: "Metodo non consentito" });
-    const chunks: Buffer[] = [];
-    for await (const chunk of req) chunks.push(chunk as Buffer);
+    const bytes = await readBody(req, res);
+    if (bytes === null) return;
     let body: unknown;
     try {
-      body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+      body = JSON.parse(bytes.toString("utf8"));
     } catch {
       body = null;
     }
