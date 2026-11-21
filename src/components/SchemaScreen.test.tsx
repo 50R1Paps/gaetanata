@@ -1,37 +1,17 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from "@testing-library/react";
-import userEvent, {
-  PointerEventsCheckLevel,
-  type UserEvent,
-} from "@testing-library/user-event";
+import type { UserEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { ageAt, basalMetabolism } from "../calc";
 import { formatNumber } from "../format";
-import { localToday, type Patient } from "../patient";
+import { localToday } from "../patient";
 import { emptyWeekPlan } from "../plan";
 import { type DietSchema, emptySchema } from "../schema";
+import { openSchema, patients, setup, stubDialogs } from "./schemaTestKit";
 
 // The real API is tested over HTTP in server/schemas.test.ts; here an
-// in-memory stand-in answers the same routes. Fake, anonymous people only.
-const patients: Patient[] = [
-  {
-    id: 1,
-    name: "Prova Uno",
-    birthDate: "1990-05-10",
-    sex: "female",
-    weightKg: 60,
-    heightCm: 165,
-  },
-  {
-    id: 2,
-    name: "Prova Due",
-    birthDate: "1985-01-20",
-    sex: "male",
-    weightKg: null,
-    heightCm: null,
-  },
-];
+// in-memory stand-in answers the same routes.
 let schemas: Map<number, DietSchema>;
 let offline: boolean;
 
@@ -50,40 +30,13 @@ beforeEach(() => {
       schemas.set(Number(id), JSON.parse(String(init.body)));
     return Response.json(schemas.get(Number(id)) ?? emptySchema());
   });
-  // jsdom does not implement native dialog display.
-  HTMLDialogElement.prototype.showModal = function () {
-    this.setAttribute("open", "");
-  };
-  HTMLDialogElement.prototype.close = function () {
-    this.removeAttribute("open");
-  };
+  stubDialogs();
 });
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
-
-/** Switches to the Schema view first: without a patient it is nearly empty,
- * unlike the plan view with its food list, so the dialog queries stay fast. */
-async function openSchema(user: UserEvent, name: string) {
-  await user.click(screen.getByRole("radio", { name: "Schema" }));
-  await user.click(screen.getByRole("button", { name: /Paziente:/ }));
-  const dialog = within(screen.getByRole("dialog"));
-  await user.click(
-    await dialog.findByRole("button", { name: new RegExp(`^${name}`) }),
-  );
-  await screen.findByText("Schema caricato.");
-  await user.click(dialog.getByRole("button", { name: "Chiudi" }));
-}
-
-// Every event re-renders the whole Schema: no per-keystroke timers, no
-// computed-style walk before each pointer action.
-const setup = () =>
-  userEvent.setup({
-    delay: null,
-    pointerEventsCheck: PointerEventsCheckLevel.Never,
-  });
 
 /** Replaces the field's text in one input event, as pasting would: the
  * fields keep the typed text, so a keystroke at a time adds nothing. */
@@ -138,8 +91,15 @@ it("starts from metabolism and fabbisogno, then splits the diet kcal", async () 
   const meals = screen.getByRole("table", { name: "Ripartizione per pasto" });
   expect(within(meals).getAllByRole("row")).toHaveLength(7); // head, 5, total
   const lunch = within(meals).getByRole("row", { name: /^Pranzo/ });
-  expect(within(lunch).getByText("40 %")).toBeTruthy();
-  expect(within(lunch).getByText("720")).toBeTruthy();
+  // Each macro shows the kcal of its grams: 80 g × 4, 25 g × 9, 35 g × 4.
+  expect(
+    within(lunch)
+      .getAllByRole("cell")
+      .map((cell) => cell.textContent),
+  ).toEqual(["40 %", "720", "320 kcal", "225 kcal", "140 kcal"]);
+  const total = within(meals).getByRole("row", { name: /^Totale/ });
+  for (const kcal of ["900 kcal", "585 kcal", "360 kcal"])
+    expect(within(total).getByText(kcal)).toBeTruthy();
   expect(value("Carboidrati Pranzo (g)")).toBe("80");
   expect(value("Lipidi Pranzo (g)")).toBe("25");
   expect(value("Proteine Pranzo (g)")).toBe("35");
@@ -199,6 +159,16 @@ it("keeps manual corrections visible and lets them be undone", async () => {
     document.getElementById(lunchCarbs.getAttribute("aria-describedby") ?? "")
       ?.textContent,
   ).toBe("Corretto a mano, calcolato 80 g");
+  // The kcal follow the corrected grams, in the meal and in the total.
+  const meals = within(
+    screen.getByRole("table", { name: "Ripartizione per pasto" }),
+  );
+  expect(
+    within(meals.getByRole("row", { name: /^Pranzo/ })).getByText("240 kcal"),
+  ).toBeTruthy();
+  expect(
+    within(meals.getByRole("row", { name: /^Totale/ })).getByText("820 kcal"),
+  ).toBeTruthy();
   expect(value("Pasta a pranzo (g)")).toBe("80");
   expect(value("Pane a pranzo (g)")).toBe("110");
   expect(value("Patate a pranzo (g)")).toBe("355");
