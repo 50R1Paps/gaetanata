@@ -13,3 +13,11 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 ### Domain docs
 
 Single-context: one `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### Documentation
+
+For feature documentation, start from the [README index](README.md#documentazione).
+
+### Review
+
+The REVIEW agent must read [CODING_STANDARDS.md](CODING_STANDARDS.md) before reviewing changes.
