@@ -203,7 +203,10 @@ it("keeps manual corrections visible and lets them be undone", async () => {
 it("saves, warns about unsaved changes and reopens the same schema", async () => {
   // Sections edited elsewhere (protein week, pizza) must survive a save here.
   const sections = {
-    proteinWeek: { redMeatGrams: 100, days: { lunedi: { lunch: { source: "pesce" } } } },
+    proteinWeek: {
+      redMeatGrams: 100,
+      days: { lunedi: { lunch: { source: "pesce" } } },
+    },
     pizza: { breadGrams: 60 },
   } satisfies Partial<DietSchema>;
   schemas.set(1, { ...emptySchema(), ...sections });

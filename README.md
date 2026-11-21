@@ -175,7 +175,7 @@ uno schema corrente, separato dal piano libero; la terza migrazione lo aggiunge
 senza alterare schede e piani. Resta dopo il riavvio e viene eliminato insieme
 alla scheda. I risultati calcolati non vengono salvati. La versione 1 accetta
 le sezioni opzionali seguenti; anche i salvataggi precedenti restano validi.
-Questa parte non aggiunge una schermata né genera documenti.
+Il modulo non genera documenti; la schermata è descritta sotto.
 
 - `proteinWeek: { redMeatGrams?, days? }`: `days` usa `lunedi`…`domenica`,
   ciascuno con `lunch`/`dinner` opzionali: `{ source, grams?, exception? }`.
@@ -202,6 +202,26 @@ Questa parte non aggiunge una schermata né genera documenti.
   e yogurt 125 g. Quantità manuali, modificabili anche a zero; non cambiano
   automaticamente con kcal o numero di pasti. Eliminare le quantità ripristina
   i valori proposti; latte e olio restano in ml, senza conversioni in grammi.
+
+### Schermata Schema
+
+Nell'intestazione il selettore «Piano settimanale | Schema» cambia vista senza
+perdere le modifiche. Lo Schema del paziente selezionato mostra metabolismo
+basale e fabbisogno appena i dati della scheda sono completi, anche prima delle
+kcal dieta; poi LAF, kcal dieta, numero di pasti (3–6) e ripartizione dei macro,
+che deve sommare a 100 %. Con dati mancanti elenca cosa completare e non mostra
+numeri. Le tabelle riportano kcal e grammi di macro per pasto, pasta a pranzo e
+pane a cena con tutte le sostituzioni (la polenta resta «Non disponibile» con
+avviso) e le proteine in g/kg sul peso reale e sui tre pesi ideali, evidenziando
+quelle fuori da 1,2–1,4.
+
+Ogni grammatura si corregge scrivendo nel campo: la correzione è evidenziata in
+giallo e il pulsante ↺ accanto mostra il valore calcolato e lo ripristina.
+Svuotare il campo non annulla la correzione. «Salva schema» salva input e
+correzioni con lo stesso stato, gli stessi errori e lo stesso avviso di modifiche
+non salvate del piano: cambiando paziente si può salvare o scartare il piano, lo
+schema o entrambi, e se uno dei due non si carica resta il paziente precedente.
+Le sezioni opzionali non ancora visibili nella schermata vengono conservate.
 
 ## Media settimanale
 

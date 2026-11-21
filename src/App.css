@@ -161,6 +161,50 @@ html {
   cursor: default;
 }
 
+.schema-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.schema-table :where(th, td) {
+  padding: 3px 6px;
+  border-bottom: 1px solid #eef0f3;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.schema-table .num {
+  text-align: right;
+}
+
+.schema-table :where(thead th) {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.schema-table :where(tbody th) {
+  font-weight: 400;
+}
+
+.schema-table :where(tfoot th, tfoot td) {
+  font-weight: 600;
+  border-bottom: 0;
+}
+
+/* Pinned row names while narrow tables scroll sideways. */
+.schema-table :where(th:first-child) {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+}
+
+.schema-table :where(tr.warning) > * {
+  color: var(--danger);
+  font-weight: 600;
+}
+
 /* Summary */
 
 .summary {
@@ -887,51 +931,6 @@ html {
 
 .schema-highlight {
   font-size: 1.05rem;
-}
-
-.schema-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.schema-table th,
-.schema-table td {
-  padding: 3px 6px;
-  border-bottom: 1px solid #eef0f3;
-  text-align: left;
-  white-space: nowrap;
-}
-
-.schema-table .num {
-  text-align: right;
-}
-
-.schema-table thead th {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--muted);
-}
-
-.schema-table tbody th {
-  font-weight: 400;
-}
-
-.schema-table tfoot :is(th, td) {
-  font-weight: 600;
-  border-bottom: 0;
-}
-
-/* Pinned row names while narrow tables scroll sideways. */
-.schema-table th:first-child {
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  background: var(--surface);
-}
-
-.schema-table tr.warning :is(th, td) {
-  color: var(--danger);
-  font-weight: 600;
 }
 
 .quantity {

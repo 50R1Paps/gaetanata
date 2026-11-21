@@ -346,7 +346,7 @@ export function PatientManager({
               {selected.birthDate
                 ? `(data di nascita ${formatIsoDate(selected.birthDate)})`
                 : "(data di nascita non indicata)"}{" "}
-              e il suo piano settimanale?
+              con il suo piano settimanale e lo schema?
             </p>
             <button
               type="button"
