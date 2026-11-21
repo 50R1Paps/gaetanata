@@ -259,6 +259,8 @@ aggiunti separatamente. Salvare prima lo Schema del paziente.
   incompleti o quantità mancanti di una fonte scelta producono 422; gli input
   incompleti hanno `issues: [{ field, message }]`. Un pasto senza fonte non
   stampa blocchi proteici. La polenta non disponibile resta nascosta.
+  Tutte le quantità nel Word usano la virgola decimale italiana (237,5),
+  senza separatori delle migliaia né decimali aggiunti agli interi.
 
 `src/documentsApi.ts` offre `loadTemplateStatus`, `uploadTemplate` e
 `generatePatientDocument` (Blob e nome file), con `DocumentApiError.issues`.

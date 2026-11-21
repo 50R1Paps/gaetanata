@@ -23,6 +23,11 @@ export class IncompleteDocumentError extends Error {
   }
 }
 
+/** Italian decimals without grouping, rounding or trailing zeroes. */
+function formatTemplateNumber(value: number): string {
+  return String(value).replace(".", ",");
+}
+
 /** Pure mapping: units and descriptive text belong exclusively to the template. */
 export function documentValues(
   patient: PatientInput,
@@ -97,5 +102,8 @@ export function documentValues(
     }
   }
   if (issues.length) throw new IncompleteDocumentError(issues);
+  for (const [tag, value] of Object.entries(values)) {
+    if (typeof value === "number") values[tag] = formatTemplateNumber(value);
+  }
   return values;
 }

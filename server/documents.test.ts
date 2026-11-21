@@ -113,15 +113,15 @@ it("generates schema values and conditional blocks, refusing incomplete inputs",
     for (const value of [
       "saluto=Gent.ma Sig.ra",
       "nome_paziente=Prova / Anònima:*?",
-      "pranzo_pasta_g=87.5",
+      "pranzo_pasta_g=87,5",
       "conversione_pasta_cotta_g=175",
-      "conversione_riso_cotto_g=218.75",
+      "conversione_riso_cotto_g=218,75",
       "lunedi_pranzo_uova_g=180",
       "lunedi_pranzo_uova_n=3",
       "lunedi_cena_formaggio_fresco_alt_stagionato_g=50",
       "martedi_pranzo_pesce_g=150",
       "pizza_pane_g=65",
-      "pizza_olio_cucchiai=1.5",
+      "pizza_olio_cucchiai=1,5",
       "pizza_olio_cucchiaini=3",
     ])
       expect(text).toContain(value);
@@ -138,6 +138,41 @@ it("generates schema values and conditional blocks, refusing incomplete inputs",
       "cena_pane_g=145",
     ])
       expect(text).toContain(value);
+    await json("PUT", `/api/patients/${patient.id}/schema`, {
+      ...emptySchema(),
+      kcal: 1800,
+      overrides: {
+        carbohydrates: { lunch: { pasta: 95, bread: 1234.5 } },
+      },
+      proteinWeek: {
+        days: {
+          lunedi: {
+            lunch: { source: "uova", grams: 150 },
+            dinner: { source: "formaggio_fresco", grams: 105.5 },
+          },
+        },
+      },
+      pizza: { breadGrams: 65.5, oilMl: 12.5 },
+    });
+    const italian = await fetch(base + path, { method: "POST" });
+    expect(italian.status).toBe(200);
+    const italianText = new PizZip(Buffer.from(await italian.arrayBuffer()))
+      .file("word/document.xml")
+      ?.asText();
+    for (const value of [
+      "pranzo_pasta_g=95",
+      "conversione_riso_cotto_g=237,5",
+      "pranzo_sost_pane_g=1234,5",
+      "lunedi_pranzo_uova_n=2,5",
+      "lunedi_cena_formaggio_fresco_g=105,5",
+      "lunedi_cena_formaggio_fresco_alt_stagionato_g=52,75",
+      "pizza_pane_g=65,5",
+      "pizza_olio_ml=12,5",
+      "pizza_olio_cucchiai=1,25",
+      "pizza_olio_cucchiaini=2,5",
+    ])
+      expect(italianText).toContain(value);
+    expect(italianText).not.toMatch(/=\d+\.\d+/);
     await json("PUT", `/api/patients/${patient.id}/schema`, {
       ...emptySchema(),
       kcal: 1800,
