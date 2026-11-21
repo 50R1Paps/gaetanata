@@ -38,6 +38,8 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
   const [mealIndex, setMealIndex] = useState(0);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [patientBusy, setPatientBusy] = useState(false);
+  // Same comparison as the header's: the Word is generated from the saved one.
+  const [savedSchema, setSavedSchema] = useState(schema);
   const documents: PatientDocument[] = [
     {
       noun: "piano",
@@ -61,6 +63,7 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
       invalid: isDietSchema(schema)
         ? null
         : "controlla le impostazioni segnalate nello schema.",
+      setBaseline: setSavedSchema,
     } satisfies PatientDocument<DietSchema>,
   ];
 
@@ -142,6 +145,7 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
             patient={patient}
             schema={schema}
             setSchema={setSchema}
+            schemaDirty={schema !== savedSchema}
             today={localToday()}
           />
         ) : (

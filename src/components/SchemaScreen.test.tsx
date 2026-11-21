@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from "@testing-library/react";
-import userEvent, { type UserEvent } from "@testing-library/user-event";
+import userEvent, {
+  PointerEventsCheckLevel,
+  type UserEvent,
+} from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { ageAt, basalMetabolism } from "../calc";
@@ -38,8 +41,11 @@ beforeEach(() => {
   vi.stubGlobal("fetch", async (path: string, init: RequestInit = {}) => {
     if (offline) throw new TypeError("fetch failed");
     if (path === "/api/patients") return Response.json({ patients });
+    // The Word panel is tested in SchemaWordPanel.test.tsx.
+    if (path === "/api/template") return Response.json({ available: false });
     const [, , , id, document] = path.split("/");
     if (document === "plan") return Response.json(emptyWeekPlan());
+    if (document === "documents") return Response.json({ documents: [] });
     if (init.method === "PUT")
       schemas.set(Number(id), JSON.parse(String(init.body)));
     return Response.json(schemas.get(Number(id)) ?? emptySchema());
@@ -58,27 +64,40 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** Switches to the Schema view first: without a patient it is nearly empty,
+ * unlike the plan view with its food list, so the dialog queries stay fast. */
 async function openSchema(user: UserEvent, name: string) {
+  await user.click(screen.getByRole("radio", { name: "Schema" }));
   await user.click(screen.getByRole("button", { name: /Paziente:/ }));
+  const dialog = within(screen.getByRole("dialog"));
   await user.click(
-    await screen.findByRole("button", { name: new RegExp(`^${name}`) }),
+    await dialog.findByRole("button", { name: new RegExp(`^${name}`) }),
   );
   await screen.findByText("Schema caricato.");
-  await user.click(screen.getByRole("button", { name: "Chiudi" }));
-  await user.click(screen.getByRole("radio", { name: "Schema" }));
+  await user.click(dialog.getByRole("button", { name: "Chiudi" }));
 }
 
+// Every event re-renders the whole Schema: no per-keystroke timers, no
+// computed-style walk before each pointer action.
+const setup = () =>
+  userEvent.setup({
+    delay: null,
+    pointerEventsCheck: PointerEventsCheckLevel.Never,
+  });
+
+/** Replaces the field's text in one input event, as pasting would: the
+ * fields keep the typed text, so a keystroke at a time adds nothing. */
 async function type(user: UserEvent, label: string, text: string) {
   const input = screen.getByLabelText(label);
   await user.clear(input);
-  await user.type(input, text);
+  await user.paste(text);
 }
 
 const value = (label: string) =>
   (screen.getByLabelText(label) as HTMLInputElement).value;
 
 it("says what to complete in the record instead of showing numbers", async () => {
-  const user = userEvent.setup();
+  const user = setup();
   render(<App />);
   await openSchema(user, "Prova Due");
 
@@ -90,7 +109,7 @@ it("says what to complete in the record instead of showing numbers", async () =>
 });
 
 it("starts from metabolism and fabbisogno, then splits the diet kcal", async () => {
-  const user = userEvent.setup();
+  const user = setup();
   render(<App />);
   await openSchema(user, "Prova Uno");
 
@@ -142,6 +161,13 @@ it("starts from metabolism and fabbisogno, then splits the diet kcal", async () 
   expect(within(real).getByText("Sopra 1,4")).toBeTruthy();
   const bmi25 = within(protein).getByRole("row", { name: /BMI 25/ });
   expect(within(bmi25).getByText("Nell'intervallo")).toBeTruthy();
+});
+
+it("splits by the number of meals and requires macros summing to 100 %", async () => {
+  schemas.set(1, { ...emptySchema(), kcal: 1800 });
+  const user = setup();
+  render(<App />);
+  await openSchema(user, "Prova Uno");
 
   await user.selectOptions(screen.getByLabelText("Numero di pasti"), "3");
   expect(
@@ -160,7 +186,7 @@ it("starts from metabolism and fabbisogno, then splits the diet kcal", async () 
 });
 
 it("keeps manual corrections visible and lets them be undone", async () => {
-  const user = userEvent.setup();
+  const user = setup();
   render(<App />);
   await openSchema(user, "Prova Uno");
   await type(user, "Kcal dieta", "1800");
@@ -200,7 +226,7 @@ it("keeps manual corrections visible and lets them be undone", async () => {
   expect(value("Pane a cena (g)")).toBe("150");
 });
 
-it("saves, warns about unsaved changes and reopens the same schema", async () => {
+it("saves and warns about unsaved changes", async () => {
   // Sections loaded with the schema (protein week, pizza) survive a save.
   const sections = {
     proteinWeek: {
@@ -210,10 +236,10 @@ it("saves, warns about unsaved changes and reopens the same schema", async () =>
     pizza: { breadGrams: 60 },
   } satisfies Partial<DietSchema>;
   schemas.set(1, { ...emptySchema(), ...sections });
-  const user = userEvent.setup();
+  const user = setup();
   const status = () =>
     screen.getByRole("status", { name: "Schema" }).textContent;
-  const mounted = render(<App />);
+  render(<App />);
   await openSchema(user, "Prova Uno");
   await type(user, "Kcal dieta", "1800");
   await type(user, "Proteine Cena (g)", "40");
@@ -251,24 +277,33 @@ it("saves, warns about unsaved changes and reopens the same schema", async () =>
   ).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "Scarta e cambia" }));
   await screen.findByRole("button", { name: "Paziente: Prova Due" });
+});
 
-  mounted.unmount();
+it("reopens a saved schema with its corrections", async () => {
+  schemas.set(1, {
+    ...emptySchema(),
+    kcal: 1800,
+    overrides: { meals: { dinner: { protein: 40 } } },
+  });
+  const user = setup();
   render(<App />);
   await openSchema(user, "Prova Uno");
   expect(value("Kcal dieta")).toBe("1800");
   expect(value("Carboidrati (%)")).toBe("50");
   expect(value("Proteine Cena (g)")).toBe("40");
-  expect(status()).toBe("Schema caricato.");
+  expect(screen.getByRole("status", { name: "Schema" }).textContent).toBe(
+    "Schema caricato.",
+  );
 });
 
 const source = (meal: string) => screen.getByLabelText(`Fonte ${meal}`);
 const grams = (meal: string) => value(`Quantità ${meal}`);
 
 it("chooses lunch and dinner protein sources with their starting quantities", async () => {
-  const user = userEvent.setup();
+  schemas.set(1, { ...emptySchema(), kcal: 1800 });
+  const user = setup();
   render(<App />);
   await openSchema(user, "Prova Uno");
-  await type(user, "Kcal dieta", "1800");
 
   const week = within(screen.getByRole("region", { name: "Fonti proteiche" }));
   for (const day of ["Lunedì", "Domenica"])
@@ -286,6 +321,21 @@ it("chooses lunch and dinner protein sources with their starting quantities", as
   await user.click(screen.getByLabelText("Giovedì cena: tonno 78 g"));
   expect(grams("Giovedì cena (g)")).toBe("78");
   expect(screen.queryByLabelText(/Lunedì cena: /)).toBeNull();
+
+  // A new source starts again from its own proposal.
+  await type(user, "Quantità Lunedì pranzo (g)", "200");
+  await user.selectOptions(source("Lunedì pranzo"), "Affettati");
+  expect(grams("Lunedì pranzo (g)")).toBe("80");
+  await user.selectOptions(source("Lunedì pranzo"), "Nessuna");
+  expect(screen.queryByLabelText("Quantità Lunedì pranzo (g)")).toBeNull();
+});
+
+it("computes white meat and fish from the red-meat base", async () => {
+  schemas.set(1, { ...emptySchema(), kcal: 1800 });
+  const user = setup();
+  render(<App />);
+  await openSchema(user, "Prova Uno");
+  const week = within(screen.getByRole("region", { name: "Fonti proteiche" }));
 
   // White meat and fish follow the red-meat base written by the nutritionist.
   await user.selectOptions(source("Martedì cena"), "Pesce");
@@ -306,20 +356,13 @@ it("chooses lunch and dinner protein sources with their starting quantities", as
     }),
   );
   expect(grams("Martedì cena (g)")).toBe("180");
-
-  // A new source starts again from its own proposal.
-  await type(user, "Quantità Lunedì pranzo (g)", "200");
-  await user.selectOptions(source("Lunedì pranzo"), "Affettati");
-  expect(grams("Lunedì pranzo (g)")).toBe("80");
-  await user.selectOptions(source("Lunedì pranzo"), "Nessuna");
-  expect(screen.queryByLabelText("Quantità Lunedì pranzo (g)")).toBeNull();
 });
 
 it("counts each source in the week against the recommended frequencies", async () => {
-  const user = userEvent.setup();
+  schemas.set(1, { ...emptySchema(), kcal: 1800 });
+  const user = setup();
   render(<App />);
   await openSchema(user, "Prova Uno");
-  await type(user, "Kcal dieta", "1800");
 
   await user.selectOptions(source("Lunedì pranzo"), "Formaggio fresco");
   await user.selectOptions(source("Lunedì cena"), "Formaggio stagionato");
@@ -341,11 +384,27 @@ it("counts each source in the week against the recommended frequencies", async (
   expect(within(counts).getAllByRole("row")).toHaveLength(9); // head + 8
 });
 
+const savedIntake = {
+  pizza: { breadGrams: 60 },
+  breakfast: { choice: "yogurt" },
+  snacks: { nutsGrams: 15, yogurtGrams: 0 },
+} satisfies Partial<DietSchema>;
+const savedWeek = {
+  proteinWeek: {
+    redMeatGrams: 100,
+    days: {
+      venerdi: { dinner: { source: "carne_rossa" } },
+      sabato: { lunch: { source: "uova", exception: true } },
+      domenica: { lunch: { source: "legumi_secchi", grams: 60 } },
+    },
+  },
+} satisfies Partial<DietSchema>;
+
 it("edits breakfast, snacks and the extra pizza day and saves them", async () => {
-  const user = userEvent.setup();
-  const mounted = render(<App />);
+  schemas.set(1, { ...emptySchema(), kcal: 1800 });
+  const user = setup();
+  render(<App />);
   await openSchema(user, "Prova Uno");
-  await type(user, "Kcal dieta", "1800");
 
   const pizza = within(
     screen.getByRole("region", { name: "Giorno pizza (in più)" }),
@@ -375,6 +434,22 @@ it("edits breakfast, snacks and the extra pizza day and saves them", async () =>
       name: "Ripristina Olio giorno pizza (ml): 10 calcolati",
     }),
   );
+
+  await user.click(screen.getByRole("button", { name: "Salva schema" }));
+  await screen.findByText("Schema salvato.");
+  expect(schemas.get(1)).toEqual({
+    ...emptySchema(),
+    kcal: 1800,
+    ...savedIntake,
+  });
+});
+
+it("saves the protein choices of the week", async () => {
+  schemas.set(1, { ...emptySchema(), kcal: 1800 });
+  const user = setup();
+  render(<App />);
+  await openSchema(user, "Prova Uno");
+
   await user.selectOptions(source("Venerdì cena"), "Carne rossa");
   await type(user, "Carne rossa, quantità base (g)", "100");
   await user.selectOptions(source("Sabato pranzo"), "Uova");
@@ -389,20 +464,18 @@ it("edits breakfast, snacks and the extra pizza day and saves them", async () =>
   expect(schemas.get(1)).toEqual({
     ...emptySchema(),
     kcal: 1800,
-    proteinWeek: {
-      redMeatGrams: 100,
-      days: {
-        venerdi: { dinner: { source: "carne_rossa" } },
-        sabato: { lunch: { source: "uova", exception: true } },
-        domenica: { lunch: { source: "legumi_secchi", grams: 60 } },
-      },
-    },
-    pizza: { breadGrams: 60 },
-    breakfast: { choice: "yogurt" },
-    snacks: { nutsGrams: 15, yogurtGrams: 0 },
+    ...savedWeek,
   });
+});
 
-  mounted.unmount();
+it("reopens the saved breakfast, snacks, pizza day and protein week", async () => {
+  schemas.set(1, {
+    ...emptySchema(),
+    kcal: 1800,
+    ...savedIntake,
+    ...savedWeek,
+  });
+  const user = setup();
   render(<App />);
   await openSchema(user, "Prova Uno");
   expect(value("Pane giorno pizza (g)")).toBe("60");

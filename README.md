@@ -238,6 +238,16 @@ stesse regole di correzione evidenziata e ↺; sotto i 600 px la griglia diventa
 un elenco per giorno. Le sezioni vengono salvate solo con i valori scelti o
 corretti, così le proposte restano quelle del calcolo.
 
+Il riquadro «Documento Word», sotto le impostazioni, indica se il template è
+caricato e lo carica o sostituisce («Carica template…» / «Sostituisci
+template…»); un file rifiutato mostra l'errore del server con i segnaposto
+mancanti e lascia il template precedente. «Genera Word» resta disattivato, con
+il motivo accanto, finché il template manca o lo schema ha modifiche non
+salvate, perché il Word usa lo schema salvato. Se mancano dati compare l'elenco
+di cosa completare; altrimenti il browser scarica il file con il nome dato dal
+server. Lo «Storico» elenca i Word generati del paziente, dal più recente, con
+data, ora, nome del file e «Scarica»; si aggiorna dopo ogni generazione.
+
 ## Media settimanale
 
 La media dei nutrienti conta soltanto i giorni che contengono almeno una porzione in uno dei sei pasti e che non sono stati esclusi a mano con la casella "Giorni inclusi nella media". Un giorno senza porzioni è indicato come vuoto e non conteggiato (non conta il valore zero delle calorie); torna a contribuire appena viene ricompilato. L'esclusione manuale è una scelta separata e resta anche quando si aggiungono o tolgono porzioni. Se nessun giorno è compilato e incluso, compare un messaggio al posto della media. Il pannello mostra su quanti giorni è calcolata la media.
@@ -258,8 +268,8 @@ Decisioni prese (issue #1). P = peso in kg, H = altezza in cm, A = età in anni.
 
 ## Word dallo Schema: API locale
 
-La generazione è disponibile sul server; i comandi nell'interfaccia saranno
-aggiunti separatamente. Salvare prima lo Schema del paziente.
+La generazione è disponibile sul server e nel riquadro «Documento Word» della
+schermata Schema. Salvare prima lo Schema del paziente.
 
 - `GET /api/template` restituisce `{ available: boolean }`.
 - `PUT /api/template` riceve direttamente i byte del `.docx` (non multipart),

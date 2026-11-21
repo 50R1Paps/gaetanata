@@ -860,6 +860,7 @@ html {
   }
 
   .schema-settings,
+  .schema-word,
   .schema-protein,
   .schema-intake {
     grid-column: 1;
@@ -1099,4 +1100,61 @@ html {
     width: 48px;
     color: var(--muted);
   }
+}
+
+/* Word: template status, generation and the patient's history. */
+.schema-word-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.schema-word .schema-word-row p {
+  margin: 0;
+}
+
+.schema-word .primary:enabled {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* Missing placeholders come as one long comma-separated list. */
+.schema-word-error {
+  max-height: 12rem;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+}
+
+.schema-word h3 {
+  margin-top: 12px;
+}
+
+.schema-history {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.schema-history li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid #eef0f3;
+}
+
+.schema-history time {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.schema-history-name {
+  flex: 1 1 12rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }

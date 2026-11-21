@@ -21,6 +21,9 @@ export type PatientDocument<T = unknown> = {
   save(patientId: number, value: T): Promise<unknown>;
   /** Why the current value cannot be saved; null when it can. */
   invalid?: string | null;
+  /** Told the value last loaded or saved, which unsaved changes differ
+   * from; called in the same update that changes the header's status. */
+  setBaseline?(value: T): void;
 };
 
 const capitalize = (text: string) =>
@@ -117,6 +120,7 @@ export function PatientPlanHeader({
         setBaselines((current) =>
           current.map((old, other) => (other === index ? saved : old)),
         );
+        document.setBaseline?.(saved);
         setNotice(index, `${Noun} salvato.`);
       }
       if (!pending) focusNext.current = button;
@@ -154,6 +158,7 @@ export function PatientPlanHeader({
         loaded.push(next ? await loading.load(next.id) : loading.empty());
       documents.forEach((document, index) => {
         document.setValue(loaded[index]);
+        document.setBaseline?.(loaded[index]);
       });
       setBaselines(loaded);
       setPatient(next);
@@ -194,6 +199,7 @@ export function PatientPlanHeader({
     setPatient(null);
     documents.forEach((document, index) => {
       document.setValue(empty[index]);
+      document.setBaseline?.(empty[index]);
     });
     setBaselines(empty);
     setError(null);

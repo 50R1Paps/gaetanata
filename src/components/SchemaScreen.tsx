@@ -25,6 +25,7 @@ import {
   substitutionReferences,
 } from "../schemaCalc";
 import { metabolismFormulas } from "./MetabolismPanel";
+import { SchemaWordPanel } from "./SchemaWordPanel";
 
 const macroNames: Record<keyof SchemaMacros, string> = {
   carbohydrates: "Carboidrati",
@@ -157,11 +158,14 @@ export function SchemaScreen({
   patient,
   schema,
   setSchema,
+  schemaDirty,
   today,
 }: {
   patient: Patient | null;
   schema: DietSchema;
   setSchema: (update: (schema: DietSchema) => DietSchema) => void;
+  /** Whether the Schema differs from the saved one, used for the Word. */
+  schemaDirty: boolean;
   today: string;
 }) {
   const baseId = useId();
@@ -308,6 +312,11 @@ export function SchemaScreen({
           </div>
         )}
       </section>
+      <SchemaWordPanel
+        key={patient.id}
+        patientId={patient.id}
+        schemaDirty={schemaDirty}
+      />
 
       {result.ok && (
         <>
