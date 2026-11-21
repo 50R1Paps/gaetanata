@@ -32,9 +32,9 @@ import {
   basalMetabolism,
   idealWeights,
   type MetabolismFormula,
-} from "./calc";
-import foods from "./data/foods.json";
-import { type PatientInput, validatePatient } from "./patient";
+} from "./calc/index.ts";
+import foods from "./data/foods.json" with { type: "json" };
+import { type PatientInput, validatePatient } from "./patient.ts";
 import {
   type DietSchema,
   isDietSchema,
@@ -47,7 +47,7 @@ import {
   type SubstitutionKey,
   schemaDays,
   schemaProteinSources,
-} from "./schema";
+} from "./schema.ts";
 
 export type SchemaQuantity = {
   calculated: number;
