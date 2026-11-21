@@ -25,15 +25,13 @@ export const MILK_GRAMS_PER_ML = 1.03;
 export const OIL_GRAMS_PER_ML = 0.92;
 export const OIL_ML_PER_MEAL = 15;
 
-/** Generic, unbranded foods where possible; null means the dataset has no
- * certain match. Yogurt uses the only plain low-fat entry, as the printed Word
- * prescribes «yogurt magro bianco».
+/** Generic, unbranded foods; null means the dataset has no certain match.
  * Keep all choices here: never silently substitute another category or use an
  * uncertain classification (notably ambiguous "Ceci" for canned legumes).
  */
 export const schemaRepresentativeFoods = {
   latte: { food: "Latte parzialmente scremato UHT", categoryId: "latte" },
-  yogurt: { food: "yogurt magro (Vipiteno)", categoryId: "yogurt" },
+  yogurt: { food: "Yogurt intero", categoryId: "yogurt" },
   nuts: { food: "Mandorle", categoryId: "frutta-secca" },
   pasta: { food: "Pasta di semola", categoryId: "carboidrati" },
   bread: { food: "Pane bianco", categoryId: "carboidrati" },
