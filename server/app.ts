@@ -12,8 +12,11 @@ import {
   validatePatient,
 } from "../src/patient.ts";
 import { openDatabase, schemaVersion } from "./db.ts";
+import { documentHandler } from "./documents.ts";
 import { type PatientStore, patientStore } from "./patients.ts";
 import { planHandler } from "./plans.ts";
+import { readBody } from "./request-body.ts";
+import { schemaHandler } from "./schemas.ts";
 
 export const APP_ID = "gaetanata";
 
@@ -42,6 +45,8 @@ export async function startServer(options: ServerOptions): Promise<Server> {
   const db = openDatabase(options.databaseFile);
   const patients = patientStore(db);
   const handlePlan = planHandler(db);
+  const handleSchema = schemaHandler(db);
+  const handleDocument = documentHandler(options.databaseFile, db);
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
@@ -49,15 +54,45 @@ export async function startServer(options: ServerOptions): Promise<Server> {
       sendJson(res, 200, { app: APP_ID, schemaVersion: schemaVersion(db) });
       return;
     }
+    if (url.pathname === "/api/template") {
+      handleDocument(req, res).catch((error) => {
+        console.error(error);
+        if (res.headersSent) res.end();
+        else sendJson(res, 500, { error: "Errore interno del server" });
+      });
+      return;
+    }
+    const documentMatch =
+      /^\/api\/patients\/([1-9]\d{0,15})\/(document|documents)(?:\/([1-9]\d{0,15}))?$/.exec(
+        url.pathname,
+      );
+    if (documentMatch) {
+      handleDocument(
+        req,
+        res,
+        Number(documentMatch[1]),
+        documentMatch[2] === "documents",
+        documentMatch[3] === undefined ? undefined : Number(documentMatch[3]),
+      ).catch((error) => {
+        console.error(error);
+        if (res.headersSent) res.end();
+        else sendJson(res, 500, { error: "Errore interno del server" });
+      });
+      return;
+    }
     if (
       url.pathname === "/api/patients" ||
       url.pathname.startsWith("/api/patients/")
     ) {
-      const match = /^\/api\/patients\/([1-9]\d{0,15})\/plan$/.exec(
+      const match = /^\/api\/patients\/([1-9]\d{0,15})\/(plan|schema)$/.exec(
         url.pathname,
       );
       const handled = match
-        ? handlePlan(Number(match[1]), req, res)
+        ? (match[2] === "schema" ? handleSchema : handlePlan)(
+            Number(match[1]),
+            req,
+            res,
+          )
         : handlePatients(patients, url.pathname, req, res);
       handled.catch((error) => {
         console.error(error);
@@ -146,11 +181,11 @@ async function readPatient(
   req: IncomingMessage,
   res: ServerResponse,
 ): Promise<PatientInput | null> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) chunks.push(chunk as Buffer);
+  const bytes = await readBody(req, res);
+  if (bytes === null) return null;
   let body: unknown;
   try {
-    body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    body = JSON.parse(bytes.toString("utf8"));
   } catch {
     body = undefined;
   }

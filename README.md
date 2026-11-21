@@ -120,6 +120,141 @@ Per rigenerarli senza includere dati dei pazienti:
 npm run import:tables -- "percorso/al/file.xlsx"
 ```
 
+### Categorie dello Schema e misure casalinghe
+
+`src/data/food-schema.json` estende i dati di riferimento senza cambiare il
+formato nutrizionale di `foods.json`: contiene le categorie, le sette misure
+casalinghe e un'assegnazione per ogni nome alimento esatto. Il nome è già
+l'identificativo usato dal Piano settimanale. `import:tables` non tocca questo
+file: le assegnazioni non vengono perse rigenerando gli alimenti dall'Excel.
+I test confrontano entrambi gli elenchi e segnalano alimenti nuovi, rinominati
+o eliminati, così l'importazione richiede una revisione esplicita.
+
+Ogni assegnazione ha `categoryId` (oppure `null`, senza categoria),
+`uncertain` (dubbio esplicito), `note` e `measureIds`. Le dieci fonti proteiche
+sono distinte; latte e yogurt hanno categorie separate. Non risultano alimenti
+inequivocabilmente in scatola nella categoria legumi: «Ceci» resta senza
+categoria finché non si chiarisce la preparazione.
+
+Tutte le assegnazioni sono proposte da revisionare, non approvazioni cliniche.
+Le preparazioni ambigue, i prodotti speciali e gli alimenti composti non sono
+assimilati automaticamente alle porzioni dello Schema. Le misure sono
+convenzioni del Word, non pesi effettivi delle confezioni; i ml restano ml,
+senza conversione implicita in grammi.
+
+L'[elenco di revisione](docs/revisione-alimenti-schema.md) contiene tutti gli
+alimenti, le misure e i dubbi. Dopo una modifica dei dati rigenerarlo con:
+
+```sh
+npm run export:food-review --silent > docs/revisione-alimenti-schema.md
+```
+
+Il comando scrive Markdown su stdout, esportabile anche in un altro file.
+In Windows PowerShell 5 usare `cmd /c "npm run export:food-review --silent > docs/revisione-alimenti-schema.md"`
+per conservare UTF-8. Il test del generatore segnala un elenco non aggiornato.
+
+## Schema: modulo di calcolo e salvataggio
+
+`src/schemaCalc.ts` espone `calculateSchema(paziente, schema, oggi)`; l'interfaccia
+è documentata in testa al modulo. Calcola fabbisogno, ripartizione per 3–6 pasti,
+grammature ai 5 g, sostituzioni e proteine/kg sul peso reale e sui tre pesi ideali.
+I dati mancanti producono indicazioni da completare, senza risultati numerici.
+Ogni quantità distingue calcolo e correzione manuale; eliminare la correzione
+ripristina il calcolo. Le correzioni dei macro sono in grammi.
+
+Pasta, pane e patate seguono ADR 0005; la combinazione pasta+pane assegna metà
+carboidrati a ciascuno. Gnocchi, gallette di riso e cracker usano invece i
+carboidrati degli alimenti generici in `src/data/foods.json`, non coefficienti
+del foglio. La farina di mais non è presente: la polenta resta non disponibile,
+con avviso esplicito, senza inventare un coefficiente.
+
+`src/schema.ts` definisce gli input JSON (kcal inizialmente da inserire, LAF 1,4,
+5 pasti, macro 50/30/20) e le sole correzioni. `src/schemasApi.ts` offre
+`loadSchema`/`saveSchema`: `GET`/`PUT /api/patients/:id/schema`. Ogni paziente ha
+uno schema corrente, separato dal piano libero; la terza migrazione lo aggiunge
+senza alterare schede e piani. Resta dopo il riavvio e viene eliminato insieme
+alla scheda. I risultati calcolati non vengono salvati. La versione 1 accetta
+le sezioni opzionali seguenti; anche i salvataggi precedenti restano validi.
+La schermata e l'API per generare il Word sono descritte sotto.
+
+- `proteinWeek: { redMeatGrams?, days? }`: `days` usa `lunedi`…`domenica`,
+  ciascuno con `lunch`/`dinner` opzionali: `{ source, grams?, exception? }`.
+  Le dieci chiavi `source` sono esportate da `schemaProteinSources` e verificate
+  contro il contratto Word. Un pasto assente non ha una fonte preassegnata.
+  Le porzioni proposte sono uova 120 g (eccezione 180), pesce in scatola 52 g
+  (eccezione 78), legumi secchi 50 g/in scatola 150 g, formaggio fresco 100 g/
+  stagionato 50 g, affettati 80 g. La base carne rossa si inserisce a mano;
+  carne bianca ×1,3 e pesce ×1,5 vengono arrotondati ai 5 g e ricalcolati quando
+  cambia la base. `grams` prevale sul calcolo (anche zero); eliminarlo ripristina
+  la proposta. Senza base, la quantità calcolata delle carni/pesce è `null`,
+  non zero; un inserimento manuale resta utilizzabile.
+- Il risultato `proteinWeek` espone sette `days`, `counts` per ciascuna fonte e
+  `frequencies` con `sources`, `count`, `min`, `max`, `outOfRange`. I formaggi
+  si contano insieme (1–2), come i legumi (2–4); carne bianca 2–4, carne rossa
+  0–1, pesce 2–4, pesce in scatola 1–2, affettati 0–1, uova 1–2. I limiti sono
+  inclusivi; si contano le scelte, non i grammi né le eccezioni come pasti extra.
+- `pizza: { breadGrams?, oilMl? }`: sempre presente nel risultato con pane 50 g
+  e olio 10 ml iniziali. È un ottavo giorno intercambiabile con un giorno della
+  settimana, al massimo una volta: non è assegnato a un giorno fisso e non
+  modifica le sette scelte o i conteggi delle fonti proteiche.
+- `breakfast: { choice?, quantity? }`: `latte` (150 ml, predefinito) oppure
+  `yogurt` (125 g). `snacks: { nutsGrams?, yogurtGrams? }`: frutta secca 20 g
+  e yogurt 125 g. Quantità manuali, modificabili anche a zero; non cambiano
+  automaticamente con kcal o numero di pasti. Eliminare le quantità ripristina
+  i valori proposti; latte e olio restano in ml, senza conversioni in grammi.
+
+### Schermata Schema
+
+Nell'intestazione il selettore «Piano settimanale | Schema» cambia vista senza
+perdere le modifiche. Lo Schema del paziente selezionato mostra metabolismo
+basale e fabbisogno appena i dati della scheda sono completi, anche prima delle
+kcal dieta; poi LAF, kcal dieta, numero di pasti (3–6) e ripartizione dei macro,
+che deve sommare a 100 %. Con dati mancanti elenca cosa completare e non mostra
+numeri. Le tabelle riportano kcal e grammi di macro per pasto, pasta a pranzo e
+pane a cena con tutte le sostituzioni (la polenta resta «Non disponibile» con
+avviso) e le proteine in g/kg sul peso reale e sui tre pesi ideali, evidenziando
+quelle fuori da 1,2–1,4.
+
+Ogni grammatura si corregge scrivendo nel campo: la correzione è evidenziata in
+giallo e il pulsante ↺ accanto mostra il valore calcolato e lo ripristina.
+Svuotare il campo non annulla la correzione. «Salva schema» salva input e
+correzioni con lo stesso stato, gli stessi errori e lo stesso avviso di modifiche
+non salvate del piano: cambiando paziente si può salvare o scartare il piano, lo
+schema o entrambi, e se uno dei due non si carica resta il paziente precedente.
+
+Sotto le tabelle (e come queste solo quando lo schema si può calcolare),
+«Colazione e spuntini» propone latte 150 ml (o yogurt 125 g:
+cambiando scelta la quantità riparte dalla proposta), frutta secca 20 g e
+yogurt 125 g negli spuntini. «Fonti proteiche» ha la base della carne rossa e,
+per ognuno dei sette giorni, la fonte di pranzo e cena («Nessuna» lascia il
+pasto vuoto) con la quantità proposta; una nuova fonte riparte dalla sua
+proposta. Uova e pesce in scatola hanno la casella dell'eccezione (3 uova
+180 g, tonno 78 g); carne bianca e pesce senza base restano vuoti con
+l'indicazione di inserirla. Accanto, le frequenze settimanali contano le scelte
+per fonte (formaggi e legumi insieme, con il dettaglio) e segnalano quelle
+sotto o sopra il consigliato. Il giorno pizza, con pane e olio, è un riquadro
+separato «in più», non uno dei sette giorni. Tutte le quantità seguono le
+stesse regole di correzione evidenziata e ↺; sotto i 600 px la griglia diventa
+un elenco per giorno. Le sezioni vengono salvate solo con i valori scelti o
+corretti, così le proposte restano quelle del calcolo.
+
+Il riquadro «Documento Word», sotto le impostazioni, indica se il template è
+caricato e lo carica o sostituisce («Carica template…» / «Sostituisci
+template…»); un file rifiutato mostra l'errore del server con i segnaposto
+mancanti e lascia il template precedente. «Genera Word» resta disattivato, con
+il motivo accanto, finché il template manca o lo schema ha modifiche non
+salvate, perché il Word usa lo schema salvato. Se mancano dati compare l'elenco
+di cosa completare; altrimenti il browser scarica il file con il nome dato dal
+server. Lo «Storico» elenca i Word generati del paziente, dal più recente, con
+data, ora, nome del file e «Scarica»; si aggiorna dopo ogni generazione.
+
+«Riempi il piano settimanale», nel riquadro «Piano settimanale» dello Schema, è
+attivo solo quando lo schema si può calcolare. Se il piano ha già alimenti
+chiede conferma («Sostituisci il piano» / «Annulla»); poi sostituisce il piano
+dell'editor con gli alimenti rappresentativi (`src/schemaToPlan.ts`). Il piano
+resta da salvare come ogni altra modifica, e i pasti non riempiti sono elencati
+con il motivo (alimento rappresentativo assente o base carne rossa mancante).
+
 ## Media settimanale
 
 La media dei nutrienti conta soltanto i giorni che contengono almeno una porzione in uno dei sei pasti e che non sono stati esclusi a mano con la casella "Giorni inclusi nella media". Un giorno senza porzioni è indicato come vuoto e non conteggiato (non conta il valore zero delle calorie); torna a contribuire appena viene ricompilato. L'esclusione manuale è una scelta separata e resta anche quando si aggiungono o tolgono porzioni. Se nessun giorno è compilato e incluso, compare un messaggio al posto della media. Il pannello mostra su quanti giorni è calcolata la media.
@@ -137,3 +272,68 @@ Decisioni prese (issue #1). P = peso in kg, H = altezza in cm, A = età in anni.
 - **Scelta automatica della formula** in base al BMI: BMI ≤ 25 → Harris-Benedict, 25 < BMI ≤ 30 → Mifflin, BMI > 30 → Bernstein.
 - **"Eq. Giuseppe"**: tolta, non viene implementata.
 - **Unità in stampa**: latte e olio in ml, tutto il resto in g.
+
+## Word dallo Schema: API locale
+
+La generazione è disponibile sul server e nel riquadro «Documento Word» della
+schermata Schema. Salvare prima lo Schema del paziente.
+
+- `GET /api/template` restituisce `{ available: boolean }`.
+- `PUT /api/template` riceve direttamente i byte del `.docx` (non multipart),
+  verifica il [contratto dei segnaposto](docs/template-segnaposto.md) e salva
+  `template.docx` accanto al database, normalmente in `data/`. Ripetere la
+  richiesta sostituisce il template; un file rifiutato non modifica il precedente.
+  Un template non valido produce 422; i segnaposto mancanti sono elencati.
+- `POST /api/patients/:id/document` genera dallo Schema salvato e dai dati
+  attuali del paziente. Restituisce il Word come allegato, con nome
+  `<Nome paziente> <aaaa-mm-gg>.docx`, caratteri non consentiti sostituiti e
+  data locale del computer. Template assente, kcal mancanti, dati paziente
+  incompleti o quantità mancanti di una fonte scelta producono 422; gli input
+  incompleti hanno `issues: [{ field, message }]`. Un pasto senza fonte non
+  stampa blocchi proteici. La polenta non disponibile resta nascosta.
+  Tutte le quantità nel Word usano la virgola decimale italiana (237,5),
+  senza separatori delle migliaia né decimali aggiunti agli interi.
+
+### Storico dei Word generati
+
+Ogni generazione riuscita salva nel database locale una voce immutabile:
+identificativo, paziente, istante ISO UTC, nome file, snapshot JSON dello Schema
+usato e byte DOCX. La quarta migrazione aggiunge `generated_documents` e il suo
+indice senza modificare dati esistenti. Le generazioni rifiutate non creano voci.
+Modificare Schema, paziente o template non modifica i documenti già generati.
+Eliminare la scheda elimina anche tutto lo storico (`ON DELETE CASCADE`).
+
+- `GET /api/patients/:id/documents` restituisce
+  `{ documents: [{ id, date, filename }] }`, dal più recente al più vecchio
+  (a parità di istante, identificativo decrescente), senza snapshot né byte.
+  `date` è l'istante ISO UTC, distinto dalla data locale nel nome del file.
+- `GET /api/patients/:id/documents/:documentId` riscarica i byte originali
+  con gli stessi intestazioni e nome allegato della generazione, senza
+  richiedere template o dati correnti validi. Documento assente o appartenente
+  a un altro paziente: 404. Paziente assente: 404. Solo lettura: altri metodi 405.
+
+`src/documentsApi.ts` offre `loadTemplateStatus`, `uploadTemplate`,
+`generatePatientDocument`, `listPatientDocuments` (metadati `GeneratedDocument`)
+e `downloadPatientDocument` (Blob e nome file), con `DocumentApiError.issues`.
+`server/generate-document.ts` espone la sola funzione di generazione senza I/O,
+con byte template, paziente, Schema e data esplicita: restituisce byte e nome file.
+
+Template e documenti non vengono inviati a servizi esterni né committati.
+Template e storico restano dopo il riavvio ed entrano nel backup della cartella `data/`.
+La firma e tutti i testi descrittivi restano nel template locale: la generazione
+non aggiunge nomi professionali. I test usano soltanto il template sintetico.
+
+### Verifica esplicita del template locale
+
+`npm run verify:template -- "<percorso.docx>"` verifica il contratto e la
+generazione con tutte le fonti proteiche e i due saluti. Non modifica il file
+e non stampa i suoi testi; l'impaginazione va controllata in Word.
+La suite automatica non cerca né legge mai template reali, anche se presenti.
+Colazione e spuntini includono le quantità salvate; nella copia locale con
+tutte le alternative, la bevanda non scelta conserva la proposta (latte 150 ml,
+yogurt 125 g). Le condizioni di scelta sono disponibili per altri layout.
+
+Le richieste JSON (schede, piani, schemi) sono limitate a 1 MiB e il template
+a 10 MiB: oltre il limite il server risponde 413 senza trattenere il resto
+del corpo. Un DOCX con più di 40 MiB complessivi decompressi è rifiutato con
+422 prima della compilazione; il template precedente resta intatto.

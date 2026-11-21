@@ -10,6 +10,8 @@
     "dev": "node --experimental-strip-types --disable-warning=ExperimentalWarning server/dev.ts",
     "start": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/start.ts",
     "import:tables": "node --experimental-strip-types scripts/import-tables.ts",
+    "export:food-review": "node --experimental-strip-types scripts/export-food-review.ts",
+    "verify:template": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/verify-template.ts",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
@@ -19,6 +21,9 @@
     "check": "npm run typecheck && npm run lint"
   },
   "dependencies": {
+    "docxtemplater": "3.71.1",
+    "lodash": "4.18.1",
+    "pizzip": "3.3.0",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },

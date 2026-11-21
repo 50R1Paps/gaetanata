@@ -3,7 +3,7 @@ import { ageAt, basalMetabolism, bmi, type MetabolismFormula } from "../calc";
 import { formatIsoDate, formatNumber } from "../format";
 import { type PatientForm, parsePatientForm } from "../patient";
 
-const formulas: readonly {
+export const metabolismFormulas: readonly {
   key: MetabolismFormula;
   name: string;
   band: string;
@@ -100,7 +100,7 @@ function MetabolismResult({
       </p>
     );
 
-  const chosen = formulas.find(({ key }) => key === result.formula);
+  const chosen = metabolismFormulas.find(({ key }) => key === result.formula);
   return (
     <>
       <p>
@@ -128,7 +128,7 @@ function MetabolismResult({
           </tr>
         </thead>
         <tbody>
-          {formulas.map(({ key, name, band }) => (
+          {metabolismFormulas.map(({ key, name, band }) => (
             <tr
               key={key}
               className={key === result.formula ? "chosen" : undefined}

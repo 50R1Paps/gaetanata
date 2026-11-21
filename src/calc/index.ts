@@ -1,4 +1,4 @@
-import foodData from "../data/foods.json";
+import foodData from "../data/foods.json" with { type: "json" };
 import type metData from "../data/met.json";
 
 /** Nutrient keys end in G (grams), Mg (milligrams), Mcg (micrograms), or Kcal.
