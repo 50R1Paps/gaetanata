@@ -219,7 +219,7 @@ Fonti: `uova`, `pesce`, `carne_bianca`, `carne_rossa`, `legumi_secchi`, `legumi_
 
 ## Polenta opzionale e misure dell’olio
 
-`{#pranzo_sost_polenta}` apre e `{/pranzo_sost_polenta}` chiude l’intera sostituzione polenta. La condizione è un booleano: `false` se il calcolo non è disponibile (comportamento corrente), `true` solo quando viene fornita una quantità valida. Dentro il blocco `{pranzo_sost_farina_mais_g}` indica i grammi di farina di mais. Il tag resta obbligatorio nel template anche quando la sezione non viene stampata.
+`{#pranzo_sost_polenta}` apre e `{/pranzo_sost_polenta}` chiude l’intera sostituzione polenta. I due tag devono stare ciascuno da solo in un paragrafo non puntato, prima e dopo il paragrafo della sostituzione: con `paragraphLoop: true` vengono rimossi sia i paragrafi dei tag sia, quando la condizione è falsa, l’intero paragrafo puntato, senza lasciare un punto elenco vuoto. Non inserire entrambi i tag nel paragrafo della sostituzione. La condizione è un booleano: `false` se il calcolo non è disponibile (comportamento corrente), `true` solo quando viene fornita una quantità valida. Dentro il blocco `{pranzo_sost_farina_mais_g}` indica i grammi di farina di mais. Il tag resta obbligatorio nel template anche quando la sezione non viene stampata.
 
 `pizzaOilTemplateValues(ml)` restituisce `{pizza_olio_ml}`, `{pizza_olio_cucchiai}` (ml / 10) e `{pizza_olio_cucchiaini}` (ml / 5), senza arrotondare; ad esempio 10 ml → 1 e 2, 15 ml → 1,5 e 3. Il testo e le posizioni delle misure casalinghe restano nel documento locale.
 

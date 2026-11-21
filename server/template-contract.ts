@@ -125,10 +125,12 @@ export function buildSyntheticTemplate(): Buffer {
   );
   const paragraphs = [
     ...templateValueTags.map((tag) => `${tag}={${tag}}`),
-    ...Object.entries(templateBlockValueTags).map(
-      ([block, values]) =>
-        `{#${block}}${values.map((tag) => `${tag}={${tag}}`).join(" ")}{/${block}}`,
-    ),
+    ...Object.entries(templateBlockValueTags).flatMap(([block, values]) => {
+      const content = values.map((tag) => `${tag}={${tag}}`).join(" ");
+      return block === "pranzo_sost_polenta"
+        ? [`{#${block}}`, content, `{/${block}}`]
+        : [`{#${block}}${content}{/${block}}`];
+    }),
   ]
     .map((text) => `<w:p><w:r><w:t>${text}</w:t></w:r></w:p>`)
     .join("");
