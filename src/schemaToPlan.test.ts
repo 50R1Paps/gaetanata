@@ -52,7 +52,9 @@ it("converts seven days with effective quantities, fixed sides and equal oil sha
       { food: "Latte parzialmente scremato UHT", grams: 206 },
     ]);
     expect(day.meals[1]).toMatchObject([{ food: "Mandorle", grams: 25 }]);
-    expect(day.meals[3]).toMatchObject([{ food: "Yogurt intero", grams: 150 }]);
+    expect(day.meals[3]).toMatchObject([
+      { food: "yogurt magro (Vipiteno)", grams: 150 },
+    ]);
     expect(day.meals[5]).toEqual([]);
   }
   expect(plan.days[0]?.meals[2]).toMatchObject([
@@ -238,13 +240,13 @@ it.each([3, 4, 5, 6] as const)(
     if (!calculation.ok) throw new Error("Expected valid calculation");
     const { plan } = schemaToWeekPlan(calculation);
     expect(plan.days[0]?.meals[0]).toMatchObject([
-      { food: "Yogurt intero", grams: 140 },
+      { food: "yogurt magro (Vipiteno)", grams: 140 },
     ]);
     expect(plan.days[0]?.meals[1]).toMatchObject([
       { food: "Mandorle", grams: 0 },
     ]);
     expect(plan.days[0]?.meals[3]).toMatchObject([
-      { food: "Yogurt intero", grams: 80 },
+      { food: "yogurt magro (Vipiteno)", grams: 80 },
     ]);
   },
 );
