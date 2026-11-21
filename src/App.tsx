@@ -2,10 +2,15 @@ import { type KeyboardEvent, useMemo, useRef, useState } from "react";
 import { type Food, mealSlots } from "./calc";
 import { FoodSearch } from "./components/FoodSearch";
 import { MealCard } from "./components/MealCard";
-import { PatientPlanHeader } from "./components/PatientPlanHeader";
+import {
+  type PatientDocument,
+  PatientPlanHeader,
+} from "./components/PatientPlanHeader";
+import { SchemaScreen } from "./components/SchemaScreen";
 import { SummaryPanel } from "./components/SummaryPanel";
 import { defaultGrams, lookupFood } from "./foods";
 import { formatNumber } from "./format";
+import { localToday, type Patient } from "./patient";
 import {
   addPortion,
   countedDays,
@@ -19,14 +24,45 @@ import {
   type WeekPlan,
   weekDays,
 } from "./plan";
+import { loadPlan, savePlan } from "./plansApi";
+import { type DietSchema, emptySchema, isDietSchema } from "./schema";
+import { loadSchema, saveSchema } from "./schemasApi";
 import "./App.css";
 
 export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
   const [plan, setPlan] = useState(() => initialPlan ?? emptyWeekPlan());
+  const [schema, setSchema] = useState(emptySchema);
+  const [patient, setPatient] = useState<Patient | null>(null);
+  const [view, setView] = useState<"plan" | "schema">("plan");
   const [dayIndex, setDayIndex] = useState(0);
   const [mealIndex, setMealIndex] = useState(0);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const [planBusy, setPlanBusy] = useState(false);
+  const [patientBusy, setPatientBusy] = useState(false);
+  const documents: PatientDocument[] = [
+    {
+      noun: "piano",
+      object: "il piano",
+      label: "Piano settimanale",
+      value: plan,
+      setValue: setPlan,
+      empty: emptyWeekPlan,
+      load: loadPlan,
+      save: savePlan,
+    } satisfies PatientDocument<WeekPlan>,
+    {
+      noun: "schema",
+      object: "lo schema",
+      label: "Schema",
+      value: schema,
+      setValue: setSchema,
+      empty: emptySchema,
+      load: loadSchema,
+      save: saveSchema,
+      invalid: isDietSchema(schema)
+        ? null
+        : "controlla le impostazioni segnalate nello schema.",
+    } satisfies PatientDocument<DietSchema>,
+  ];
 
   const resolved = useMemo(() => resolvePlan(plan, lookupFood), [plan]);
   const { days, average, averageIncomplete } = resolved;
@@ -64,15 +100,35 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
   }
 
   return (
-    <div className="app">
+    <div className={view === "schema" ? "app schema-view" : "app"}>
       <header className="app-header">
         <h1>Gaetanata</h1>
         <p>Elaborazione dieta settimanale</p>
         <PatientPlanHeader
-          plan={plan}
-          setPlan={setPlan}
-          onBusyChange={setPlanBusy}
+          patient={patient}
+          setPatient={setPatient}
+          documents={documents}
+          onBusyChange={setPatientBusy}
         />
+        <fieldset className="view-switch">
+          <legend className="visually-hidden">Vista</legend>
+          {(
+            [
+              ["plan", "Piano settimanale"],
+              ["schema", "Schema"],
+            ] as const
+          ).map(([key, name]) => (
+            <label key={key}>
+              <input
+                type="radio"
+                name="view"
+                checked={view === key}
+                onChange={() => setView(key)}
+              />
+              {name}
+            </label>
+          ))}
+        </fieldset>
         {resolved.issues.length > 0 && (
           <p role="alert">
             Alimenti non riconosciuti: correggi le righe segnalate. I totali
@@ -80,90 +136,109 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
           </p>
         )}
       </header>
-      <div style={{ display: "contents" }} inert={planBusy}>
-        <FoodSearch
-          targetLabel={`${dayName} · ${mealSlots[mealIndex]}`}
-          onAdd={(food) => add(mealIndex, food)}
-        />
-        <main className="week">
-          <div className="day-tabs" role="tablist" aria-label="Giorni">
-            {weekDays.map((name, index) => (
-              <button
-                key={name}
-                ref={(element) => {
-                  tabRefs.current[index] = element;
-                }}
-                type="button"
-                role="tab"
-                id={`tab-${index}`}
-                aria-selected={index === dayIndex}
-                aria-controls="day-panel"
-                tabIndex={index === dayIndex ? 0 : -1}
-                onClick={() => setDayIndex(index)}
-                onKeyDown={onTabKeyDown}
+      <div style={{ display: "contents" }} inert={patientBusy}>
+        {view === "schema" ? (
+          <SchemaScreen
+            patient={patient}
+            schema={schema}
+            setSchema={setSchema}
+            today={localToday()}
+          />
+        ) : (
+          <>
+            <FoodSearch
+              targetLabel={`${dayName} · ${mealSlots[mealIndex]}`}
+              onAdd={(food) => add(mealIndex, food)}
+            />
+            <main className="week">
+              <div className="day-tabs" role="tablist" aria-label="Giorni">
+                {weekDays.map((name, index) => (
+                  <button
+                    key={name}
+                    ref={(element) => {
+                      tabRefs.current[index] = element;
+                    }}
+                    type="button"
+                    role="tab"
+                    id={`tab-${index}`}
+                    aria-selected={index === dayIndex}
+                    aria-controls="day-panel"
+                    tabIndex={index === dayIndex ? 0 : -1}
+                    onClick={() => setDayIndex(index)}
+                    onKeyDown={onTabKeyDown}
+                  >
+                    <span>{name}</span>
+                    <span className="tab-kcal">
+                      {plan.days[index] && isDayEmpty(plan.days[index])
+                        ? "Vuoto"
+                        : days[index]?.total
+                          ? `${formatNumber(days[index].total.caloriesKcal)} kcal`
+                          : "Incompleto"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div
+                className="meals"
+                id="day-panel"
+                role="tabpanel"
+                aria-labelledby={`tab-${dayIndex}`}
               >
-                <span>{name}</span>
-                <span className="tab-kcal">
-                  {plan.days[index] && isDayEmpty(plan.days[index])
-                    ? "Vuoto"
-                    : days[index]?.total
-                      ? `${formatNumber(days[index].total.caloriesKcal)} kcal`
-                      : "Incompleto"}
-                </span>
-              </button>
-            ))}
-          </div>
-          <div
-            className="meals"
-            id="day-panel"
-            role="tabpanel"
-            aria-labelledby={`tab-${dayIndex}`}
-          >
-            {mealSlots.map((slot, slotIndex) => (
-              <MealCard
-                key={slot}
-                slot={slot}
-                slotIndex={slotIndex}
-                portions={day.meals[slotIndex] ?? []}
-                meal={calcDay.meals[slotIndex] ?? { portions: [], total: null }}
-                active={slotIndex === mealIndex}
-                onActivate={() => setMealIndex(slotIndex)}
-                onAdd={(food) => add(slotIndex, food)}
-                onRemove={(id) =>
-                  setPlan((current) =>
-                    removePortion(current, dayIndex, slotIndex, id),
-                  )
-                }
-                onReplace={(id, food) =>
-                  setPlan((current) =>
-                    setPortionFood(current, dayIndex, slotIndex, id, food),
-                  )
-                }
-                onGrams={(id, grams) =>
-                  setPlan((current) =>
-                    setPortionGrams(current, dayIndex, slotIndex, id, grams),
-                  )
-                }
-              />
-            ))}
-          </div>
-        </main>
-        <SummaryPanel
-          dayName={dayName}
-          dayTotal={total}
-          days={weekDays.map((name, index) => ({
-            name,
-            kcal: days[index]?.total?.caloriesKcal ?? null,
-            included: plan.days[index]?.included ?? false,
-            empty: plan.days[index] ? isDayEmpty(plan.days[index]) : true,
-          }))}
-          countedCount={counted.filter(Boolean).length}
-          average={average}
-          averageIncomplete={averageIncomplete}
-          onToggleDay={(index, included) =>
-            setPlan((current) => setDayIncluded(current, index, included))
-          }
-        />
+                {mealSlots.map((slot, slotIndex) => (
+                  <MealCard
+                    key={slot}
+                    slot={slot}
+                    slotIndex={slotIndex}
+                    portions={day.meals[slotIndex] ?? []}
+                    meal={
+                      calcDay.meals[slotIndex] ?? { portions: [], total: null }
+                    }
+                    active={slotIndex === mealIndex}
+                    onActivate={() => setMealIndex(slotIndex)}
+                    onAdd={(food) => add(slotIndex, food)}
+                    onRemove={(id) =>
+                      setPlan((current) =>
+                        removePortion(current, dayIndex, slotIndex, id),
+                      )
+                    }
+                    onReplace={(id, food) =>
+                      setPlan((current) =>
+                        setPortionFood(current, dayIndex, slotIndex, id, food),
+                      )
+                    }
+                    onGrams={(id, grams) =>
+                      setPlan((current) =>
+                        setPortionGrams(
+                          current,
+                          dayIndex,
+                          slotIndex,
+                          id,
+                          grams,
+                        ),
+                      )
+                    }
+                  />
+                ))}
+              </div>
+            </main>
+            <SummaryPanel
+              dayName={dayName}
+              dayTotal={total}
+              days={weekDays.map((name, index) => ({
+                name,
+                kcal: days[index]?.total?.caloriesKcal ?? null,
+                included: plan.days[index]?.included ?? false,
+                empty: plan.days[index] ? isDayEmpty(plan.days[index]) : true,
+              }))}
+              countedCount={counted.filter(Boolean).length}
+              average={average}
+              averageIncomplete={averageIncomplete}
+              onToggleDay={(index, included) =>
+                setPlan((current) => setDayIncluded(current, index, included))
+              }
+            />
+          </>
+        )}
       </div>
     </div>
   );

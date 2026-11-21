@@ -4,7 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import { App } from "../App";
+import type { Patient } from "../patient";
 import { addPortion, emptyWeekPlan, type WeekPlan } from "../plan";
+import { loadPlan, savePlan } from "../plansApi";
 import { PatientPlanHeader } from "./PatientPlanHeader";
 
 afterEach(() => {
@@ -14,9 +16,25 @@ afterEach(() => {
 
 function Harness() {
   const [plan, setPlan] = useState(emptyWeekPlan);
+  const [patient, setPatient] = useState<Patient | null>(null);
   return (
     <>
-      <PatientPlanHeader plan={plan} setPlan={setPlan} />
+      <PatientPlanHeader
+        patient={patient}
+        setPatient={setPatient}
+        documents={[
+          {
+            noun: "piano",
+            object: "il piano",
+            label: "Piano settimanale",
+            value: plan,
+            setValue: setPlan,
+            empty: emptyWeekPlan,
+            load: loadPlan,
+            save: savePlan,
+          },
+        ]}
+      />
       <button
         type="button"
         onClick={() =>

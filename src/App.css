@@ -757,3 +757,202 @@ html {
   background: var(--accent-soft);
   font-weight: 600;
 }
+
+/* View switch: Piano settimanale | Schema */
+
+.view-switch {
+  flex-basis: 100%;
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.view-switch label {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.view-switch input {
+  position: absolute;
+  opacity: 0;
+}
+
+.view-switch label:has(:checked) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.view-switch label:has(:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Schema: one column, then settings and protein beside the tables. */
+
+.app.schema-view {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto;
+  grid-template-areas: "header" "schema";
+  height: auto;
+}
+
+.schema-screen {
+  grid-area: schema;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+@media (min-width: 960px) {
+  .schema-screen {
+    grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  }
+
+  .schema-settings,
+  .schema-protein {
+    grid-column: 1;
+  }
+
+  .schema-meals {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .schema-carbs {
+    grid-column: 2;
+    grid-row: 2 / span 2;
+  }
+}
+
+.schema-screen p {
+  margin: 6px 0;
+}
+
+.schema-energy strong {
+  white-space: nowrap;
+}
+
+.schema-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 10px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.schema-fields legend {
+  margin-bottom: 4px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.schema-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.schema-field label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.schema-field .grams,
+.schema-field select {
+  width: 84px;
+  padding: 5px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  font: inherit;
+}
+
+.schema-problem,
+.schema-warning {
+  color: var(--danger);
+}
+
+.schema-problem ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.schema-highlight {
+  font-size: 1.05rem;
+}
+
+.schema-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.schema-table th,
+.schema-table td {
+  padding: 3px 6px;
+  border-bottom: 1px solid #eef0f3;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.schema-table .num {
+  text-align: right;
+}
+
+.schema-table thead th {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.schema-table tbody th {
+  font-weight: 400;
+}
+
+.schema-table tfoot :is(th, td) {
+  font-weight: 600;
+  border-bottom: 0;
+}
+
+/* Pinned row names while narrow tables scroll sideways. */
+.schema-table th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+}
+
+.schema-table tr.warning :is(th, td) {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.quantity {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.quantity.overridden .grams {
+  border-color: #b45309;
+  background: #fef3c7;
+  font-weight: 600;
+}
+
+.revert {
+  padding: 2px 6px;
+  border: 1px solid #b45309;
+  border-radius: 4px;
+  background: var(--surface);
+  color: #b45309;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
