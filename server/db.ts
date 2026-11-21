@@ -26,6 +26,17 @@ export const migrations: readonly string[] = [
     patient_id INTEGER PRIMARY KEY REFERENCES patients(id) ON DELETE CASCADE,
     schema_json TEXT NOT NULL
   );`,
+  // 4: immutable snapshots and generated files, owned by the patient.
+  `CREATE TABLE generated_documents (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id INTEGER NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    schema_json TEXT NOT NULL,
+    docx BLOB NOT NULL
+  );
+  CREATE INDEX generated_documents_patient_date
+    ON generated_documents(patient_id, created_at DESC, id DESC);`,
 ];
 
 export function openDatabase(

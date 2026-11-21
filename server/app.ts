@@ -61,11 +61,18 @@ export async function startServer(options: ServerOptions): Promise<Server> {
       });
       return;
     }
-    const documentMatch = /^\/api\/patients\/([1-9]\d{0,15})\/document$/.exec(
-      url.pathname,
-    );
+    const documentMatch =
+      /^\/api\/patients\/([1-9]\d{0,15})\/(document|documents)(?:\/([1-9]\d{0,15}))?$/.exec(
+        url.pathname,
+      );
     if (documentMatch) {
-      handleDocument(req, res, Number(documentMatch[1])).catch((error) => {
+      handleDocument(
+        req,
+        res,
+        Number(documentMatch[1]),
+        documentMatch[2] === "documents",
+        documentMatch[3] === undefined ? undefined : Number(documentMatch[3]),
+      ).catch((error) => {
         console.error(error);
         if (res.headersSent) res.end();
         else sendJson(res, 500, { error: "Errore interno del server" });

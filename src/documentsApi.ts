@@ -1,6 +1,12 @@
 import type { SchemaIssue } from "./schemaCalc.ts";
 
 export type TemplateStatus = { available: boolean };
+export type GeneratedDocument = {
+  id: number;
+  /** Generation instant, ISO 8601 UTC. */
+  date: string;
+  filename: string;
+};
 export class DocumentApiError extends Error {
   readonly issues: SchemaIssue[];
   constructor(message: string, issues: SchemaIssue[] = []) {
@@ -42,6 +48,30 @@ export async function generatePatientDocument(
   const response = await request(`/api/patients/${id}/document`, {
     method: "POST",
   });
+  return readDocument(response);
+}
+
+export async function listPatientDocuments(
+  patientId: number,
+): Promise<GeneratedDocument[]> {
+  const body = await (
+    await request(`/api/patients/${patientId}/documents`)
+  ).json();
+  return body.documents;
+}
+
+export async function downloadPatientDocument(
+  patientId: number,
+  documentId: number,
+): Promise<{ blob: Blob; filename: string }> {
+  return readDocument(
+    await request(`/api/patients/${patientId}/documents/${documentId}`),
+  );
+}
+
+async function readDocument(
+  response: Response,
+): Promise<{ blob: Blob; filename: string }> {
   const encoded = /filename\*=UTF-8''([^;]+)/i.exec(
     response.headers.get("content-disposition") ?? "",
   )?.[1];

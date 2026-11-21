@@ -277,13 +277,31 @@ aggiunti separatamente. Salvare prima lo Schema del paziente.
   Tutte le quantità nel Word usano la virgola decimale italiana (237,5),
   senza separatori delle migliaia né decimali aggiunti agli interi.
 
-`src/documentsApi.ts` offre `loadTemplateStatus`, `uploadTemplate` e
-`generatePatientDocument` (Blob e nome file), con `DocumentApiError.issues`.
+### Storico dei Word generati
+
+Ogni generazione riuscita salva nel database locale una voce immutabile:
+identificativo, paziente, istante ISO UTC, nome file, snapshot JSON dello Schema
+usato e byte DOCX. La quarta migrazione aggiunge `generated_documents` e il suo
+indice senza modificare dati esistenti. Le generazioni rifiutate non creano voci.
+Modificare Schema, paziente o template non modifica i documenti già generati.
+Eliminare la scheda elimina anche tutto lo storico (`ON DELETE CASCADE`).
+
+- `GET /api/patients/:id/documents` restituisce
+  `{ documents: [{ id, date, filename }] }`, dal più recente al più vecchio
+  (a parità di istante, identificativo decrescente), senza snapshot né byte.
+  `date` è l'istante ISO UTC, distinto dalla data locale nel nome del file.
+- `GET /api/patients/:id/documents/:documentId` riscarica i byte originali
+  con gli stessi intestazioni e nome allegato della generazione, senza
+  richiedere template o dati correnti validi. Documento assente o appartenente
+  a un altro paziente: 404. Paziente assente: 404. Solo lettura: altri metodi 405.
+
+`src/documentsApi.ts` offre `loadTemplateStatus`, `uploadTemplate`,
+`generatePatientDocument`, `listPatientDocuments` (metadati `GeneratedDocument`)
+e `downloadPatientDocument` (Blob e nome file), con `DocumentApiError.issues`.
 `server/generate-document.ts` espone la sola funzione di generazione senza I/O,
-con byte template, paziente, Schema e data esplicita: restituisce byte e nome
-file, riutilizzabili per lo storico (#27), non ancora implementato.
+con byte template, paziente, Schema e data esplicita: restituisce byte e nome file.
 
 Template e documenti non vengono inviati a servizi esterni né committati.
-Il template resta dopo il riavvio ed entra nel backup della cartella `data/`.
+Template e storico restano dopo il riavvio ed entrano nel backup della cartella `data/`.
 La firma e tutti i testi descrittivi restano nel template locale: la generazione
 non aggiunge nomi professionali. I test usano soltanto il template sintetico.

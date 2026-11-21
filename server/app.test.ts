@@ -22,7 +22,7 @@ it("serves health and the SPA without exposing files outside the static director
     const base = `http://127.0.0.1:${address.port}`;
     expect(await (await fetch(`${base}/api/health`)).json()).toEqual({
       app: "gaetanata",
-      schemaVersion: 3,
+      schemaVersion: 4,
     });
     expect(
       await (await fetch(`${base}/..%2fpackage.json`)).text(),

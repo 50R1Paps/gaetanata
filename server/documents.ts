@@ -14,17 +14,60 @@ function send(res: ServerResponse, status: number, body: unknown) {
   res.end(JSON.stringify(body));
 }
 
+function sendDocument(
+  res: ServerResponse,
+  bytes: Uint8Array,
+  filename: string,
+) {
+  res.writeHead(200, {
+    "content-type":
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "content-disposition": `attachment; filename="schema.docx"; filename*=UTF-8''${encodeURIComponent(filename).replace(/['()*]/g, (character) => `%${character.charCodeAt(0).toString(16)}`)}`,
+    "cache-control": "no-store",
+  });
+  res.end(bytes);
+}
+
 export function documentHandler(databaseFile: string, db: DatabaseSync) {
   const templateFile = join(dirname(databaseFile), "template.docx");
   const patients = patientStore(db);
   const getSchema = db.prepare(
     "SELECT schema_json FROM schemas WHERE patient_id = ?",
   );
-  return async (req: IncomingMessage, res: ServerResponse, id?: number) => {
+  const insertDocument = db.prepare(
+    "INSERT INTO generated_documents (patient_id, created_at, filename, schema_json, docx) VALUES (?, ?, ?, ?, ?)",
+  );
+  const listDocuments = db.prepare(
+    "SELECT id, created_at AS date, filename FROM generated_documents WHERE patient_id = ? ORDER BY created_at DESC, id DESC",
+  );
+  const getDocument = db.prepare(
+    "SELECT filename, docx FROM generated_documents WHERE patient_id = ? AND id = ?",
+  );
+  return async (
+    req: IncomingMessage,
+    res: ServerResponse,
+    id?: number,
+    history = false,
+    documentId?: number,
+  ) => {
     if (id !== undefined) {
       const patient = patients.get(id);
       if (!patient)
         return send(res, 404, { error: "Scheda paziente non trovata" });
+      if (history) {
+        if (req.method !== "GET")
+          return send(res, 405, { error: "Metodo non consentito" });
+        if (documentId === undefined)
+          return send(res, 200, { documents: listDocuments.all(id) });
+        const document = getDocument.get(id, documentId) as
+          | { filename: string; docx: Uint8Array }
+          | undefined;
+        if (!document)
+          return send(res, 404, { error: "Documento non trovato" });
+        return sendDocument(res, document.docx, document.filename);
+      }
+      if (documentId !== undefined)
+        return send(res, 404, { error: "Documento non trovato" });
       if (req.method !== "POST")
         return send(res, 405, { error: "Metodo non consentito" });
       let template: Buffer;
@@ -47,13 +90,14 @@ export function documentHandler(databaseFile: string, db: DatabaseSync) {
           schema,
           localToday(),
         );
-        res.writeHead(200, {
-          "content-type":
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          "content-disposition": `attachment; filename="schema.docx"; filename*=UTF-8''${encodeURIComponent(filename).replace(/['()*]/g, (character) => `%${character.charCodeAt(0).toString(16)}`)}`,
-          "cache-control": "no-store",
-        });
-        res.end(bytes);
+        insertDocument.run(
+          id,
+          new Date().toISOString(),
+          filename,
+          JSON.stringify(schema),
+          bytes,
+        );
+        sendDocument(res, bytes, filename);
       } catch (error) {
         if (error instanceof IncompleteDocumentError)
           return send(res, 422, { error: error.message, issues: error.issues });

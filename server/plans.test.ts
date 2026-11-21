@@ -40,7 +40,7 @@ it("persists complete plans independently across restart and rejects invalid rep
         heightCm: null,
       },
     ]);
-    expect((await call("GET", "/api/health")).body.schemaVersion).toBe(3);
+    expect((await call("GET", "/api/health")).body.schemaVersion).toBe(4);
     const first = (await call("POST", "/api/patients", { name: "Prova 1" }))
       .body;
     const second = (await call("POST", "/api/patients", { name: "Prova 2" }))
