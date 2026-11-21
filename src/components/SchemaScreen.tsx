@@ -2,18 +2,25 @@ import { useId, useState } from "react";
 import { mealSlots } from "../calc";
 import { formatGrams, formatNumber, parseGrams } from "../format";
 import type { Patient } from "../patient";
+import { weekDays } from "../plan";
 import {
   type DietSchema,
+  type SchemaDay,
   type SchemaMacros,
   type SchemaMealCount,
   type SchemaOverrides,
+  type SchemaProteinChoice,
+  type SchemaProteinSource,
   type SubstitutionKey,
   schemaMealSlots,
+  schemaProteinSources,
   substitutionKeys,
 } from "../schema";
 import {
   calculateSchema,
+  type SchemaCalculation,
   type SchemaIdealBasis,
+  type SchemaProteinPortion,
   type SchemaQuantity,
   substitutionReferences,
 } from "../schemaCalc";
@@ -48,6 +55,77 @@ const ratioFormat = new Intl.NumberFormat("it-IT", {
 const percentFormat = new Intl.NumberFormat("it-IT", {
   maximumFractionDigits: 2,
 });
+const proteinNames: Record<SchemaProteinSource, string> = {
+  uova: "Uova",
+  pesce: "Pesce",
+  carne_bianca: "Carne bianca",
+  carne_rossa: "Carne rossa",
+  legumi_secchi: "Legumi secchi",
+  legumi_scatola: "Legumi in scatola",
+  formaggio_fresco: "Formaggio fresco",
+  formaggio_stagionato: "Formaggio stagionato",
+  affettati: "Affettati",
+  pesce_scatola: "Tonno/pesce in scatola",
+};
+/** Recommended-frequency rows that group two sources, with each variant. */
+const frequencyNames: Record<string, string> = {
+  formaggi: "Formaggi",
+  legumi: "Legumi",
+};
+const variantNames: Partial<Record<SchemaProteinSource, string>> = {
+  formaggio_fresco: "fresco",
+  formaggio_stagionato: "stagionato",
+  legumi_secchi: "secchi",
+  legumi_scatola: "in scatola",
+};
+const exceptionNames: Partial<Record<SchemaProteinSource, string>> = {
+  uova: "3 uova (180 g)",
+  pesce_scatola: "tonno 78 g",
+};
+const proteinMeals = [
+  ["lunch", "pranzo"],
+  ["dinner", "cena"],
+] as const;
+type ProteinMeal = (typeof proteinMeals)[number][0];
+type Section = "proteinWeek" | "pizza" | "breakfast" | "snacks";
+
+/** Sets or deletes (undefined) fields of an optional section; an emptied
+ * section is dropped, so the saved JSON stays minimal like the overrides. */
+function withSection<K extends Section>(
+  schema: DietSchema,
+  section: K,
+  change: {
+    [P in keyof NonNullable<DietSchema[K]>]?:
+      | NonNullable<DietSchema[K]>[P]
+      | undefined;
+  },
+): DietSchema {
+  const entry: Record<string, unknown> = { ...schema[section], ...change };
+  for (const [key, value] of Object.entries(entry))
+    if (value === undefined) delete entry[key];
+  const next = { ...schema };
+  if (Object.keys(entry).length > 0) Object.assign(next, { [section]: entry });
+  else delete next[section];
+  return next;
+}
+
+/** No choice leaves the meal (and an emptied day) out of the saved week. */
+function withProteinChoice(
+  schema: DietSchema,
+  day: SchemaDay,
+  meal: ProteinMeal,
+  choice: SchemaProteinChoice | undefined,
+): DietSchema {
+  const days = { ...schema.proteinWeek?.days };
+  const entry = { ...days[day] };
+  if (choice) entry[meal] = choice;
+  else delete entry[meal];
+  if (Object.keys(entry).length > 0) days[day] = entry;
+  else delete days[day];
+  return withSection(schema, "proteinWeek", {
+    days: Object.keys(days).length > 0 ? days : undefined,
+  });
+}
 
 /** Removing the last key of a group drops the group: deleting an override
  * restores the calculation, and the saved JSON stays minimal. */
@@ -444,9 +522,368 @@ export function SchemaScreen({
               </tbody>
             </table>
           </section>
+
+          <IntakePanel result={result} setSchema={setSchema} />
+          <ProteinWeekPanel
+            schema={schema}
+            result={result}
+            setSchema={setSchema}
+          />
         </>
       )}
     </main>
+  );
+}
+
+type Calculated = Extract<SchemaCalculation, { ok: true }>;
+type SetSchema = (update: (schema: DietSchema) => DietSchema) => void;
+
+/** Colazione and spuntini: manual quantities starting from the proposed
+ * values, independent of the kcal and of the number of meals. */
+function IntakePanel({
+  result,
+  setSchema,
+}: {
+  result: Calculated;
+  setSchema: SetSchema;
+}) {
+  const baseId = useId();
+  const { breakfast, snacks } = result;
+  return (
+    <section
+      className="panel schema-intake"
+      aria-labelledby={`${baseId}-title`}
+    >
+      <h2 id={`${baseId}-title`}>Colazione e spuntini</h2>
+      <fieldset className="schema-fields">
+        <legend>Colazione</legend>
+        <div className="schema-choice">
+          {(["latte", "yogurt"] as const).map((choice) => (
+            <label key={choice}>
+              <input
+                type="radio"
+                name={`${baseId}-breakfast`}
+                checked={breakfast.choice === choice}
+                onChange={() =>
+                  // The other food's quantity does not carry over.
+                  setSchema((current) =>
+                    withSection(current, "breakfast", {
+                      choice,
+                      quantity: undefined,
+                    }),
+                  )
+                }
+              />
+              {choice === "latte" ? "Latte" : "Yogurt"}
+            </label>
+          ))}
+        </div>
+        <LabeledQuantity
+          label={
+            breakfast.choice === "latte"
+              ? "Latte a colazione (ml)"
+              : "Yogurt a colazione (g)"
+          }
+          unit={breakfast.unit}
+          quantity={breakfast.quantity}
+          onChange={(quantity) =>
+            setSchema((current) =>
+              withSection(current, "breakfast", { quantity }),
+            )
+          }
+        />
+      </fieldset>
+      <fieldset className="schema-fields">
+        <legend>Spuntini</legend>
+        <LabeledQuantity
+          label="Frutta secca spuntino (g)"
+          quantity={snacks.nuts}
+          onChange={(nutsGrams) =>
+            setSchema((current) =>
+              withSection(current, "snacks", { nutsGrams }),
+            )
+          }
+        />
+        <LabeledQuantity
+          label="Yogurt spuntino (g)"
+          quantity={snacks.yogurt}
+          onChange={(yogurtGrams) =>
+            setSchema((current) =>
+              withSection(current, "snacks", { yogurtGrams }),
+            )
+          }
+        />
+      </fieldset>
+    </section>
+  );
+}
+
+/** Seven days × lunch/dinner protein choices (a per-day list when narrow),
+ * their weekly counts, and the pizza day: an extra eighth day, not a
+ * weekday, which does not count as a protein source. */
+function ProteinWeekPanel({
+  schema,
+  result,
+  setSchema,
+}: {
+  schema: DietSchema;
+  result: Calculated;
+  setSchema: SetSchema;
+}) {
+  const baseId = useId();
+  const { proteinWeek, pizza } = result;
+  return (
+    <section className="panel schema-week" aria-labelledby={`${baseId}-title`}>
+      <h2 id={`${baseId}-title`}>Fonti proteiche</h2>
+      <p className="hint">
+        Scegli la fonte di ogni pranzo e cena («Nessuna» lascia il pasto vuoto).
+        Ogni fonte propone la sua quantità, correggibile; carne bianca (×1,3) e
+        pesce (×1,5) si ricalcolano dalla base della carne rossa.
+      </p>
+      <div className="schema-fields">
+        <div className="schema-field">
+          <label htmlFor={`${baseId}-red-meat`}>
+            Carne rossa, quantità base (g)
+          </label>
+          <NumberInput
+            id={`${baseId}-red-meat`}
+            value={schema.proteinWeek?.redMeatGrams ?? null}
+            allowEmpty
+            onChange={(grams) =>
+              setSchema((current) =>
+                withSection(current, "proteinWeek", {
+                  redMeatGrams: grams ?? undefined,
+                }),
+              )
+            }
+          />
+        </div>
+      </div>
+      <div className="schema-week-body">
+        <div className="protein-week">
+          <div className="protein-day protein-week-head" aria-hidden="true">
+            <span>Giorno</span>
+            <span>Pranzo</span>
+            <span>Cena</span>
+          </div>
+          {proteinWeek.days.map((entry, index) => {
+            const name = weekDays[index] ?? entry.day;
+            return (
+              <fieldset key={entry.day} className="protein-day">
+                <legend className="protein-day-name">{name}</legend>
+                {proteinMeals.map(([meal, mealName]) => (
+                  <ProteinMealInput
+                    key={meal}
+                    label={`${name} ${mealName}`}
+                    mealName={mealName}
+                    choice={schema.proteinWeek?.days?.[entry.day]?.[meal]}
+                    portion={entry[meal]}
+                    onChange={(choice) =>
+                      setSchema((current) =>
+                        withProteinChoice(current, entry.day, meal, choice),
+                      )
+                    }
+                  />
+                ))}
+              </fieldset>
+            );
+          })}
+        </div>
+        <div className="schema-frequencies">
+          <h3 id={`${baseId}-counts`}>Frequenze settimanali</h3>
+          <table className="schema-table" aria-labelledby={`${baseId}-counts`}>
+            <thead>
+              <tr>
+                <th scope="col">Fonte</th>
+                <th scope="col" className="num">
+                  Volte
+                </th>
+                <th scope="col" className="num">
+                  Consigliate
+                </th>
+                <th scope="col">Esito</th>
+              </tr>
+            </thead>
+            <tbody>
+              {proteinWeek.frequencies.map((frequency) => (
+                <tr
+                  key={frequency.key}
+                  className={frequency.outOfRange ? "warning" : ""}
+                >
+                  <th scope="row">
+                    {frequencyNames[frequency.key] ??
+                      proteinNames[frequency.key as SchemaProteinSource] ??
+                      frequency.key}
+                    {frequency.sources.length > 1 && (
+                      <span className="muted schema-variants">
+                        {frequency.sources
+                          .map(
+                            (source) =>
+                              `${variantNames[source] ?? proteinNames[source]} ${proteinWeek.counts[source]}`,
+                          )
+                          .join(" · ")}
+                      </span>
+                    )}
+                  </th>
+                  <td className="num">{frequency.count}</td>
+                  <td className="num">
+                    {frequency.min}–{frequency.max}
+                  </td>
+                  <td>
+                    {frequency.count < frequency.min
+                      ? "Sotto"
+                      : frequency.count > frequency.max
+                        ? "Sopra"
+                        : "Nell'intervallo"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <section className="schema-pizza" aria-labelledby={`${baseId}-pizza`}>
+        <h3 id={`${baseId}-pizza`}>Giorno pizza (in più)</h3>
+        <p className="hint">
+          Un giorno in più, intercambiabile con uno della settimana: non è uno
+          dei sette giorni e non conta nelle fonti proteiche.
+        </p>
+        <div className="schema-fields">
+          <LabeledQuantity
+            label="Pane giorno pizza (g)"
+            quantity={pizza.bread}
+            onChange={(breadGrams) =>
+              setSchema((current) =>
+                withSection(current, "pizza", { breadGrams }),
+              )
+            }
+          />
+          <LabeledQuantity
+            label="Olio giorno pizza (ml)"
+            unit="ml"
+            quantity={pizza.oil}
+            onChange={(oilMl) =>
+              setSchema((current) => withSection(current, "pizza", { oilMl }))
+            }
+          />
+        </div>
+      </section>
+    </section>
+  );
+}
+
+/** One lunch or dinner: source, its quantity (proposed, correctable) and,
+ * for eggs and canned fish, the high-protein exception. A new source starts
+ * again from its own proposal. */
+function ProteinMealInput({
+  label,
+  mealName,
+  choice,
+  portion,
+  onChange,
+}: {
+  label: string;
+  mealName: string;
+  choice: SchemaProteinChoice | undefined;
+  portion: SchemaProteinPortion | null;
+  onChange: (choice: SchemaProteinChoice | undefined) => void;
+}) {
+  const hintId = useId();
+  const exception = choice && exceptionNames[choice.source];
+  const withoutKey = (key: "grams" | "exception") => {
+    const next = { ...choice } as SchemaProteinChoice;
+    delete next[key];
+    return next;
+  };
+  return (
+    <div className="protein-meal">
+      <span className="protein-meal-name" aria-hidden="true">
+        {mealName}
+      </span>
+      <select
+        aria-label={`Fonte ${label}`}
+        value={choice?.source ?? ""}
+        onChange={(event) => {
+          const source = event.target.value as SchemaProteinSource | "";
+          onChange(source ? { source } : undefined);
+        }}
+      >
+        <option value="">Nessuna</option>
+        {schemaProteinSources.map((source) => (
+          <option key={source} value={source}>
+            {proteinNames[source]}
+          </option>
+        ))}
+      </select>
+      {choice && portion && (
+        <>
+          <QuantityInput
+            label={`Quantità ${label} (g)`}
+            quantity={
+              portion.quantity ?? {
+                calculated: null,
+                value: null,
+                overridden: false,
+              }
+            }
+            describedBy={portion.quantity ? undefined : hintId}
+            onChange={(grams) => onChange({ ...choice, grams })}
+            onRevert={() => onChange(withoutKey("grams"))}
+          />
+          {!portion.quantity && (
+            <span id={hintId} className="muted">
+              Inserisci la base carne rossa
+            </span>
+          )}
+        </>
+      )}
+      {choice && exception && (
+        <label className="protein-exception">
+          <input
+            type="checkbox"
+            aria-label={`${label}: ${exception}`}
+            checked={choice.exception ?? false}
+            onChange={(event) =>
+              onChange(
+                event.target.checked
+                  ? { ...choice, exception: true }
+                  : withoutKey("exception"),
+              )
+            }
+          />
+          {exception}
+        </label>
+      )}
+    </div>
+  );
+}
+
+/** A quantity with a visible label, for fields outside the tables; clearing
+ * the correction (↺) passes undefined. */
+function LabeledQuantity({
+  label,
+  unit = "g",
+  quantity,
+  onChange,
+}: {
+  label: string;
+  unit?: string;
+  quantity: SchemaQuantity;
+  onChange: (value: number | undefined) => void;
+}) {
+  const id = useId();
+  return (
+    <div className="schema-field">
+      <label htmlFor={id}>{label}</label>
+      <QuantityInput
+        id={id}
+        label={label}
+        unit={unit}
+        quantity={quantity}
+        onChange={onChange}
+        onRevert={() => onChange(undefined)}
+      />
+    </div>
   );
 }
 
@@ -501,41 +938,61 @@ function NumberInput({
   );
 }
 
-/** A calculated quantity; a correction is highlighted, described and
- * revertible. Clearing the field does not revert: ↺ does. */
+/** A calculated (or proposed) quantity; a correction is highlighted,
+ * described and revertible. Clearing the field does not revert: ↺ does.
+ * Without a calculation (null) the field starts empty. With `id` the caller
+ * renders a visible <label>; otherwise `label` names the field. */
 function QuantityInput({
+  id,
   label,
+  unit = "g",
   quantity,
+  describedBy,
   onChange,
   onRevert,
 }: {
+  id?: string;
   label: string;
-  quantity: SchemaQuantity;
+  unit?: string;
+  quantity: {
+    calculated: number | null;
+    value: number | null;
+    overridden: boolean;
+  };
+  describedBy?: string | undefined;
   onChange: (grams: number) => void;
   onRevert: () => void;
 }) {
   const noteId = useId();
+  const calculated =
+    quantity.calculated === null ? null : formatGrams(quantity.calculated);
   return (
     <span className={`quantity${quantity.overridden ? " overridden" : ""}`}>
       <NumberInput
-        label={label}
+        {...(id ? { id } : { label })}
         value={quantity.value}
-        describedBy={quantity.overridden ? noteId : undefined}
+        describedBy={
+          [quantity.overridden && noteId, describedBy]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
         onChange={(grams) => grams !== null && onChange(grams)}
       />
       {quantity.overridden && (
         <>
           <span id={noteId} className="visually-hidden">
-            Corretto a mano, calcolato {formatGrams(quantity.calculated)} g
+            {calculated === null
+              ? "Corretto a mano, nessun valore calcolato"
+              : `Corretto a mano, calcolato ${calculated} ${unit}`}
           </span>
           <button
             type="button"
             className="revert"
             title="Ripristina il valore calcolato"
-            aria-label={`Ripristina ${label}: ${formatGrams(quantity.calculated)} calcolati`}
+            aria-label={`Ripristina ${label}: ${calculated === null ? "nessun valore calcolato" : `${calculated} calcolati`}`}
             onClick={onRevert}
           >
-            ↺ {formatGrams(quantity.calculated)}
+            ↺ {calculated ?? "—"}
           </button>
         </>
       )}
