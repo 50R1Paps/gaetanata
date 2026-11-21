@@ -2,7 +2,7 @@ import { useId, useState } from "react";
 import { mealSlots } from "../calc";
 import { formatGrams, formatNumber, parseGrams } from "../format";
 import type { Patient } from "../patient";
-import { weekDays } from "../plan";
+import { type WeekPlan, weekDays } from "../plan";
 import {
   type DietSchema,
   type SchemaDay,
@@ -25,6 +25,7 @@ import {
   substitutionReferences,
 } from "../schemaCalc";
 import { metabolismFormulas } from "./MetabolismPanel";
+import { SchemaPlanFill } from "./SchemaPlanFill";
 import { SchemaWordPanel } from "./SchemaWordPanel";
 
 const macroNames: Record<keyof SchemaMacros, string> = {
@@ -159,6 +160,8 @@ export function SchemaScreen({
   schema,
   setSchema,
   schemaDirty,
+  plan,
+  setPlan,
   today,
 }: {
   patient: Patient | null;
@@ -166,6 +169,9 @@ export function SchemaScreen({
   setSchema: (update: (schema: DietSchema) => DietSchema) => void;
   /** Whether the Schema differs from the saved one, used for the Word. */
   schemaDirty: boolean;
+  /** The free editor's plan, which the Schema can fill. */
+  plan: WeekPlan;
+  setPlan: (plan: WeekPlan) => void;
   today: string;
 }) {
   const baseId = useId();
@@ -316,6 +322,13 @@ export function SchemaScreen({
         key={patient.id}
         patientId={patient.id}
         schemaDirty={schemaDirty}
+      />
+      <SchemaPlanFill
+        key={`fill-${patient.id}`}
+        result={result}
+        plan={plan}
+        setPlan={setPlan}
+        proteinNames={proteinNames}
       />
 
       {result.ok && (

@@ -861,6 +861,7 @@ html {
 
   .schema-settings,
   .schema-word,
+  .schema-fill,
   .schema-protein,
   .schema-intake {
     grid-column: 1;

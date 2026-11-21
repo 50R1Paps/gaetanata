@@ -146,6 +146,8 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
             schema={schema}
             setSchema={setSchema}
             schemaDirty={schema !== savedSchema}
+            plan={plan}
+            setPlan={setPlan}
             today={localToday()}
           />
         ) : (

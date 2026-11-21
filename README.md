@@ -248,6 +248,13 @@ di cosa completare; altrimenti il browser scarica il file con il nome dato dal
 server. Lo «Storico» elenca i Word generati del paziente, dal più recente, con
 data, ora, nome del file e «Scarica»; si aggiorna dopo ogni generazione.
 
+«Riempi il piano settimanale», nel riquadro «Piano settimanale» dello Schema, è
+attivo solo quando lo schema si può calcolare. Se il piano ha già alimenti
+chiede conferma («Sostituisci il piano» / «Annulla»); poi sostituisce il piano
+dell'editor con gli alimenti rappresentativi (`src/schemaToPlan.ts`). Il piano
+resta da salvare come ogni altra modifica, e i pasti non riempiti sono elencati
+con il motivo (alimento rappresentativo assente o base carne rossa mancante).
+
 ## Media settimanale
 
 La media dei nutrienti conta soltanto i giorni che contengono almeno una porzione in uno dei sei pasti e che non sono stati esclusi a mano con la casella "Giorni inclusi nella media". Un giorno senza porzioni è indicato come vuoto e non conteggiato (non conta il valore zero delle calorie); torna a contribuire appena viene ricompilato. L'esclusione manuale è una scelta separata e resta anche quando si aggiungono o tolgono porzioni. Se nessun giorno è compilato e incluso, compare un messaggio al posto della media. Il pannello mostra su quanti giorni è calcolata la media.
