@@ -221,7 +221,22 @@ Svuotare il campo non annulla la correzione. «Salva schema» salva input e
 correzioni con lo stesso stato, gli stessi errori e lo stesso avviso di modifiche
 non salvate del piano: cambiando paziente si può salvare o scartare il piano, lo
 schema o entrambi, e se uno dei due non si carica resta il paziente precedente.
-Le sezioni opzionali non ancora visibili nella schermata vengono conservate.
+
+Sotto le tabelle (e come queste solo quando lo schema si può calcolare),
+«Colazione e spuntini» propone latte 150 ml (o yogurt 125 g:
+cambiando scelta la quantità riparte dalla proposta), frutta secca 20 g e
+yogurt 125 g negli spuntini. «Fonti proteiche» ha la base della carne rossa e,
+per ognuno dei sette giorni, la fonte di pranzo e cena («Nessuna» lascia il
+pasto vuoto) con la quantità proposta; una nuova fonte riparte dalla sua
+proposta. Uova e pesce in scatola hanno la casella dell'eccezione (3 uova
+180 g, tonno 78 g); carne bianca e pesce senza base restano vuoti con
+l'indicazione di inserirla. Accanto, le frequenze settimanali contano le scelte
+per fonte (formaggi e legumi insieme, con il dettaglio) e segnalano quelle
+sotto o sopra il consigliato. Il giorno pizza, con pane e olio, è un riquadro
+separato «in più», non uno dei sette giorni. Tutte le quantità seguono le
+stesse regole di correzione evidenziata e ↺; sotto i 600 px la griglia diventa
+un elenco per giorno. Le sezioni vengono salvate solo con i valori scelti o
+corretti, così le proposte restano quelle del calcolo.
 
 ## Media settimanale
 
