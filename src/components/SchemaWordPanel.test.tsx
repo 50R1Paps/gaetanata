@@ -1,36 +1,14 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from "@testing-library/react";
-import userEvent, {
-  PointerEventsCheckLevel,
-  type UserEvent,
-} from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { App } from "../App";
 import type { GeneratedDocument } from "../documentsApi";
-import type { Patient } from "../patient";
 import { emptyWeekPlan } from "../plan";
 import { type DietSchema, emptySchema } from "../schema";
+import { openSchema, patients, setup, stubDialogs } from "./schemaTestKit";
 
 // The real routes are tested over HTTP in server/documents.test.ts; here an
-// in-memory stand-in answers them. Fake, anonymous people and files only.
-const patients: Patient[] = [
-  {
-    id: 1,
-    name: "Prova Uno",
-    birthDate: "1990-05-10",
-    sex: "female",
-    weightKg: 60,
-    heightCm: 165,
-  },
-  {
-    id: 2,
-    name: "Prova Due",
-    birthDate: "1985-01-20",
-    sex: "male",
-    weightKg: 80,
-    heightCm: 180,
-  },
-];
+// in-memory stand-in answers them. Fake files only.
 const missingTags = "Segnaposto mancanti o blocchi incompleti: data, saluto";
 let schemas: Map<number, DietSchema>;
 let template: boolean;
@@ -107,12 +85,7 @@ beforeEach(() => {
       schemas.set(patientId, JSON.parse(String(init.body)));
     return Response.json(schemas.get(patientId) ?? emptySchema());
   });
-  HTMLDialogElement.prototype.showModal = function () {
-    this.setAttribute("open", "");
-  };
-  HTMLDialogElement.prototype.close = function () {
-    this.removeAttribute("open");
-  };
+  stubDialogs();
   // jsdom has no object URLs nor downloads: record what would be saved.
   URL.createObjectURL = (blob: Blob) => `blob:${blobs.push(blob) - 1}`;
   URL.revokeObjectURL = () => {};
@@ -130,18 +103,6 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-/** Schema view first, as in SchemaScreen.test.tsx: smaller DOM to query. */
-async function openSchema(user: UserEvent, name: string) {
-  await user.click(screen.getByRole("radio", { name: "Schema" }));
-  await user.click(screen.getByRole("button", { name: /Paziente:/ }));
-  const dialog = within(screen.getByRole("dialog"));
-  await user.click(
-    await dialog.findByRole("button", { name: new RegExp(`^${name}`) }),
-  );
-  await screen.findByText("Schema caricato.");
-  await user.click(dialog.getByRole("button", { name: "Chiudi" }));
-}
-
 const word = () =>
   within(screen.getByRole("region", { name: "Documento Word" }));
 const generate = () => word().getByRole("button", { name: "Genera Word" });
@@ -149,12 +110,6 @@ const reason = () =>
   document.getElementById(generate().getAttribute("aria-describedby") ?? "")
     ?.textContent;
 const docx = (name: string) => new File(["x"], name, { type: "" });
-// As in SchemaScreen.test.tsx: each event re-renders the whole Schema.
-const setup = () =>
-  userEvent.setup({
-    delay: null,
-    pointerEventsCheck: PointerEventsCheckLevel.Never,
-  });
 
 it("uploads or replaces the template and shows the missing placeholders", async () => {
   const user = setup();

@@ -34,6 +34,10 @@ const macroNames: Record<keyof SchemaMacros, string> = {
   protein: "Proteine",
 };
 const macroKeys = Object.keys(macroNames) as (keyof SchemaMacros)[];
+/** Kcal of the grams shown, corrected or calculated: fats 9 kcal/g, the
+ * others 4. */
+const gramsKcal = (key: keyof SchemaMacros, grams: number) =>
+  grams * (key === "fat" ? 9 : 4);
 const substitutionNames: Record<SubstitutionKey, string> = {
   pasta: "Pasta",
   bread: "Pane",
@@ -382,6 +386,12 @@ export function SchemaScreen({
                                 setOverride("meals", meal.slot, key, undefined)
                               }
                             />
+                            <div className="muted">
+                              {formatNumber(
+                                gramsKcal(key, meal.grams[key].value),
+                              )}{" "}
+                              kcal
+                            </div>
                           </td>
                         ))}
                       </tr>
@@ -393,16 +403,18 @@ export function SchemaScreen({
                     <th scope="row">Totale</th>
                     <td className="num">100 %</td>
                     <td className="num">{formatNumber(schema.kcal ?? 0)}</td>
-                    {macroKeys.map((key) => (
-                      <td key={key} className="num">
-                        {formatGrams(
-                          result.meals.reduce(
-                            (sum, meal) => sum + meal.grams[key].value,
-                            0,
-                          ),
-                        )}
-                      </td>
-                    ))}
+                    {macroKeys.map((key) => {
+                      const grams = result.meals.reduce(
+                        (sum, meal) => sum + meal.grams[key].value,
+                        0,
+                      );
+                      return (
+                        <td key={key} className="num">
+                          {formatGrams(grams)}
+                          <div>{formatNumber(gramsKcal(key, grams))} kcal</div>
+                        </td>
+                      );
+                    })}
                   </tr>
                 </tfoot>
               </table>

@@ -1,27 +1,13 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from "@testing-library/react";
-import userEvent, {
-  PointerEventsCheckLevel,
-  type UserEvent,
-} from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { App } from "../App";
-import type { Patient } from "../patient";
 import { emptyWeekPlan, type WeekPlan } from "../plan";
 import { type DietSchema, emptySchema } from "../schema";
+import { openSchema, patients, setup, stubDialogs } from "./schemaTestKit";
 
 // The conversion is tested in src/schemaToPlan.test.ts; here only the
-// command in the Schema screen. Fake, anonymous people only.
-const patients: Patient[] = [
-  {
-    id: 1,
-    name: "Prova Uno",
-    birthDate: "1990-05-10",
-    sex: "female",
-    weightKg: 60,
-    heightCm: 165,
-  },
-];
+// command in the Schema screen.
 let schema: DietSchema;
 let plan: WeekPlan;
 
@@ -36,34 +22,13 @@ beforeEach(() => {
     if (document === "documents") return Response.json({ documents: [] });
     return Response.json(schema);
   });
-  HTMLDialogElement.prototype.showModal = function () {
-    this.setAttribute("open", "");
-  };
-  HTMLDialogElement.prototype.close = function () {
-    this.removeAttribute("open");
-  };
+  stubDialogs();
 });
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
-
-const setup = () =>
-  userEvent.setup({
-    delay: null,
-    pointerEventsCheck: PointerEventsCheckLevel.Never,
-  });
-
-/** Schema view first, as in SchemaScreen.test.tsx: smaller DOM to query. */
-async function openSchema(user: UserEvent) {
-  await user.click(screen.getByRole("radio", { name: "Schema" }));
-  await user.click(screen.getByRole("button", { name: /Paziente:/ }));
-  const dialog = within(screen.getByRole("dialog"));
-  await user.click(await dialog.findByRole("button", { name: /^Prova Uno/ }));
-  await screen.findByText("Schema caricato.");
-  await user.click(dialog.getByRole("button", { name: "Chiudi" }));
-}
 
 const fill = () =>
   screen.getByRole("button", { name: "Riempi il piano settimanale" });
@@ -77,7 +42,7 @@ const grams = (food: string) =>
 it("fills only from a calculated schema", async () => {
   const user = setup();
   render(<App />);
-  await openSchema(user);
+  await openSchema(user, "Prova Uno");
 
   expect(fill().hasAttribute("disabled")).toBe(true);
   expect(
@@ -102,7 +67,7 @@ it("fills an empty plan, unsaved, and lists the meals left out", async () => {
   };
   const user = setup();
   render(<App />);
-  await openSchema(user);
+  await openSchema(user, "Prova Uno");
 
   await user.click(fill());
   expect(screen.queryByRole("button", { name: "Sostituisci il piano" })).toBe(
@@ -145,7 +110,7 @@ it("asks before replacing a plan that has foods", async () => {
   };
   const user = setup();
   render(<App />);
-  await openSchema(user);
+  await openSchema(user, "Prova Uno");
 
   await user.click(fill());
   expect(
