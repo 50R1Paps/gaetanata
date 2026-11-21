@@ -175,7 +175,7 @@ uno schema corrente, separato dal piano libero; la terza migrazione lo aggiunge
 senza alterare schede e piani. Resta dopo il riavvio e viene eliminato insieme
 alla scheda. I risultati calcolati non vengono salvati. La versione 1 accetta
 le sezioni opzionali seguenti; anche i salvataggi precedenti restano validi.
-Il modulo non genera documenti; la schermata è descritta sotto.
+La schermata e l'API per generare il Word sono descritte sotto.
 
 - `proteinWeek: { redMeatGrams?, days? }`: `days` usa `lunedi`…`domenica`,
   ciascuno con `lunch`/`dinner` opzionali: `{ source, grams?, exception? }`.
@@ -240,3 +240,33 @@ Decisioni prese (issue #1). P = peso in kg, H = altezza in cm, A = età in anni.
 - **Scelta automatica della formula** in base al BMI: BMI ≤ 25 → Harris-Benedict, 25 < BMI ≤ 30 → Mifflin, BMI > 30 → Bernstein.
 - **"Eq. Giuseppe"**: tolta, non viene implementata.
 - **Unità in stampa**: latte e olio in ml, tutto il resto in g.
+
+## Word dallo Schema: API locale
+
+La generazione è disponibile sul server; i comandi nell'interfaccia saranno
+aggiunti separatamente. Salvare prima lo Schema del paziente.
+
+- `GET /api/template` restituisce `{ available: boolean }`.
+- `PUT /api/template` riceve direttamente i byte del `.docx` (non multipart),
+  verifica il [contratto dei segnaposto](docs/template-segnaposto.md) e salva
+  `template.docx` accanto al database, normalmente in `data/`. Ripetere la
+  richiesta sostituisce il template; un file rifiutato non modifica il precedente.
+  Un template non valido produce 422; i segnaposto mancanti sono elencati.
+- `POST /api/patients/:id/document` genera dallo Schema salvato e dai dati
+  attuali del paziente. Restituisce il Word come allegato, con nome
+  `<Nome paziente> <aaaa-mm-gg>.docx`, caratteri non consentiti sostituiti e
+  data locale del computer. Template assente, kcal mancanti, dati paziente
+  incompleti o quantità mancanti di una fonte scelta producono 422; gli input
+  incompleti hanno `issues: [{ field, message }]`. Un pasto senza fonte non
+  stampa blocchi proteici. La polenta non disponibile resta nascosta.
+
+`src/documentsApi.ts` offre `loadTemplateStatus`, `uploadTemplate` e
+`generatePatientDocument` (Blob e nome file), con `DocumentApiError.issues`.
+`server/generate-document.ts` espone la sola funzione di generazione senza I/O,
+con byte template, paziente, Schema e data esplicita: restituisce byte e nome
+file, riutilizzabili per lo storico (#27), non ancora implementato.
+
+Template e documenti non vengono inviati a servizi esterni né committati.
+Il template resta dopo il riavvio ed entra nel backup della cartella `data/`.
+La firma e tutti i testi descrittivi restano nel template locale: la generazione
+non aggiunge nomi professionali. I test usano soltanto il template sintetico.
