@@ -79,6 +79,32 @@ describe("contratto del template Word", () => {
       );
     },
   );
+
+  it.each([true, false])(
+    "non lascia paragrafi vuoti con la polenta disponibile: %s",
+    (available) => {
+      const data: Record<string, number | boolean> = Object.fromEntries(
+        templateValueTags.map((tag) => [tag, 35]),
+      );
+      for (const [block, values] of Object.entries(templateBlockValueTags)) {
+        data[block] = true;
+        for (const tag of values) data[tag] = 70;
+      }
+      data.pranzo_sost_polenta = available;
+      const doc = new Docxtemplater(new PizZip(buildSyntheticTemplate()), {
+        paragraphLoop: true,
+      });
+      doc.render(data);
+      const xml = doc.getZip().file("word/document.xml")?.asText() ?? "";
+      const paragraphs = xml.match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) ?? [];
+      expect(paragraphs.length).toBe(available ? 163 : 162);
+      expect(
+        paragraphs.filter(
+          (paragraph) => !paragraph.replace(/<[^>]+>/g, "").trim(),
+        ),
+      ).toHaveLength(0);
+    },
+  );
   it.each(["Gent.mo Sig.", "Gent.ma Sig.ra"])(
     "compila il saluto completo %s e solo la fonte scelta",
     (saluto) => {
@@ -212,6 +238,50 @@ describe("contratto del template Word", () => {
         doc.render(data);
         expect(doc.getFullText()).not.toMatch(/[{}]/);
       }
+    },
+  );
+
+  it.skipIf(!existsSync(localTemplate))(
+    "elimina il punto elenco della polenta nella copia locale quando non disponibile",
+    () => {
+      const bytes = readFileSync(localTemplate);
+      const data: Record<string, number | boolean> = Object.fromEntries(
+        templateValueTags.map((tag) => [tag, 35]),
+      );
+      for (const [block, values] of Object.entries(templateBlockValueTags)) {
+        data[block] = true;
+        for (const tag of values) data[tag] = 70;
+      }
+      data.pranzo_sost_farina_mais_g = 987654;
+      function renderParagraphs(available: boolean) {
+        const doc = new Docxtemplater(new PizZip(bytes), {
+          paragraphLoop: true,
+        });
+        doc.render({ ...data, pranzo_sost_polenta: available });
+        const xml = doc.getZip().file("word/document.xml")?.asText() ?? "";
+        return xml.match(/<w:p(?:\s[^>]*)?>[\s\S]*?<\/w:p>/g) ?? [];
+      }
+      const present = renderParagraphs(true);
+      const absent = renderParagraphs(false);
+      const presentBullets = present.filter((paragraph) =>
+        paragraph.includes("<w:numPr"),
+      );
+      const absentBullets = absent.filter((paragraph) =>
+        paragraph.includes("<w:numPr"),
+      );
+      expect(
+        presentBullets.filter((paragraph) => paragraph.includes("987654")),
+      ).toHaveLength(1);
+      expect(absent.some((paragraph) => paragraph.includes("987654"))).toBe(
+        false,
+      );
+      expect(absent.length).toBe(present.length - 1);
+      expect(absentBullets.length).toBe(presentBullets.length - 1);
+      expect(
+        absentBullets.filter(
+          (paragraph) => !paragraph.replace(/<[^>]+>/g, "").trim(),
+        ),
+      ).toHaveLength(0);
     },
   );
 });
