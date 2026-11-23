@@ -10,16 +10,20 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const port = Number(process.env.PORT ?? 5174);
 const url = `http://127.0.0.1:${port}`;
 
-// Exit 10 means preparation is needed; no network, writes or server in this mode.
-if (process.argv.includes("--check-setup")) {
-  process.exit(needsSetup() ? 10 : 0);
-}
+if (
+  process.argv[1] &&
+  pathToFileURL(process.argv[1]).href === import.meta.url
+) {
+  // Exit 10 means preparation is needed; no network, writes or server in this mode.
+  if (process.argv.includes("--check-setup")) {
+    process.exit(needsSetup() ? 10 : 0);
+  }
 
 if (await alreadyRunning()) {
   console.log(`Gaetanata è già aperta: ${url}`);
@@ -74,6 +78,7 @@ process.off("SIGINT", interrupt);
 process.off("SIGTERM", terminate);
 process.off("SIGHUP", hangup);
 process.off("exit", terminate);
+}
 
 async function alreadyRunning(): Promise<boolean> {
   try {
@@ -170,6 +175,21 @@ function hashFiles(files: string[]): string {
   return hash.digest("hex");
 }
 
+/** Browser policy from ADR 0008; a failed app launch uses the system default. */
+export function chooseBrowser(
+  platform: string,
+  available: { edge: boolean; chrome: boolean },
+  firstAttemptFailed = false,
+): "edge" | "chrome" | "default" {
+  if (firstAttemptFailed) return "default";
+  if (platform === "win32" && available.edge) return "edge";
+  if (platform === "darwin") {
+    if (available.chrome) return "chrome";
+    if (available.edge) return "edge";
+  }
+  return "default";
+}
+
 function openBrowser(target: string): void {
   if (process.env.GAETANATA_NO_BROWSER) return;
   const fallback: [string, string[]] =
@@ -178,26 +198,43 @@ function openBrowser(target: string): void {
       : process.platform === "darwin"
         ? ["open", [target]]
         : ["xdg-open", [target]];
-  let preferred: [string, string[]] | undefined;
-  if (process.platform === "win32") {
-    const locations = [
-      process.env.ProgramFiles ?? "C:\\Program Files",
-      process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)",
-    ];
-    const edge = locations
-      .map((location) =>
-        join(location, "Microsoft", "Edge", "Application", "msedge.exe"),
-      )
-      .find((location) => existsSync(location));
-    if (edge) preferred = [edge, [`--app=${target}`]];
-  } else if (process.platform === "darwin") {
-    const app = [
-      "/Applications/Google Chrome.app",
-      "/Applications/Microsoft Edge.app",
-    ].find((location) => existsSync(location));
-    if (app) preferred = ["open", ["-na", app, "--args", `--app=${target}`]];
-  }
-  launch(preferred ?? fallback, preferred !== undefined);
+  const edge =
+    process.platform === "win32"
+      ? [
+          process.env.ProgramFiles ?? "C:\\Program Files",
+          process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)",
+        ]
+          .map((location) =>
+            join(location, "Microsoft", "Edge", "Application", "msedge.exe"),
+          )
+          .find((location) => existsSync(location))
+      : undefined;
+  const available = {
+    edge:
+      process.platform === "win32"
+        ? Boolean(edge)
+        : process.platform === "darwin" &&
+          existsSync("/Applications/Microsoft Edge.app"),
+    chrome:
+      process.platform === "darwin" &&
+      existsSync("/Applications/Google Chrome.app"),
+  };
+  const choice = chooseBrowser(process.platform, available);
+  const preferred: [string, string[]] =
+    choice === "default"
+      ? fallback
+      : process.platform === "win32"
+        ? [edge ?? "msedge", [`--app=${target}`]]
+        : [
+            "open",
+            [
+              "-na",
+              `/Applications/${choice === "chrome" ? "Google Chrome" : "Microsoft Edge"}.app`,
+              "--args",
+              `--app=${target}`,
+            ],
+          ];
+  launch(preferred, choice !== "default");
 
   function launch(
     [command, args]: [string, string[]],
@@ -207,7 +244,11 @@ function openBrowser(target: string): void {
     const onFailure = () => {
       if (failed) return;
       failed = true;
-      if (canFallback) launch(fallback, false);
+      if (
+        canFallback &&
+        chooseBrowser(process.platform, available, true) === "default"
+      )
+        launch(fallback, false);
       else console.log(`Apri il browser su ${target}`);
     };
     spawn(command, args, { stdio: "ignore", detached: true, windowsHide: true })
