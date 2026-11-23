@@ -76,9 +76,15 @@ it("rejects ZIP bombs, including forged expanded sizes, and preserves the previo
     expect((await upload(buildSyntheticTemplate())).status).toBe(200);
     const zip = new PizZip(buildSyntheticTemplate());
     // Each entry fits individually, but their total expansion exceeds 40 MiB.
-    zip.file("large-a.bin", Buffer.alloc(21 * 1024 * 1024));
-    zip.file("large-b.bin", Buffer.alloc(21 * 1024 * 1024));
-    const bomb = zip.generate({ type: "nodebuffer", compression: "DEFLATE" });
+    const large = Buffer.alloc(21 * 1024 * 1024);
+    zip.file("large-a.bin", large);
+    zip.file("large-b.bin", large);
+    // Keep the same expansion while avoiding unnecessary compression CPU work.
+    const bomb = zip.generate({
+      type: "nodebuffer",
+      compression: "DEFLATE",
+      compressionOptions: { level: 1 },
+    });
     expect((await upload(bomb)).status).toBe(422);
     for (let offset = 0; offset < bomb.length - 46; offset++) {
       if (bomb.readUInt32LE(offset) === 0x02014b50)

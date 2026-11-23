@@ -1,10 +1,19 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { setTimeout as delay } from "node:timers/promises";
-import { expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { emptySchema } from "../src/schema.ts";
 import { startServer } from "./app.ts";
+
+beforeEach(() => {
+  // Advance presence expiry and idle deadlines without racing HTTP against time.
+  vi.useFakeTimers({ toFake: ["Date", "setTimeout", "clearTimeout"] });
+  vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 it("renews the sole active window and transfers ownership only after close or stale presence without stopping the server", async () => {
   const dir = mkdtempSync(join(tmpdir(), "gaetanata-windows-"));
@@ -48,15 +57,15 @@ it("renews the sole active window and transfers ownership only after close or st
       status: 200,
       body: { active: false },
     });
-    await delay(60);
+    await vi.advanceTimersByTimeAsync(60);
     expect((await presence("first")).body.active).toBe(true);
-    await delay(60);
+    await vi.advanceTimersByTimeAsync(60);
     expect((await presence("second")).body.active).toBe(false);
     await presence("second", true);
     expect((await presence("first")).body.active).toBe(true);
     await presence("first", true);
     expect((await presence("second")).body.active).toBe(true);
-    await delay(120);
+    await vi.advanceTimersByTimeAsync(120);
     expect((await fetch(`${base}/api/health`)).status).toBe(200);
     expect((await presence("third")).body.active).toBe(true);
     expect((await presence("second")).body.active).toBe(false);
@@ -71,6 +80,7 @@ it("renews the sole active window and transfers ownership only after close or st
 it("writes the closing bozza before transfer, rejects inactive writes and waits for explicit closure before onIdle", async () => {
   const dir = mkdtempSync(join(tmpdir(), "gaetanata-idle-"));
   let idle = 0;
+  const stopped = Promise.withResolvers<void>();
   const server = await startServer({
     port: 0,
     databaseFile: join(dir, "app.db"),
@@ -78,6 +88,7 @@ it("writes the closing bozza before transfer, rejects inactive writes and waits 
     idleGraceMs: 80,
     onIdle: () => {
       idle += 1;
+      stopped.resolve();
     },
   });
   const address = server.address();
@@ -108,7 +119,7 @@ it("writes the closing bozza before transfer, rejects inactive writes and waits 
     expect(await (await fetch(`${base}/api/draft`)).json()).toMatchObject(
       draft,
     );
-    await delay(100);
+    await vi.advanceTimersByTimeAsync(100);
     expect(idle).toBe(0); // A registered waiting window still exists.
     expect(
       await (await call("/api/window", { windowId: "second" })).json(),
@@ -131,7 +142,7 @@ it("writes the closing bozza before transfer, rejects inactive writes and waits 
         draft,
       );
     }
-    await delay(100);
+    await vi.advanceTimersByTimeAsync(100);
     expect(idle).toBe(0); // Missing presence never shuts down.
     await call("/api/window", { windowId: "second" });
     expect(
@@ -148,14 +159,15 @@ it("writes the closing bozza before transfer, rejects inactive writes and waits 
     ).toBe(200);
     await call("/api/window/close", { windowId: "second", draft: null });
     expect((await fetch(`${base}/api/draft`)).status).toBe(404);
-    await delay(20);
+    await vi.advanceTimersByTimeAsync(20);
     expect(idle).toBe(0);
     await call("/api/window", { windowId: "reload" });
-    await delay(100);
+    await vi.advanceTimersByTimeAsync(100);
     expect(idle).toBe(0);
     await call("/api/window", { windowId: "reload" });
     await call("/api/window/close", { windowId: "reload" });
-    await delay(110);
+    await vi.advanceTimersByTimeAsync(80);
+    await stopped.promise;
     expect(idle).toBe(1);
     expect((await fetch(`${base}/api/health`)).status).toBe(200);
   } finally {
@@ -169,6 +181,7 @@ it("writes the closing bozza before transfer, rejects inactive writes and waits 
 it("stops after the reopened window closes even when the previous browser crashed", async () => {
   const dir = mkdtempSync(join(tmpdir(), "gaetanata-crash-"));
   let idle = 0;
+  const stopped = Promise.withResolvers<void>();
   const server = await startServer({
     port: 0,
     databaseFile: join(dir, "app.db"),
@@ -176,6 +189,7 @@ it("stops after the reopened window closes even when the previous browser crashe
     idleGraceMs: 40,
     onIdle: () => {
       idle += 1;
+      stopped.resolve();
     },
   });
   const address = server.address();
@@ -190,11 +204,12 @@ it("stops after the reopened window closes even when the previous browser crashe
   }
   try {
     expect(await presence("crashed")).toEqual({ active: true });
-    await delay(100);
+    await vi.advanceTimersByTimeAsync(100);
     expect(idle).toBe(0);
     expect(await presence("reopened")).toEqual({ active: true });
     await presence("reopened", true);
-    await delay(70);
+    await vi.advanceTimersByTimeAsync(40);
+    await stopped.promise;
     expect(idle).toBe(1);
     expect((await fetch(`${base}/api/health`)).status).toBe(200);
   } finally {
@@ -208,6 +223,7 @@ it("stops after the reopened window closes even when the previous browser crashe
 it("writes a sleeping owner's closing bozza and starts shutdown after freeing its slot", async () => {
   const dir = mkdtempSync(join(tmpdir(), "gaetanata-sleep-close-"));
   let idle = 0;
+  const stopped = Promise.withResolvers<void>();
   const server = await startServer({
     port: 0,
     databaseFile: join(dir, "app.db"),
@@ -215,6 +231,7 @@ it("writes a sleeping owner's closing bozza and starts shutdown after freeing it
     idleGraceMs: 30,
     onIdle: () => {
       idle += 1;
+      stopped.resolve();
     },
   });
   const address = server.address();
@@ -227,7 +244,7 @@ it("writes a sleeping owner's closing bozza and starts shutdown after freeing it
     });
   try {
     await call("/api/window", { windowId: "sleeping" });
-    await delay(60);
+    await vi.advanceTimersByTimeAsync(60);
     const draft = { patientId: null, schema: { ...emptySchema(), kcal: 1800 } };
     expect(
       (await call("/api/window/close", { windowId: "sleeping", draft })).status,
@@ -235,7 +252,8 @@ it("writes a sleeping owner's closing bozza and starts shutdown after freeing it
     expect(await (await fetch(`${base}/api/draft`)).json()).toMatchObject(
       draft,
     );
-    await delay(60);
+    await vi.advanceTimersByTimeAsync(30);
+    await stopped.promise;
     expect(idle).toBe(1);
     expect(
       await (await call("/api/window", { windowId: "next" })).json(),
@@ -273,9 +291,9 @@ it("never starts shutdown when a waiting window closes while the owner sleeps", 
     expect(await (await call("/api/window", "waiting")).json()).toEqual({
       active: false,
     });
-    await delay(60);
+    await vi.advanceTimersByTimeAsync(60);
     await call("/api/window/close", "waiting");
-    await delay(60);
+    await vi.advanceTimersByTimeAsync(60);
     expect(idle).toBe(0);
     expect(await (await call("/api/window", "sleeping")).json()).toEqual({
       active: true,

@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 describe("elenco esportabile per la revisione della nutrizionista", () => {
+  // Include the real Node CLI's startup cost when the suite is loaded.
   it("esporta tutti gli alimenti con misure e dubbi e mantiene aggiornato il documento", () => {
     const output = execFileSync(
       process.execPath,
@@ -31,5 +32,5 @@ describe("elenco esportabile per la revisione della nutrizionista", () => {
         "utf8",
       ),
     );
-  });
+  }, 15_000);
 });

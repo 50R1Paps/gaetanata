@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 
+// Real launcher/build subprocess startup is slower when suites run concurrently.
 it("reports setup required without installing or starting a server", () => {
   const root = mkdtempSync(join(tmpdir(), "gaetanata-setup-"));
   try {
@@ -24,7 +25,7 @@ it("reports setup required without installing or starting a server", () => {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
-});
+}, 15_000);
 
 it("reuses a prepared build and detects a changed public asset", () => {
   const root = mkdtempSync(join(tmpdir(), "gaetanata-setup-"));
@@ -67,4 +68,4 @@ it("reuses a prepared build and detects a changed public asset", () => {
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
-});
+}, 15_000);
