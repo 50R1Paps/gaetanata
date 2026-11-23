@@ -204,3 +204,86 @@ it("stops after the reopened window closes even when the previous browser crashe
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+it("writes a sleeping owner's closing bozza and starts shutdown after freeing its slot", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gaetanata-sleep-close-"));
+  let idle = 0;
+  const server = await startServer({
+    port: 0,
+    databaseFile: join(dir, "app.db"),
+    windowStaleAfterMs: 30,
+    idleGraceMs: 30,
+    onIdle: () => {
+      idle += 1;
+    },
+  });
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("No address");
+  const base = `http://127.0.0.1:${address.port}`;
+  const call = (path: string, body: unknown) =>
+    fetch(`${base}${path}`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  try {
+    await call("/api/window", { windowId: "sleeping" });
+    await delay(60);
+    const draft = { patientId: null, schema: { ...emptySchema(), kcal: 1800 } };
+    expect(
+      (await call("/api/window/close", { windowId: "sleeping", draft })).status,
+    ).toBe(200);
+    expect(await (await fetch(`${base}/api/draft`)).json()).toMatchObject(
+      draft,
+    );
+    await delay(60);
+    expect(idle).toBe(1);
+    expect(
+      await (await call("/api/window", { windowId: "next" })).json(),
+    ).toEqual({ active: true });
+  } finally {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    server.close(() => resolve());
+    await promise;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+it("never starts shutdown when a waiting window closes while the owner sleeps", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gaetanata-waiting-close-"));
+  let idle = 0;
+  const server = await startServer({
+    port: 0,
+    databaseFile: join(dir, "app.db"),
+    windowStaleAfterMs: 30,
+    idleGraceMs: 30,
+    onIdle: () => {
+      idle += 1;
+    },
+  });
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("No address");
+  const base = `http://127.0.0.1:${address.port}`;
+  const call = (path: string, windowId: string) =>
+    fetch(`${base}${path}`, {
+      method: "POST",
+      body: JSON.stringify({ windowId }),
+    });
+  try {
+    await call("/api/window", "sleeping");
+    expect(await (await call("/api/window", "waiting")).json()).toEqual({
+      active: false,
+    });
+    await delay(60);
+    await call("/api/window/close", "waiting");
+    await delay(60);
+    expect(idle).toBe(0);
+    expect(await (await call("/api/window", "sleeping")).json()).toEqual({
+      active: true,
+    });
+  } finally {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    server.close(() => resolve());
+    await promise;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

@@ -72,11 +72,11 @@ export function windowHandler({
     for (const [id, seenAt] of registered) {
       if (now - seenAt > staleAfterMs) registered.delete(id);
     }
-    if (active && !isActive(active.windowId)) active = null;
     if (close) {
-      const wasActive = active?.windowId === windowId;
+      const wasActive =
+        active?.windowId === windowId || (wasRegistered && !active);
       if ("draft" in body) {
-        if (!isActive(windowId)) {
+        if (!wasActive && active && isActive(active.windowId)) {
           reply(409, { error: "Finestra non attiva" });
           return;
         }
@@ -92,7 +92,7 @@ export function windowHandler({
       }
       registered.delete(windowId);
       if (wasActive) active = null;
-      if (wasRegistered && !active && registered.size === 0 && onIdle) {
+      if (wasActive && registered.size === 0 && onIdle) {
         clearTimeout(idleTimer);
         idleTimer = setTimeout(() => {
           idleTimer = undefined;

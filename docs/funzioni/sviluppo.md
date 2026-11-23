@@ -36,6 +36,9 @@ mostra gli errori in un dialogo del sistema.
 ICO, ICNS e favicon senza dipendenze aggiuntive. Il workflow dei launcher
 verifica i file generati, avvia collegamenti/bundle e registra e chiude una
 finestra sintetica via API, aspettando la fine del launcher e del server.
+L'aspetto della finestra dedicata e dei dialoghi d'errore si verifica a mano
+su Windows e macOS; i test automatici della scelta del browser verificano
+la politica (browser disponibili e ripiego), non le chiamate a `spawn`.
 
 ## Finestre e spegnimento
 
@@ -54,16 +57,19 @@ Il server la scrive prima di liberare il posto. `draft: null` elimina una
 bozza ormai senza modifiche; senza `draft` lascia intatta la copia esistente,
 anche mentre il ripristino attende una scelta. Non c'è un avviso `beforeunload`.
 
-Dopo la chiusura esplicita dell'ultima finestra registrata, il server attende
-10 secondi: una registrazione nel frattempo annulla lo spegnimento, permettendo
-di ricaricare la pagina. `startServer` espone `idleGraceMs` per accorciare
+Dopo la chiusura esplicita della finestra attiva, se non restano altre finestre
+con presenza recente, il server attende 10 secondi: una registrazione nel
+frattempo annulla lo spegnimento, permettendo di ricaricare la pagina.
+`startServer` espone `idleGraceMs` per accorciare
 l'attesa nei test e la callback facoltativa `onIdle`. `scripts/serve.ts` usa
 `onIdle` per chiudere il server e terminare il processo; sviluppo e test che
 non la passano restano accesi. Il timer viene cancellato alla chiusura del server.
 
-Per avvii isolati, `GAETANATA_DATA_DIR` seleziona una cartella dati alternativa
-in `scripts/serve.ts`; `PORT` sceglie la porta e `GAETANATA_NO_BROWSER=1`
-evita l'apertura del browser. Usare una cartella temporanea e dati sintetici.
+Per sviluppo e CI, `GAETANATA_DATA_DIR` seleziona una cartella dati alternativa
+in `scripts/serve.ts` (e per il log del launcher), senza cambiare il percorso
+predefinito `data/`. `PORT` sceglie la porta e `GAETANATA_NO_BROWSER=1`
+evita l'apertura del browser. Usare una cartella temporanea e dati sintetici;
+questa opzione serve agli avvii isolati, non alla configurazione ordinaria.
 
 ## Dati
 
