@@ -146,13 +146,49 @@ function hashFiles(files: string[]): string {
 
 function openBrowser(target: string): void {
   if (process.env.GAETANATA_NO_BROWSER) return;
-  const [command, args] =
+  const fallback: [string, string[]] =
     process.platform === "win32"
       ? ["cmd", ["/c", "start", "", target]]
       : process.platform === "darwin"
         ? ["open", [target]]
         : ["xdg-open", [target]];
-  spawn(command, args, { stdio: "ignore", detached: true })
-    .on("error", () => console.log(`Apri il browser su ${target}`))
-    .unref();
+  let preferred: [string, string[]] | undefined;
+  if (process.platform === "win32") {
+    const locations = [
+      process.env.ProgramFiles ?? "C:\\Program Files",
+      process.env["ProgramFiles(x86)"] ?? "C:\\Program Files (x86)",
+    ];
+    const edge = locations
+      .map((location) =>
+        join(location, "Microsoft", "Edge", "Application", "msedge.exe"),
+      )
+      .find((location) => existsSync(location));
+    if (edge) preferred = [edge, [`--app=${target}`]];
+  } else if (process.platform === "darwin") {
+    const app = [
+      "/Applications/Google Chrome.app",
+      "/Applications/Microsoft Edge.app",
+    ].find((location) => existsSync(location));
+    if (app) preferred = ["open", ["-na", app, "--args", `--app=${target}`]];
+  }
+  launch(preferred ?? fallback, preferred !== undefined);
+
+  function launch(
+    [command, args]: [string, string[]],
+    canFallback: boolean,
+  ): void {
+    let failed = false;
+    const onFailure = () => {
+      if (failed) return;
+      failed = true;
+      if (canFallback) launch(fallback, false);
+      else console.log(`Apri il browser su ${target}`);
+    };
+    spawn(command, args, { stdio: "ignore", detached: true })
+      .once("error", onFailure)
+      .once("exit", (code, signal) => {
+        if (code !== 0 || signal) onFailure();
+      })
+      .unref();
+  }
 }
