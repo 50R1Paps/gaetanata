@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { startServer } from "./app.ts";
+import { migrations } from "./db.ts";
 
 // Fake, anonymous people only: the repository is public.
 const ada = {
@@ -156,7 +157,7 @@ describe("patient API", () => {
     });
     expect((await reopened.call("GET", "/api/health")).body).toEqual({
       app: "gaetanata",
-      schemaVersion: 4,
+      schemaVersion: migrations.length,
     });
   });
 

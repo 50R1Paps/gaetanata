@@ -1,12 +1,26 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { type UserEvent, userEvent } from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { mealSlots } from "./calc";
+import { patients, stubDialogs } from "./components/schemaTestKit";
+import type { DraftInput } from "./draftApi";
 import { addPortion, emptyWeekPlan } from "./plan";
+import { emptySchema } from "./schema";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 function dayTab(name: string) {
   return screen.getByRole("tab", { name: new RegExp(`^${name}`) });
@@ -223,4 +237,175 @@ it("opens a loaded plan, replaces or removes unknown rows without losing other p
       .map((input) => input.getAttribute("value")),
   ).toEqual(["37", "15"]);
   expect(JSON.stringify(plan)).toBe(saved);
+});
+
+it("writes the patientless bozza one second after the last edit, with only the changed document", async () => {
+  vi.useFakeTimers();
+  let draft: unknown;
+  const writes: unknown[] = [];
+  vi.stubGlobal("fetch", async (path: string, init: RequestInit = {}) => {
+    if (path === "/api/draft" && init.method === "PUT") {
+      draft = JSON.parse(String(init.body));
+      writes.push(draft);
+      return new Response(
+        JSON.stringify({
+          ...(draft as object),
+          updatedAt: "2026-01-01T12:00:00Z",
+        }),
+      );
+    }
+    return new Response(JSON.stringify({ patients: [] }));
+  });
+  render(
+    <App
+      initialPlan={addPortion(emptyWeekPlan(), 0, 0, {
+        id: "draft-row",
+        food: "Noci",
+        grams: 30,
+      })}
+    />,
+  );
+  const input = screen.getByLabelText("Grammi di Noci");
+  fireEvent.change(input, { target: { value: "40" } });
+  await act(() => vi.advanceTimersByTimeAsync(900));
+  expect(writes).toEqual([]);
+  fireEvent.change(input, { target: { value: "50" } });
+  await act(() => vi.advanceTimersByTimeAsync(999));
+  expect(writes).toEqual([]);
+  await act(() => vi.advanceTimersByTimeAsync(1));
+  expect(draft).toEqual({
+    patientId: null,
+    plan: addPortion(emptyWeekPlan(), 0, 0, {
+      id: "draft-row",
+      food: "Noci",
+      grams: 50,
+    }),
+  });
+  expect(writes).toHaveLength(1);
+});
+
+function draftEditor() {
+  vi.useFakeTimers();
+  stubDialogs();
+  let draft: DraftInput | null = null;
+  let savedPlan = addPortion(emptyWeekPlan(), 0, 0, {
+    id: "saved-row",
+    food: "Noci",
+    grams: 30,
+  });
+  let savedSchema = emptySchema();
+  vi.stubGlobal("fetch", async (path: string, init: RequestInit = {}) => {
+    if (path === "/api/draft") {
+      draft = init.method === "DELETE" ? null : JSON.parse(String(init.body));
+      return init.method === "DELETE"
+        ? new Response(null, { status: 204 })
+        : Response.json({ ...draft, updatedAt: "2026-01-01T12:00:00Z" });
+    }
+    if (path === "/api/patients") return Response.json({ patients });
+    if (path.endsWith("/plan")) {
+      if (init.method === "PUT") savedPlan = JSON.parse(String(init.body));
+      return Response.json(savedPlan);
+    }
+    if (path.endsWith("/schema")) {
+      if (init.method === "PUT") savedSchema = JSON.parse(String(init.body));
+      return Response.json(savedSchema);
+    }
+    if (path.endsWith("/documents")) return Response.json({ documents: [] });
+    return Response.json({ available: false });
+  });
+  render(<App />);
+  return { draft: () => draft, savedPlan: () => savedPlan };
+}
+
+async function selectDraftPatient(name: string) {
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: /Paziente:/ }));
+  });
+  await act(async () => {
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: new RegExp(`^${name}`),
+      }),
+    );
+  });
+}
+
+it("keeps only the unsaved schema after saving the plan, then removes the bozza after saving schema", async () => {
+  const editor = draftEditor();
+  await selectDraftPatient("Prova Uno");
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", { name: "Chiudi" }),
+  );
+  fireEvent.change(screen.getByLabelText("Grammi di Noci"), {
+    target: { value: "45" },
+  });
+  fireEvent.click(screen.getByRole("radio", { name: "Schema" }));
+  fireEvent.change(screen.getByLabelText("Kcal dieta"), {
+    target: { value: "1800" },
+  });
+  await act(() => vi.advanceTimersByTimeAsync(1000));
+  expect(editor.draft()).toMatchObject({
+    patientId: 1,
+    plan: addPortion(emptyWeekPlan(), 0, 0, {
+      id: "saved-row",
+      food: "Noci",
+      grams: 45,
+    }),
+    schema: { kcal: 1800 },
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Salva piano" }));
+  });
+  await act(() => vi.advanceTimersByTimeAsync(1000));
+  expect(editor.draft()).toMatchObject({
+    patientId: 1,
+    schema: { kcal: 1800 },
+  });
+  expect(editor.draft()).not.toHaveProperty("plan");
+  expect(editor.savedPlan().days[0]?.meals[0]?.[0]?.grams).toBe(45);
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Salva schema" }));
+  });
+  expect(editor.draft()).toBeNull();
+});
+
+it("deletes the bozza on Scarta e cambia without saving the discarded plan", async () => {
+  const editor = draftEditor();
+  await selectDraftPatient("Prova Uno");
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", { name: "Chiudi" }),
+  );
+  fireEvent.change(screen.getByLabelText("Grammi di Noci"), {
+    target: { value: "60" },
+  });
+  await act(() => vi.advanceTimersByTimeAsync(1000));
+  expect(editor.draft()?.patientId).toBe(1);
+  await selectDraftPatient("Prova Due");
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Scarta e cambia" }));
+  });
+  expect(editor.draft()).toBeNull();
+  expect(editor.savedPlan().days[0]?.meals[0]?.[0]?.grams).toBe(30);
+  expect(
+    screen.getByRole("button", { name: "Paziente: Prova Due" }),
+  ).toBeTruthy();
+});
+
+it("removes the bozza when edits return to the saved values", async () => {
+  const editor = draftEditor();
+  await selectDraftPatient("Prova Uno");
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", { name: "Chiudi" }),
+  );
+  const input = screen.getByLabelText("Grammi di Noci");
+  fireEvent.change(input, { target: { value: "60" } });
+  await act(() => vi.advanceTimersByTimeAsync(1000));
+  expect(editor.draft()?.plan?.days[0]?.meals[0]?.[0]?.grams).toBe(60);
+  await act(async () => {
+    fireEvent.change(input, { target: { value: "30" } });
+  });
+  expect(editor.draft()).toBeNull();
+  expect(
+    screen.getByRole("status", { name: "Piano settimanale" }).textContent,
+  ).not.toContain("non salvato");
 });

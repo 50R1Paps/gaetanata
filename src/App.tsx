@@ -1,4 +1,10 @@
-import { type KeyboardEvent, useMemo, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { type Food, mealSlots } from "./calc";
 import { FoodSearch } from "./components/FoodSearch";
 import { MealCard } from "./components/MealCard";
@@ -8,6 +14,7 @@ import {
 } from "./components/PatientPlanHeader";
 import { SchemaScreen } from "./components/SchemaScreen";
 import { SummaryPanel } from "./components/SummaryPanel";
+import { writeDraft } from "./draftApi";
 import { defaultGrams, lookupFood } from "./foods";
 import { formatNumber } from "./format";
 import { localToday, type Patient } from "./patient";
@@ -40,6 +47,15 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
   const [patientBusy, setPatientBusy] = useState(false);
   // Same comparison as the header's: the Word is generated from the saved one.
   const [savedSchema, setSavedSchema] = useState(schema);
+  const updateDraft = useCallback(
+    (dirty: readonly boolean[]) =>
+      writeDraft({
+        patientId: patient?.id ?? null,
+        ...(dirty[0] ? { plan } : {}),
+        ...(dirty[1] ? { schema } : {}),
+      }),
+    [patient?.id, plan, schema],
+  );
   const documents: PatientDocument[] = [
     {
       noun: "piano",
@@ -112,6 +128,7 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
           setPatient={setPatient}
           documents={documents}
           onBusyChange={setPatientBusy}
+          onDraftChange={updateDraft}
         />
         <fieldset className="view-switch">
           <legend className="visually-hidden">Vista</legend>

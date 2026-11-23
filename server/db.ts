@@ -37,6 +37,15 @@ export const migrations: readonly string[] = [
   );
   CREATE INDEX generated_documents_patient_date
     ON generated_documents(patient_id, created_at DESC, id DESC);`,
+  // 5: one recovery bozza, independent from explicitly saved documents.
+  `CREATE TABLE draft (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    patient_id INTEGER REFERENCES patients(id) ON DELETE CASCADE,
+    updated_at TEXT NOT NULL,
+    plan_json TEXT,
+    schema_json TEXT,
+    CHECK (plan_json IS NOT NULL OR schema_json IS NOT NULL)
+  );`,
 ];
 
 export function openDatabase(
