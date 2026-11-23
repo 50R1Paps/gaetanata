@@ -70,7 +70,10 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
         draftValue(dirty),
         session?.windowId ?? null,
       );
-      if (session && written) session.lastWrittenAt = written.updatedAt;
+      if (session) {
+        if (written) session.lastWrittenAt = written.updatedAt;
+        else delete session.lastWrittenAt;
+      }
       return written;
     },
     [session, draftValue],

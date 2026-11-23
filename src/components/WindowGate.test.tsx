@@ -336,3 +336,36 @@ it("clears the closing bozza after edits return to their saved values", async ()
   fireEvent(window, new Event("pagehide"));
   expect(closed?.draft).toBeNull();
 });
+
+it.each(["delete", "discard"])("forgets the bozza time after successful %s", async (action) => {
+  vi.useFakeTimers();
+  let offline = false;
+  const plan = addPortion(emptyWeekPlan(), 0, 0, { id: "n", food: "Noci", grams: 30 });
+  vi.stubGlobal("fetch", async (path: string, init: RequestInit = {}) => {
+    if (path === "/api/window") {
+      if (offline) throw new Error("offline");
+      return Response.json({ active: true });
+    }
+    if (path === "/api/draft") {
+      if (init.method === "DELETE") return new Response(null, { status: 204 });
+      if (!init.method && action === "delete") return new Response(null, { status: 404 });
+      return Response.json({ patientId: null, plan, updatedAt: "2026-01-01T12:00:00Z" });
+    }
+    return Response.json({ patients: [] });
+  });
+  await act(async () => {
+    render(<WindowGate><App initialPlan={plan} /></WindowGate>);
+  });
+  if (action === "discard") {
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Scarta" })); });
+  } else {
+    fireEvent.change(screen.getByLabelText("Grammi di Noci"), { target: { value: "45" } });
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    await act(async () => { fireEvent.change(screen.getByLabelText("Grammi di Noci"), { target: { value: "30" } }); });
+  }
+  offline = true;
+  await act(() => vi.advanceTimersByTimeAsync(5000));
+  expect(screen.getByRole("alert").textContent).toBe(
+    "Gaetanata si è chiusa. Riaprila dall'icona. Nessuna bozza scritta in questa finestra.",
+  );
+});

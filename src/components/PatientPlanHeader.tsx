@@ -325,6 +325,7 @@ export function PatientPlanHeader({
                 { patientId: recovery?.patientId ?? null },
                 windowId,
               );
+              if (session) delete session.lastWrittenAt;
               setRecovery(null);
             } catch (failure) {
               setRecoveryError(
