@@ -11,6 +11,7 @@ import type { Patient } from "../patient";
 import { listPatients } from "../patientsApi";
 import { PatientsDialog } from "./PatientsDialog";
 import { RestoreDraftPrompt } from "./RestoreDraftPrompt";
+import { useWindowId, useWindowSession } from "./WindowGate";
 
 /** Answer to the prompt shown when switching patient with unsaved changes. */
 type SwitchChoice = "saved" | "discarded" | "cancelled";
@@ -47,6 +48,7 @@ export function PatientPlanHeader({
   documents,
   onBusyChange,
   onDraftChange,
+  onDraftPending,
   recoverDraft = false,
 }: {
   patient: Patient | null;
@@ -55,8 +57,11 @@ export function PatientPlanHeader({
   onBusyChange?: (busy: boolean) => void;
   /** Same fixed document order; only changed documents belong in the bozza. */
   onDraftChange?: (dirty: readonly boolean[]) => Promise<unknown>;
+  onDraftPending?: (dirty: readonly boolean[]) => void;
   recoverDraft?: boolean;
 }) {
+  const windowId = useWindowId();
+  const session = useWindowSession();
   const [baselines, setBaselines] = useState(() =>
     documents.map((document) => document.value),
   );
@@ -80,6 +85,7 @@ export function PatientPlanHeader({
     setRecoveryError(null);
     try {
       const draft = await loadDraft();
+      if (session && draft) session.lastWrittenAt = draft.updatedAt;
       const patients = draft?.patientId ? await listPatients() : [];
       const owner =
         patients.find((item) => item.id === draft?.patientId) ?? null;
@@ -94,7 +100,7 @@ export function PatientPlanHeader({
     } finally {
       setRecoveryBusy(false);
     }
-  }, []);
+  }, [session]);
 
   useEffect(() => {
     if (recoverDraft) void readRecovery();
@@ -108,6 +114,11 @@ export function PatientPlanHeader({
   const draftQueue = useRef(Promise.resolve());
   const hadChanges = useRef(false);
   const dirtySignature = JSON.stringify(dirty);
+
+  useEffect(() => {
+    if (!recoveryBlocked)
+      onDraftPending?.(JSON.parse(dirtySignature) as boolean[]);
+  }, [onDraftPending, dirtySignature, recoveryBlocked]);
 
   useEffect(() => {
     const write = onDraftChange;
@@ -153,15 +164,6 @@ export function PatientPlanHeader({
   useEffect(() => {
     onBusyChange?.(busy || pending || recoveryBlocked);
   }, [busy, pending, recoveryBlocked, onBusyChange]);
-  useEffect(() => {
-    if (!anyDirty) return;
-    function warn(event: BeforeUnloadEvent) {
-      event.preventDefault();
-      event.returnValue = "";
-    }
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [anyDirty]);
 
   function setNotice(index: number, notice: string) {
     setNotices((current) =>
@@ -319,7 +321,10 @@ export function PatientPlanHeader({
             setRecoveryBusy(true);
             setRecoveryError(null);
             try {
-              await writeDraft({ patientId: recovery?.patientId ?? null });
+              await writeDraft(
+                { patientId: recovery?.patientId ?? null },
+                windowId,
+              );
               setRecovery(null);
             } catch (failure) {
               setRecoveryError(
