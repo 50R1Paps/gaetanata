@@ -27,3 +27,7 @@ rimuovono. La CI esegue verify dopo un'installazione pulita: stderr npm resta
 visibile e un avviso di dipendenza deprecata rende rosso il job, senza mascherare
 un eventuale codice d'errore npm. La privacy automatica non sostituisce la
 revisione dei dati da pubblicare.
+
+I test delle finestre avanzano esplicitamente Date e timer fittizi, con HTTP reale,
+e attendono `onIdle` tramite promise, senza ritardi reali contro limiti brevi.
+I test CLI hanno 15 s locali per avviare processi reali, senza aumentare il timeout globale.

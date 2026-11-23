@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 
+// The runner starts up to four real Node subprocesses in addition to itself.
 it.each(["", "check", "test", "build", "smoke"])(
   "streams output and preserves the failing exit code (%s)",
   (failed) => {
@@ -50,4 +51,5 @@ it.each(["", "check", "test", "build", "smoke"])(
       rmSync(dir, { recursive: true, force: true });
     }
   },
+  15_000,
 );

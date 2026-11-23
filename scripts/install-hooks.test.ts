@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 
+// Exercise real Git/Node processes, including their startup cost under load.
 it.each(["zip", "ci", "git"])(
   "handles hook installation in %s installs",
   (mode) => {
@@ -52,4 +53,5 @@ it.each(["zip", "ci", "git"])(
       rmSync(dir, { recursive: true, force: true });
     }
   },
+  15_000,
 );

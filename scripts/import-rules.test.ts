@@ -14,6 +14,7 @@ import { expect, it } from "vitest";
 const biome = fileURLToPath(
   new URL("../node_modules/@biomejs/biome/bin/biome", import.meta.url),
 );
+// Two real Biome CLI processes include startup cost, especially under load.
 it("rejects each deliberate syntax violation in disposable files", () => {
   const dir = mkdtempSync(join(tmpdir(), "native-import-rules-"));
   try {
@@ -70,8 +71,9 @@ it("rejects each deliberate syntax violation in disposable files", () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}, 15_000);
 
+// Seven real Biome CLI processes include startup cost, especially under load.
 it("keeps the dependency installer limited to node built-ins", () => {
   const dir = mkdtempSync(join(tmpdir(), "launcher-import-rules-"));
   try {
@@ -124,4 +126,4 @@ it("keeps the dependency installer limited to node built-ins", () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}, 15_000);
