@@ -9,10 +9,13 @@ if [ "$(uname -s)" = Darwin ]; then
     data_dir="${GAETANATA_DATA_DIR:-$PWD/data}"
     mkdir -p "$data_dir"
     log="$data_dir/avvio.log"
-    exec >>"$log" 2>&1
-    trap 'code=$?; if [ "$code" -ne 0 ]; then /usr/bin/osascript - "$log" <<'"'"'APPLESCRIPT'"'"'
+    exec >"$log" 2>&1
+    trap 'code=$?; if [ "$code" -ne 0 ]; then
+    reason=$(grep -E "Error:|Errore|fallito|EADDRINUSE" "$log" | tail -n 1 || true)
+    if [ -z "$reason" ]; then reason=$(grep -v "^[[:space:]]*$" "$log" | tail -n 1 || true); fi
+    /usr/bin/osascript - "$log" "${reason:-Avvio fallito (codice $code).}" <<'"'"'APPLESCRIPT'"'"'
 on run argv
-  display dialog ("Gaetanata non si avvia. Consulta il log: " & item 1 of argv) with title "Gaetanata" buttons {"OK"} default button "OK" with icon stop
+  display dialog ("Gaetanata non si avvia." & return & item 2 of argv & return & "Log: " & item 1 of argv) with title "Gaetanata" buttons {"OK"} default button "OK" with icon stop
 end run
 APPLESCRIPT
 fi' EXIT

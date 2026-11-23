@@ -76,13 +76,21 @@ if ($Hidden) {
   $log = Join-Path $dataDir 'avvio.log'
   & $node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/start.ts --check-setup *> $log
   if ($LASTEXITCODE -eq 10) { Open-Setup; exit 0 }
-  if ($LASTEXITCODE -ne 0) { throw "Controllo di avvio fallito. Vedi $log" }
+  if ($LASTEXITCODE -ne 0) {
+    $reason = Get-Content $log | Where-Object { $_ -match 'Error:|Errore|fallito|EADDRINUSE' } | Select-Object -Last 1
+    if (-not $reason) { $reason = Get-Content $log | Where-Object { $_.Trim() } | Select-Object -Last 1 }
+    throw "Controllo di avvio fallito: $reason"
+  }
   # Native stderr is diagnostic text, not a PowerShell terminating error.
   $ErrorActionPreference = 'Continue'
   & $node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/start.ts *> $log
   $code = $LASTEXITCODE
   $ErrorActionPreference = 'Stop'
-  if ($code -ne 0) { throw "Avvio fallito (codice $code)." }
+  if ($code -ne 0) {
+    $reason = Get-Content $log | Where-Object { $_ -match 'Error:|Errore|fallito|EADDRINUSE' } | Select-Object -Last 1
+    if (-not $reason) { $reason = Get-Content $log | Where-Object { $_.Trim() } | Select-Object -Last 1 }
+    throw "Avvio fallito (codice $code): $reason"
+  }
 } else {
   & $node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/start.ts
   exit $LASTEXITCODE
@@ -92,8 +100,9 @@ if ($Hidden) {
   $dataDir = if ($env:GAETANATA_DATA_DIR) { $env:GAETANATA_DATA_DIR } else { Join-Path $root 'data' }
   New-Item -ItemType Directory -Force $dataDir | Out-Null
   $log = Join-Path $dataDir 'avvio.log'
+  $reason = ($_.Exception.Message -split '\r?\n')[0]
   $_ | Out-String | Add-Content $log
   $shell = New-Object -ComObject WScript.Shell
-  $null = $shell.Popup("Gaetanata non si avvia.`n$($_.Exception.Message)`nLog: $log", 0, 'Gaetanata', 16)
+  $null = $shell.Popup("Gaetanata non si avvia.`n$reason`nLog: $log", 0, 'Gaetanata', 16)
   exit 1
 }
