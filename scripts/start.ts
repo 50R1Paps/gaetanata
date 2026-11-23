@@ -25,59 +25,59 @@ if (
     process.exit(needsSetup() ? 10 : 0);
   }
 
-if (await alreadyRunning()) {
-  console.log(`Gaetanata è già aperta: ${url}`);
-  openBrowser(url);
-  process.exit(0);
-}
+  if (await alreadyRunning()) {
+    console.log(`Gaetanata è già aperta: ${url}`);
+    openBrowser(url);
+    process.exit(0);
+  }
 
-ensureDependencies();
-ensureBuild();
+  ensureDependencies();
+  ensureBuild();
 
-// IPC also lets the server notice a closed launcher window on every platform.
-const child = spawn(
-  process.execPath,
-  [...process.execArgv, join(root, "scripts", "serve.ts")],
-  {
-    cwd: root,
-    env: process.env,
-    windowsHide: true,
-    stdio: ["inherit", "inherit", "inherit", "ipc"],
-  },
-);
-const { promise: stopped, resolve } = Promise.withResolvers<void>();
-child.on("message", async (message) => {
-  if (message !== "ready" || !(await alreadyRunning())) return;
-  console.log(
-    `Gaetanata è aperta su ${url} (chiudi la finestra dell'app per fermarla)`,
+  // IPC also lets the server notice a closed launcher window on every platform.
+  const child = spawn(
+    process.execPath,
+    [...process.execArgv, join(root, "scripts", "serve.ts")],
+    {
+      cwd: root,
+      env: process.env,
+      windowsHide: true,
+      stdio: ["inherit", "inherit", "inherit", "ipc"],
+    },
   );
-  console.log(
-    `I dati sono in ${process.env.GAETANATA_DATA_DIR ?? join(root, "data")}: copia quella cartella per fare un backup.`,
-  );
-  openBrowser(url);
-});
-child.on("error", (error) => {
-  console.error(error);
-  process.exitCode = 1;
-  resolve();
-});
-child.on("exit", (code, signal) => {
-  process.exitCode =
-    code ?? (signal === "SIGINT" ? 130 : signal === "SIGHUP" ? 129 : 143);
-  resolve();
-});
-const interrupt = () => child.kill("SIGINT");
-const terminate = () => child.kill("SIGTERM");
-const hangup = () => child.kill("SIGHUP");
-process.on("SIGINT", interrupt);
-process.on("SIGTERM", terminate);
-process.on("SIGHUP", hangup);
-process.on("exit", terminate);
-await stopped;
-process.off("SIGINT", interrupt);
-process.off("SIGTERM", terminate);
-process.off("SIGHUP", hangup);
-process.off("exit", terminate);
+  const { promise: stopped, resolve } = Promise.withResolvers<void>();
+  child.on("message", async (message) => {
+    if (message !== "ready" || !(await alreadyRunning())) return;
+    console.log(
+      `Gaetanata è aperta su ${url} (chiudi la finestra dell'app per fermarla)`,
+    );
+    console.log(
+      `I dati sono in ${process.env.GAETANATA_DATA_DIR ?? join(root, "data")}: copia quella cartella per fare un backup.`,
+    );
+    openBrowser(url);
+  });
+  child.on("error", (error) => {
+    console.error(error);
+    process.exitCode = 1;
+    resolve();
+  });
+  child.on("exit", (code, signal) => {
+    process.exitCode =
+      code ?? (signal === "SIGINT" ? 130 : signal === "SIGHUP" ? 129 : 143);
+    resolve();
+  });
+  const interrupt = () => child.kill("SIGINT");
+  const terminate = () => child.kill("SIGTERM");
+  const hangup = () => child.kill("SIGHUP");
+  process.on("SIGINT", interrupt);
+  process.on("SIGTERM", terminate);
+  process.on("SIGHUP", hangup);
+  process.on("exit", terminate);
+  await stopped;
+  process.off("SIGINT", interrupt);
+  process.off("SIGTERM", terminate);
+  process.off("SIGHUP", hangup);
+  process.off("exit", terminate);
 }
 
 async function alreadyRunning(): Promise<boolean> {

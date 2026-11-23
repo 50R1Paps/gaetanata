@@ -117,8 +117,12 @@ export function PatientPlanHeader({
   const draftQueue = useRef(Promise.resolve());
   const hadChanges = useRef(false);
   const dirtySignature = JSON.stringify({
-    plan: documents.some((document, index) => document.draftKey === "plan" && dirty[index]),
-    schema: documents.some((document, index) => document.draftKey === "schema" && dirty[index]),
+    plan: documents.some(
+      (document, index) => document.draftKey === "plan" && dirty[index],
+    ),
+    schema: documents.some(
+      (document, index) => document.draftKey === "schema" && dirty[index],
+    ),
   });
 
   useEffect(() => {
@@ -318,8 +322,8 @@ export function PatientPlanHeader({
           onRestore={async () => {
             if (!recovery) return;
             setRecoveryError(null);
-            const restored = documents.map((document) =>
-              recovery[document.draftKey],
+            const restored = documents.map(
+              (document) => recovery[document.draftKey],
             );
             if (await select(recoveryPatient, restored)) setRecovery(null);
           }}

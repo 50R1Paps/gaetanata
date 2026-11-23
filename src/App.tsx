@@ -9,8 +9,8 @@ import { type Food, mealSlots } from "./calc";
 import { FoodSearch } from "./components/FoodSearch";
 import { MealCard } from "./components/MealCard";
 import {
-  type PatientDocument,
   type DirtyDocuments,
+  type PatientDocument,
   PatientPlanHeader,
 } from "./components/PatientPlanHeader";
 import { SchemaScreen } from "./components/SchemaScreen";
@@ -61,7 +61,8 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
   const pendingDraft = useCallback(
     (dirty: DirtyDocuments) => {
       if (session)
-        session.pendingDraft = dirty.plan || dirty.schema ? draftValue(dirty) : null;
+        session.pendingDraft =
+          dirty.plan || dirty.schema ? draftValue(dirty) : null;
     },
     [session, draftValue],
   );

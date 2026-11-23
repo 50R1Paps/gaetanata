@@ -213,24 +213,33 @@ it("writes a sleeping owner's closing bozza and starts shutdown after freeing it
     databaseFile: join(dir, "app.db"),
     windowStaleAfterMs: 30,
     idleGraceMs: 30,
-    onIdle: () => { idle += 1; },
+    onIdle: () => {
+      idle += 1;
+    },
   });
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("No address");
   const base = `http://127.0.0.1:${address.port}`;
-  const call = (path: string, body: unknown) => fetch(`${base}${path}`, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+  const call = (path: string, body: unknown) =>
+    fetch(`${base}${path}`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
   try {
     await call("/api/window", { windowId: "sleeping" });
     await delay(60);
     const draft = { patientId: null, schema: { ...emptySchema(), kcal: 1800 } };
-    expect((await call("/api/window/close", { windowId: "sleeping", draft })).status).toBe(200);
-    expect(await (await fetch(`${base}/api/draft`)).json()).toMatchObject(draft);
+    expect(
+      (await call("/api/window/close", { windowId: "sleeping", draft })).status,
+    ).toBe(200);
+    expect(await (await fetch(`${base}/api/draft`)).json()).toMatchObject(
+      draft,
+    );
     await delay(60);
     expect(idle).toBe(1);
-    expect(await (await call("/api/window", { windowId: "next" })).json()).toEqual({ active: true });
+    expect(
+      await (await call("/api/window", { windowId: "next" })).json(),
+    ).toEqual({ active: true });
   } finally {
     const { promise, resolve } = Promise.withResolvers<void>();
     server.close(() => resolve());
@@ -247,23 +256,30 @@ it("never starts shutdown when a waiting window closes while the owner sleeps", 
     databaseFile: join(dir, "app.db"),
     windowStaleAfterMs: 30,
     idleGraceMs: 30,
-    onIdle: () => { idle += 1; },
+    onIdle: () => {
+      idle += 1;
+    },
   });
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("No address");
   const base = `http://127.0.0.1:${address.port}`;
-  const call = (path: string, windowId: string) => fetch(`${base}${path}`, {
-    method: "POST",
-    body: JSON.stringify({ windowId }),
-  });
+  const call = (path: string, windowId: string) =>
+    fetch(`${base}${path}`, {
+      method: "POST",
+      body: JSON.stringify({ windowId }),
+    });
   try {
     await call("/api/window", "sleeping");
-    expect(await (await call("/api/window", "waiting")).json()).toEqual({ active: false });
+    expect(await (await call("/api/window", "waiting")).json()).toEqual({
+      active: false,
+    });
     await delay(60);
     await call("/api/window/close", "waiting");
     await delay(60);
     expect(idle).toBe(0);
-    expect(await (await call("/api/window", "sleeping")).json()).toEqual({ active: true });
+    expect(await (await call("/api/window", "sleeping")).json()).toEqual({
+      active: true,
+    });
   } finally {
     const { promise, resolve } = Promise.withResolvers<void>();
     server.close(() => resolve());
