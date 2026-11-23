@@ -74,3 +74,9 @@ Costo energetico di un'attività, moltiplicato per peso e durata dà le kcal del
 **LAF** (livello di attività fisica):
 Kcal totali delle attività diviso metabolismo basale (`activityLevel`).
 _Avoid_: livello di attività
+
+### Salvataggio
+
+**Bozza**:
+Copia automatica delle modifiche non salvate a piano settimanale e schema, separata da ciò che è salvato; ce n'è al massimo una, del paziente aperto o di nessun paziente. Non diventa mai il piano o lo schema del paziente finché non si preme Salva.
+_Avoid_: Autosalvataggio, backup, copia di sicurezza
