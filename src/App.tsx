@@ -10,6 +10,7 @@ import { FoodSearch } from "./components/FoodSearch";
 import { MealCard } from "./components/MealCard";
 import {
   type PatientDocument,
+  type DirtyDocuments,
   PatientPlanHeader,
 } from "./components/PatientPlanHeader";
 import { SchemaScreen } from "./components/SchemaScreen";
@@ -50,22 +51,22 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
   const [savedSchema, setSavedSchema] = useState(schema);
   const session = useWindowSession();
   const draftValue = useCallback(
-    (dirty: readonly boolean[]) => ({
+    (dirty: DirtyDocuments) => ({
       patientId: patient?.id ?? null,
-      ...(dirty[0] ? { plan } : {}),
-      ...(dirty[1] ? { schema } : {}),
+      ...(dirty.plan ? { plan } : {}),
+      ...(dirty.schema ? { schema } : {}),
     }),
     [patient?.id, plan, schema],
   );
   const pendingDraft = useCallback(
-    (dirty: readonly boolean[]) => {
+    (dirty: DirtyDocuments) => {
       if (session)
-        session.pendingDraft = dirty.some(Boolean) ? draftValue(dirty) : null;
+        session.pendingDraft = dirty.plan || dirty.schema ? draftValue(dirty) : null;
     },
     [session, draftValue],
   );
   const updateDraft = useCallback(
-    async (dirty: readonly boolean[]) => {
+    async (dirty: DirtyDocuments) => {
       const written = await writeDraft(
         draftValue(dirty),
         session?.windowId ?? null,
@@ -80,6 +81,7 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
   );
   const documents: PatientDocument[] = [
     {
+      draftKey: "plan",
       noun: "piano",
       object: "il piano",
       label: "Piano settimanale",
@@ -90,6 +92,7 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
       save: savePlan,
     } satisfies PatientDocument<WeekPlan>,
     {
+      draftKey: "schema",
       noun: "schema",
       object: "lo schema",
       label: "Schema",

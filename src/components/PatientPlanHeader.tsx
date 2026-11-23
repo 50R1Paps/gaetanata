@@ -16,9 +16,12 @@ import { useWindowId, useWindowSession } from "./WindowGate";
 /** Answer to the prompt shown when switching patient with unsaved changes. */
 type SwitchChoice = "saved" | "discarded" | "cancelled";
 
+export type DirtyDocuments = { plan: boolean; schema: boolean };
+
 /** Something saved per patient (the plan, the Schema), edited by the caller.
  * Methods, so documents of different types share one list. */
 export type PatientDocument<T = unknown> = {
+  draftKey: keyof DirtyDocuments;
   /** Lower case: "piano", "schema". */
   noun: string;
   /** Noun with its article: "il piano", "lo schema". */
@@ -55,9 +58,9 @@ export function PatientPlanHeader({
   setPatient: (patient: Patient | null) => void;
   documents: readonly PatientDocument[];
   onBusyChange?: (busy: boolean) => void;
-  /** Same fixed document order; only changed documents belong in the bozza. */
-  onDraftChange?: (dirty: readonly boolean[]) => Promise<unknown>;
-  onDraftPending?: (dirty: readonly boolean[]) => void;
+  /** Only changed documents belong in the bozza. */
+  onDraftChange?: (dirty: DirtyDocuments) => Promise<unknown>;
+  onDraftPending?: (dirty: DirtyDocuments) => void;
   recoverDraft?: boolean;
 }) {
   const windowId = useWindowId();
@@ -113,17 +116,20 @@ export function PatientPlanHeader({
   const [draftError, setDraftError] = useState<string | null>(null);
   const draftQueue = useRef(Promise.resolve());
   const hadChanges = useRef(false);
-  const dirtySignature = JSON.stringify(dirty);
+  const dirtySignature = JSON.stringify({
+    plan: documents.some((document, index) => document.draftKey === "plan" && dirty[index]),
+    schema: documents.some((document, index) => document.draftKey === "schema" && dirty[index]),
+  });
 
   useEffect(() => {
     if (!recoveryBlocked)
-      onDraftPending?.(JSON.parse(dirtySignature) as boolean[]);
+      onDraftPending?.(JSON.parse(dirtySignature) as DirtyDocuments);
   }, [onDraftPending, dirtySignature, recoveryBlocked]);
 
   useEffect(() => {
     const write = onDraftChange;
-    const changed = JSON.parse(dirtySignature) as boolean[];
-    const hasChanges = changed.some(Boolean);
+    const changed = JSON.parse(dirtySignature) as DirtyDocuments;
+    const hasChanges = changed.plan || changed.schema;
     if (recoveryBlocked) return;
     if (!write || (!hasChanges && !hadChanges.current)) return;
     hadChanges.current = hasChanges;
@@ -313,7 +319,7 @@ export function PatientPlanHeader({
             if (!recovery) return;
             setRecoveryError(null);
             const restored = documents.map((document) =>
-              document.noun === "piano" ? recovery.plan : recovery.schema,
+              recovery[document.draftKey],
             );
             if (await select(recoveryPatient, restored)) setRecovery(null);
           }}
