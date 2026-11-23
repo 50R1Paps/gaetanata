@@ -1,5 +1,6 @@
 # Avvia Gaetanata su Windows. Se manca un Node adatto, ne scarica uno
 # portabile in .runtime\ (nessuna installazione di sistema, nessun permesso di amministratore).
+param([switch]$Hidden)
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $root = Split-Path -Parent $PSScriptRoot
@@ -39,13 +40,60 @@ function Get-PortableNode {
   }
 }
 
+function Open-Setup {
+  Start-Process cmd.exe -ArgumentList "/c `"`"$root\avvia.cmd`"`""
+}
+
+try {
+  $shell = New-Object -ComObject WScript.Shell
+  $desktop = [Environment]::GetFolderPath('Desktop')
+  $programs = [Environment]::GetFolderPath('Programs')
+  foreach ($folder in @($desktop, $programs)) {
+    New-Item -ItemType Directory -Force $folder | Out-Null
+    $shortcut = $shell.CreateShortcut((Join-Path $folder 'Gaetanata.lnk'))
+    $shortcut.TargetPath = Join-Path $env:SystemRoot 'System32\wscript.exe'
+    $shortcut.Arguments = "`"$root\scripts\avvia.vbs`""
+    $shortcut.WorkingDirectory = $root
+    $shortcut.IconLocation = "$root\assets\gaetanata.ico,0"
+    $shortcut.Description = 'Gaetanata'
+    $shortcut.Save()
+  }
+
 $systemNode = Get-Command node -ErrorAction SilentlyContinue
 if (-not $env:GAETANATA_FORCE_RUNTIME -and $systemNode -and (Test-Node $systemNode.Source)) {
   $node = $systemNode.Source
 } else {
-  if (-not ((Test-Path $runtimeNode) -and (Test-Node $runtimeNode))) { Get-PortableNode }
+  if (-not ((Test-Path $runtimeNode) -and (Test-Node $runtimeNode))) {
+    if ($Hidden) { Open-Setup; exit 0 }
+    Get-PortableNode
+  }
   $node = $runtimeNode
 }
 
-& $node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/start.ts
-exit $LASTEXITCODE
+if ($Hidden) {
+  $dataDir = if ($env:GAETANATA_DATA_DIR) { $env:GAETANATA_DATA_DIR } else { Join-Path $root 'data' }
+  New-Item -ItemType Directory -Force $dataDir | Out-Null
+  $log = Join-Path $dataDir 'avvio.log'
+  & $node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/start.ts --check-setup *> $log
+  if ($LASTEXITCODE -eq 10) { Open-Setup; exit 0 }
+  if ($LASTEXITCODE -ne 0) { throw "Controllo di avvio fallito. Vedi $log" }
+  # Native stderr is diagnostic text, not a PowerShell terminating error.
+  $ErrorActionPreference = 'Continue'
+  & $node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/start.ts *> $log
+  $code = $LASTEXITCODE
+  $ErrorActionPreference = 'Stop'
+  if ($code -ne 0) { throw "Avvio fallito (codice $code)." }
+} else {
+  & $node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/start.ts
+  exit $LASTEXITCODE
+}
+} catch {
+  if (-not $Hidden) { throw }
+  $dataDir = if ($env:GAETANATA_DATA_DIR) { $env:GAETANATA_DATA_DIR } else { Join-Path $root 'data' }
+  New-Item -ItemType Directory -Force $dataDir | Out-Null
+  $log = Join-Path $dataDir 'avvio.log'
+  $_ | Out-String | Add-Content $log
+  $shell = New-Object -ComObject WScript.Shell
+  $null = $shell.Popup("Gaetanata non si avvia.`n$($_.Exception.Message)`nLog: $log", 0, 'Gaetanata', 16)
+  exit 1
+}

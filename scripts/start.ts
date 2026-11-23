@@ -16,6 +16,11 @@ const root = fileURLToPath(new URL("..", import.meta.url));
 const port = Number(process.env.PORT ?? 5174);
 const url = `http://127.0.0.1:${port}`;
 
+// Exit 10 means preparation is needed; no network, writes or server in this mode.
+if (process.argv.includes("--check-setup")) {
+  process.exit(needsSetup() ? 10 : 0);
+}
+
 if (await alreadyRunning()) {
   console.log(`Gaetanata è già aperta: ${url}`);
   openBrowser(url);
@@ -32,6 +37,7 @@ const child = spawn(
   {
     cwd: root,
     env: process.env,
+    windowsHide: true,
     stdio: ["inherit", "inherit", "inherit", "ipc"],
   },
 );
@@ -39,7 +45,7 @@ const { promise: stopped, resolve } = Promise.withResolvers<void>();
 child.on("message", async (message) => {
   if (message !== "ready" || !(await alreadyRunning())) return;
   console.log(
-    `Gaetanata è aperta su ${url}  (chiudi questa finestra per fermarla)`,
+    `Gaetanata è aperta su ${url} (chiudi la finestra dell'app per fermarla)`,
   );
   console.log(
     `I dati sono in ${process.env.GAETANATA_DATA_DIR ?? join(root, "data")}: copia quella cartella per fare un backup.`,
@@ -81,10 +87,35 @@ async function alreadyRunning(): Promise<boolean> {
   }
 }
 
+function buildHash(): string {
+  return hashFiles([
+    ...listFiles(join(root, "src")),
+    ...(existsSync(join(root, "public"))
+      ? listFiles(join(root, "public"))
+      : []),
+    join(root, "index.html"),
+    join(root, "vite.config.ts"),
+    join(root, "package-lock.json"),
+  ]);
+}
+
+function matchesStamp(path: string, hash: string): boolean {
+  return existsSync(path) && readFileSync(path, "utf8") === hash;
+}
+
+function needsSetup(): boolean {
+  return (
+    !matchesStamp(
+      join(root, "node_modules", ".gaetanata-lock"),
+      hashFiles([join(root, "package-lock.json")]),
+    ) || !matchesStamp(join(root, "dist", ".gaetanata-build"), buildHash())
+  );
+}
+
 function ensureDependencies(): void {
   const stamp = join(root, "node_modules", ".gaetanata-lock");
   const lockHash = hashFiles([join(root, "package-lock.json")]);
-  if (existsSync(stamp) && readFileSync(stamp, "utf8") === lockHash) return;
+  if (matchesStamp(stamp, lockHash)) return;
   console.log(
     "Installo le dipendenze (solo la prima volta o dopo un aggiornamento)...",
   );
@@ -94,13 +125,8 @@ function ensureDependencies(): void {
 
 function ensureBuild(): void {
   const stamp = join(root, "dist", ".gaetanata-build");
-  const sourceHash = hashFiles([
-    ...listFiles(join(root, "src")),
-    join(root, "index.html"),
-    join(root, "vite.config.ts"),
-    join(root, "package-lock.json"),
-  ]);
-  if (existsSync(stamp) && readFileSync(stamp, "utf8") === sourceHash) return;
+  const sourceHash = buildHash();
+  if (matchesStamp(stamp, sourceHash)) return;
   console.log("Preparo l'interfaccia...");
   run(join(root, "node_modules", "vite", "bin", "vite.js"), ["build"]);
   writeFileSync(stamp, sourceHash);
@@ -184,7 +210,7 @@ function openBrowser(target: string): void {
       if (canFallback) launch(fallback, false);
       else console.log(`Apri il browser su ${target}`);
     };
-    spawn(command, args, { stdio: "ignore", detached: true })
+    spawn(command, args, { stdio: "ignore", detached: true, windowsHide: true })
       .once("error", onFailure)
       .once("exit", (code, signal) => {
         if (code !== 0 || signal) onFailure();

@@ -10,7 +10,11 @@ Web app che sostituisce il foglio Excel "DIETA GAETANATA": calcolo del metabolis
 - **macOS:** fai doppio clic su `avvia.command`. Al primo avvio macOS potrebbe bloccarlo, specialmente se il progetto proviene da uno ZIP scaricato dal browser: fai clic destro → **Apri**, oppure usa **Impostazioni di Sistema → Privacy e sicurezza → Apri comunque**.
 - **Linux:** esegui `./avvia.sh` dal terminale.
 
-Al primo avvio, se necessario, viene scaricato Node portabile; vengono poi installate le dipendenze e compilata l'app. Gli avvii successivi riutilizzano quanto già installato e ricompilano solo se necessario. Lascia aperta la finestra per usare l'app; chiudila per fermarla.
+Al primo avvio, se necessario, viene scaricato Node portabile; vengono poi installate le dipendenze e compilata l'app. Da quel momento usa l'icona **Gaetanata** con la «G»: sul Desktop e nel menu Start di Windows, oppure in `~/Applications` sul Mac (puoi trascinarla nel Dock). Dall'icona non compare il terminale, salvo quando occorre installare o ricompilare dopo un aggiornamento. Se sposti la cartella, avvia una volta `avvia.*` dalla nuova posizione per correggere le icone. Linux continua a usare il terminale.
+
+Chiudi la finestra dell'app per fermarla: il server termina dopo circa 10 secondi. Le modifiche non salvate a piano e schema restano nella **bozza**; alla riapertura scegli **Ripristina** o **Scarta**. Il ripristino non sostituisce Salva. La scheda paziente non è coperta: premi **Salva scheda** prima di chiudere.
+
+Se l'avvio dall'icona fallisce, un dialogo indica il file `data/avvio.log` da consultare o inviare a chi ti aiuta.
 
 I dati sono salvati sul computer in `data/gaetanata.db`. Per un backup, chiudi l'app e copia l'intera cartella `data/`.
 

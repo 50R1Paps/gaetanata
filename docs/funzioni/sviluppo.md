@@ -17,6 +17,26 @@ moduli nativi, installa le dipendenze e prepara l'interfaccia. Solo dopo avvia
 ambiente e console, segnala quando è pronto e si ferma anche se il launcher
 viene chiuso. Il browser si apre dopo la risposta di `/api/health`.
 
+## Icone e avvio senza terminale
+
+`avvia.cmd` rigenera i collegamenti usando le cartelle Desktop e Programs del
+sistema (anche con OneDrive). Il collegamento esegue `wscript.exe` con
+`scripts/avvia.vbs`: un host grafico avvia PowerShell con stile finestra 0,
+prima della creazione della console, evitando il flash di `-WindowStyle Hidden`.
+Su macOS `avvia.sh` rigenera `~/Applications/Gaetanata.app`; Linux non crea icone.
+
+Il bootstrap controlla Node; `scripts/start.ts --check-setup` restituisce 10
+se dipendenze o build non corrispondono ai timbri, 0 se sono pronte. Condivide
+hash e criteri con l'avvio normale, includendo gli asset pubblici. Se serve
+preparazione, l'icona riapre `avvia.*` in un terminale visibile; altrimenti
+registra l'output in `GAETANATA_DATA_DIR/avvio.log` (predefinito `data/`) e
+mostra gli errori in un dialogo del sistema.
+
+`node --experimental-strip-types scripts/generate-icons.ts` rigenera PNG,
+ICO, ICNS e favicon senza dipendenze aggiuntive. Il workflow dei launcher
+verifica i file generati, avvia collegamenti/bundle e registra e chiude una
+finestra sintetica via API, aspettando la fine del launcher e del server.
+
 ## Finestre e spegnimento
 
 Una sola finestra può modificare i documenti e scrivere o cancellare la bozza;
