@@ -27,6 +27,9 @@ export type ServerOptions = {
   databaseFile: string;
   /** Time without presence before another window may become active. */
   windowStaleAfterMs?: number;
+  /** Grace after explicit closure; presence silence never starts it. */
+  idleGraceMs?: number;
+  onIdle?: () => void;
   /** Built frontend to serve; omit when a dev middleware serves the frontend. */
   staticDir?: string;
   /** Handles non-API requests in dev mode (Vite middleware). */
@@ -51,8 +54,14 @@ export async function startServer(options: ServerOptions): Promise<Server> {
   const handlePlan = planHandler(db);
   const handleSchema = schemaHandler(db);
   const handleDocument = documentHandler(options.databaseFile, db);
-  const handleDraft = draftHandler(db);
-  const windows = windowHandler({ staleAfterMs: options.windowStaleAfterMs });
+  const drafts = draftHandler(db, (windowId) => windows.isActive(windowId));
+  const windows = windowHandler({
+    staleAfterMs: options.windowStaleAfterMs,
+    idleGraceMs: options.idleGraceMs,
+    onIdle: options.onIdle,
+    writeDraft: drafts.write,
+    clearDraft: drafts.clear,
+  });
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
@@ -61,7 +70,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
       return;
     }
     if (url.pathname === "/api/draft") {
-      handleDraft(req, res).catch((error) => {
+      drafts.handle(req, res).catch((error) => {
         console.error(error);
         if (res.headersSent) res.end();
         else sendJson(res, 500, { error: "Errore interno del server" });
@@ -146,6 +155,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
     }
     res.writeHead(404).end();
   });
+  server.on("close", windows.dispose);
   server.on("close", () => db.close());
 
   const { promise, resolve, reject } = Promise.withResolvers<void>();

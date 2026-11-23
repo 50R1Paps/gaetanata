@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { expect, it } from "vitest";
+import { emptySchema } from "../src/schema.ts";
 import { startServer } from "./app.ts";
 
 it("renews the sole active window and transfers ownership only after close or stale presence without stopping the server", async () => {
@@ -10,6 +11,7 @@ it("renews the sole active window and transfers ownership only after close or st
   const server = await startServer({
     port: 0,
     databaseFile: join(dir, "app.db"),
+    idleGraceMs: 20,
     windowStaleAfterMs: 100,
   });
   const address = server.address();
@@ -61,6 +63,143 @@ it("renews the sole active window and transfers ownership only after close or st
   } finally {
     const { promise, resolve, reject } = Promise.withResolvers<void>();
     server.close((error) => (error ? reject(error) : resolve()));
+    await promise;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+it("writes the closing bozza before transfer, rejects inactive writes and waits for explicit closure before onIdle", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gaetanata-idle-"));
+  let idle = 0;
+  const server = await startServer({
+    port: 0,
+    databaseFile: join(dir, "app.db"),
+    windowStaleAfterMs: 40,
+    idleGraceMs: 80,
+    onIdle: () => {
+      idle += 1;
+    },
+  });
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("No address");
+  const base = `http://127.0.0.1:${address.port}`;
+  const call = (path: string, body: unknown, method = "POST") =>
+    fetch(`${base}${path}`, {
+      method,
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  try {
+    await call("/api/window", { windowId: "first" });
+    await call("/api/window", { windowId: "second" });
+    for (const method of ["PUT", "DELETE"]) {
+      expect(
+        (await call("/api/draft", { windowId: "second" }, method)).status,
+      ).toBe(409);
+      expect((await call("/api/draft", {}, method)).status).toBe(409);
+    }
+    const draft = { patientId: null, schema: { ...emptySchema(), kcal: 1750 } };
+    expect(
+      (await call("/api/window/close", { windowId: "second", draft })).status,
+    ).toBe(409);
+    expect(
+      (await call("/api/window/close", { windowId: "first", draft })).status,
+    ).toBe(200);
+    expect(await (await fetch(`${base}/api/draft`)).json()).toMatchObject(
+      draft,
+    );
+    await delay(100);
+    expect(idle).toBe(0); // A registered waiting window still exists.
+    expect(
+      await (await call("/api/window", { windowId: "second" })).json(),
+    ).toEqual({ active: true });
+    for (const method of ["PUT", "DELETE"]) {
+      expect(
+        (
+          await call(
+            "/api/draft",
+            {
+              windowId: "first",
+              patientId: null,
+              schema: { ...emptySchema(), kcal: 1900 },
+            },
+            method,
+          )
+        ).status,
+      ).toBe(409);
+      expect(await (await fetch(`${base}/api/draft`)).json()).toMatchObject(
+        draft,
+      );
+    }
+    await delay(100);
+    expect(idle).toBe(0); // Missing presence never shuts down.
+    await call("/api/window", { windowId: "second" });
+    expect(
+      (
+        await call("/api/window/close", {
+          windowId: "second",
+          draft: { patientId: null },
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (await call("/api/draft", { windowId: "second", ...draft }, "PUT"))
+        .status,
+    ).toBe(200);
+    await call("/api/window/close", { windowId: "second", draft: null });
+    expect((await fetch(`${base}/api/draft`)).status).toBe(404);
+    await delay(20);
+    expect(idle).toBe(0);
+    await call("/api/window", { windowId: "reload" });
+    await delay(100);
+    expect(idle).toBe(0);
+    await call("/api/window", { windowId: "reload" });
+    await call("/api/window/close", { windowId: "reload" });
+    await delay(110);
+    expect(idle).toBe(1);
+    expect((await fetch(`${base}/api/health`)).status).toBe(200);
+  } finally {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    server.close(() => resolve());
+    await promise;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+it("stops after the reopened window closes even when the previous browser crashed", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gaetanata-crash-"));
+  let idle = 0;
+  const server = await startServer({
+    port: 0,
+    databaseFile: join(dir, "app.db"),
+    windowStaleAfterMs: 60,
+    idleGraceMs: 40,
+    onIdle: () => {
+      idle += 1;
+    },
+  });
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("No address");
+  const base = `http://127.0.0.1:${address.port}`;
+  async function presence(windowId: string, close = false) {
+    const response = await fetch(`${base}/api/window${close ? "/close" : ""}`, {
+      method: "POST",
+      body: JSON.stringify({ windowId }),
+    });
+    return response.json();
+  }
+  try {
+    expect(await presence("crashed")).toEqual({ active: true });
+    await delay(100);
+    expect(idle).toBe(0);
+    expect(await presence("reopened")).toEqual({ active: true });
+    await presence("reopened", true);
+    await delay(70);
+    expect(idle).toBe(1);
+    expect((await fetch(`${base}/api/health`)).status).toBe(200);
+  } finally {
+    const { promise, resolve } = Promise.withResolvers<void>();
+    server.close(() => resolve());
     await promise;
     rmSync(dir, { recursive: true, force: true });
   }

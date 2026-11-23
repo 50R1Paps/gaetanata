@@ -5,7 +5,10 @@ import { validPlan } from "./plans.ts";
 import { readBody } from "./request-body.ts";
 
 /** A single recovery copy; never writes the patient's saved documents. */
-export function draftHandler(db: DatabaseSync) {
+export function draftHandler(
+  db: DatabaseSync,
+  isActive: (windowId: string) => boolean,
+) {
   const patient = db.prepare("SELECT id FROM patients WHERE id = ?");
   const get = db.prepare(
     "SELECT patient_id, updated_at, plan_json, schema_json FROM draft WHERE id = 1",
@@ -14,7 +17,7 @@ export function draftHandler(db: DatabaseSync) {
     "INSERT INTO draft (id, patient_id, updated_at, plan_json, schema_json) VALUES (1, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET patient_id = excluded.patient_id, updated_at = excluded.updated_at, plan_json = excluded.plan_json, schema_json = excluded.schema_json",
   );
   const remove = db.prepare("DELETE FROM draft");
-  return async (req: IncomingMessage, res: ServerResponse) => {
+  async function handle(req: IncomingMessage, res: ServerResponse) {
     function send(status: number, body: unknown) {
       res.writeHead(status, {
         "content-type": "application/json; charset=utf-8",
@@ -40,12 +43,7 @@ export function draftHandler(db: DatabaseSync) {
           : { schema: JSON.parse(row.schema_json) }),
       });
     }
-    if (req.method === "DELETE") {
-      remove.run();
-      res.writeHead(204).end();
-      return;
-    }
-    if (req.method !== "PUT")
+    if (req.method !== "PUT" && req.method !== "DELETE")
       return send(405, { error: "Metodo non consentito" });
     const bytes = await readBody(req, res);
     if (bytes === null) return;
@@ -58,6 +56,21 @@ export function draftHandler(db: DatabaseSync) {
     if (typeof body !== "object" || body === null || Array.isArray(body))
       return send(400, { error: "Bozza non valida" });
     const value = body as Record<string, unknown>;
+    if (typeof value.windowId !== "string" || !isActive(value.windowId))
+      return send(409, { error: "Finestra non attiva" });
+    if (req.method === "DELETE") {
+      remove.run();
+      res.writeHead(204).end();
+      return;
+    }
+    const result = write(value);
+    send(result.status, result.body);
+  }
+
+  function write(body: unknown): { status: number; body: unknown } {
+    if (typeof body !== "object" || body === null || Array.isArray(body))
+      return { status: 400, body: { error: "Bozza non valida" } };
+    const value = body as Record<string, unknown>;
     if (
       (value.patientId !== null &&
         (!Number.isSafeInteger(value.patientId) ||
@@ -66,11 +79,14 @@ export function draftHandler(db: DatabaseSync) {
       (value.plan !== undefined && !validPlan(value.plan)) ||
       (value.schema !== undefined && !isDietSchema(value.schema))
     )
-      return send(400, {
-        error: "Bozza non valida: controlla paziente, piano e schema.",
-      });
+      return {
+        status: 400,
+        body: {
+          error: "Bozza non valida: controlla paziente, piano e schema.",
+        },
+      };
     if (value.patientId !== null && !patient.get(Number(value.patientId)))
-      return send(404, { error: "Scheda paziente non trovata" });
+      return { status: 404, body: { error: "Scheda paziente non trovata" } };
     const updatedAt = new Date().toISOString();
     put.run(
       value.patientId as number | null,
@@ -78,11 +94,15 @@ export function draftHandler(db: DatabaseSync) {
       value.plan === undefined ? null : JSON.stringify(value.plan),
       value.schema === undefined ? null : JSON.stringify(value.schema),
     );
-    send(200, {
-      patientId: value.patientId,
-      updatedAt,
-      ...(value.plan === undefined ? {} : { plan: value.plan }),
-      ...(value.schema === undefined ? {} : { schema: value.schema }),
-    });
-  };
+    return {
+      status: 200,
+      body: {
+        patientId: value.patientId,
+        updatedAt,
+        ...(value.plan === undefined ? {} : { plan: value.plan }),
+        ...(value.schema === undefined ? {} : { schema: value.schema }),
+      },
+    };
+  }
+  return { handle, write, clear: () => remove.run() };
 }

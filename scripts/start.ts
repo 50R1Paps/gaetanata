@@ -42,7 +42,7 @@ child.on("message", async (message) => {
     `Gaetanata è aperta su ${url}  (chiudi questa finestra per fermarla)`,
   );
   console.log(
-    `I dati sono in ${join(root, "data")}: copia quella cartella per fare un backup.`,
+    `I dati sono in ${process.env.GAETANATA_DATA_DIR ?? join(root, "data")}: copia quella cartella per fare un backup.`,
   );
   openBrowser(url);
 });

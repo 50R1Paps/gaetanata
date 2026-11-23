@@ -30,6 +30,13 @@ it("migrates saved documents, replaces one independent bozza, persists across re
   async function call(method: string, path = "/api/draft", body?: unknown) {
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("No address");
+    if (path === "/api/draft" && method !== "GET") {
+      await fetch(`http://127.0.0.1:${address.port}/api/window`, {
+        method: "POST",
+        body: JSON.stringify({ windowId: "draft-test" }),
+      });
+      body = { ...(body as object), windowId: "draft-test" };
+    }
     const response = await fetch(`http://127.0.0.1:${address.port}${path}`, {
       method,
       headers: { "content-type": "application/json" },

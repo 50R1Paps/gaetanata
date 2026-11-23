@@ -8,6 +8,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { App } from "../App";
+import { addPortion, emptyWeekPlan } from "../plan";
 import { WindowGate } from "./WindowGate";
 
 afterEach(() => {
@@ -78,7 +79,7 @@ it.each(["network", "http"])(
       await vi.advanceTimersByTimeAsync(50);
     });
     expect(screen.getByRole("alert").textContent).toBe(
-      "Gaetanata si è chiusa. Riaprila dall'icona",
+      "Gaetanata si è chiusa. Riaprila dall'icona. Nessuna bozza scritta in questa finestra.",
     );
     expect(
       screen.queryByRole("combobox", { name: "Cerca alimento" }),
@@ -144,4 +145,194 @@ it("uses distinct page identities and frees the active place on pagehide so a wa
   fireEvent(window, new Event("pagehide"));
   await act(async () => {});
   expect(owner).toBeNull();
+});
+
+it("offers recovery only after activation, closes with the pending bozza and never cancels beforeunload", async () => {
+  vi.useFakeTimers();
+  let active = false;
+  let reads = 0;
+  let closing: { windowId: string; draft: unknown } | undefined;
+  const plan = addPortion(emptyWeekPlan(), 0, 0, {
+    id: "n",
+    food: "Noci",
+    grams: 30,
+  });
+  vi.stubGlobal("fetch", async (path: string, init: RequestInit = {}) => {
+    if (path === "/api/window") return Response.json({ active });
+    if (path === "/api/window/close") {
+      expect(init.keepalive).toBe(true);
+      closing = JSON.parse(String(init.body));
+      return Response.json({ active: false });
+    }
+    if (path === "/api/draft") {
+      reads += 1;
+      return Response.json({
+        patientId: null,
+        plan,
+        updatedAt: "2026-01-01T12:00:00Z",
+      });
+    }
+    return Response.json({ patients: [] });
+  });
+  await act(async () => {
+    render(
+      <WindowGate presenceIntervalMs={50}>
+        <App />
+      </WindowGate>,
+    );
+  });
+  expect(reads).toBe(0);
+  expect(
+    screen.queryByRole("region", { name: "Bozza da recuperare" }),
+  ).toBeNull();
+  active = true;
+  await act(() => vi.advanceTimersByTimeAsync(50));
+  expect(
+    screen.getByRole("region", { name: "Bozza da recuperare" }),
+  ).toBeTruthy();
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: "Ripristina" }));
+  });
+  fireEvent.change(screen.getByLabelText("Grammi di Noci"), {
+    target: { value: "55" },
+  });
+  const event = new Event("beforeunload", { cancelable: true });
+  fireEvent(window, event);
+  expect(event.defaultPrevented).toBe(false);
+  fireEvent(window, new Event("pagehide"));
+  expect(closing?.windowId).toBeTruthy();
+  expect(closing?.draft).toEqual({
+    patientId: null,
+    plan: addPortion(emptyWeekPlan(), 0, 0, {
+      id: "n",
+      food: "Noci",
+      grams: 55,
+    }),
+  });
+});
+
+it("reports the last successful bozza time, not the later failed write, when the server stops", async () => {
+  vi.useFakeTimers();
+  let offline = false;
+  vi.stubGlobal("fetch", async (path: string, init: RequestInit = {}) => {
+    if (path === "/api/window") {
+      if (offline) throw new Error("offline");
+      return Response.json({ active: true });
+    }
+    if (path === "/api/draft") {
+      if (!init.method) return new Response(null, { status: 404 });
+      if (offline) throw new Error("offline");
+      return Response.json({
+        ...JSON.parse(String(init.body)),
+        updatedAt: "2026-01-01T12:34:00Z",
+      });
+    }
+    return Response.json({ patients: [] });
+  });
+  await act(async () => {
+    render(
+      <WindowGate presenceIntervalMs={5000}>
+        <App
+          initialPlan={addPortion(emptyWeekPlan(), 0, 0, {
+            id: "n",
+            food: "Noci",
+            grams: 30,
+          })}
+        />
+      </WindowGate>,
+    );
+  });
+  fireEvent.change(screen.getByLabelText("Grammi di Noci"), {
+    target: { value: "45" },
+  });
+  await act(() => vi.advanceTimersByTimeAsync(1000));
+  offline = true;
+  fireEvent.change(screen.getByLabelText("Grammi di Noci"), {
+    target: { value: "60" },
+  });
+  await act(() => vi.advanceTimersByTimeAsync(4000));
+  expect(screen.getByRole("alert").textContent).toContain(
+    new Date("2026-01-01T12:34:00Z").toLocaleTimeString("it-IT", {
+      hour: "2-digit",
+      minute: "2-digit",
+    }),
+  );
+  expect(screen.queryByLabelText("Grammi di Noci")).toBeNull();
+});
+
+it.each(["waiting", "recovery"] as const)(
+  "closes a %s window without replacing the existing bozza",
+  async (state) => {
+    vi.useFakeTimers();
+    let closed: Record<string, unknown> | undefined;
+    vi.stubGlobal("fetch", async (path: string, init: RequestInit = {}) => {
+      if (path === "/api/window")
+        return Response.json({ active: state === "recovery" });
+      if (path === "/api/window/close") {
+        closed = JSON.parse(String(init.body));
+        return Response.json({ active: false });
+      }
+      if (path === "/api/draft")
+        return Response.json({
+          patientId: null,
+          plan: emptyWeekPlan(),
+          updatedAt: "2026-01-01T12:00:00Z",
+        });
+      return Response.json({ patients: [] });
+    });
+    await act(async () => {
+      render(
+        <WindowGate>
+          <App />
+        </WindowGate>,
+      );
+    });
+    fireEvent(window, new Event("pagehide"));
+    expect(closed?.windowId).toBeTruthy();
+    expect(closed).not.toHaveProperty("draft");
+  },
+);
+
+it("clears the closing bozza after edits return to their saved values", async () => {
+  vi.useFakeTimers();
+  let closed: Record<string, unknown> | undefined;
+  vi.stubGlobal("fetch", async (path: string, init: RequestInit = {}) => {
+    if (path === "/api/window") return Response.json({ active: true });
+    if (path === "/api/window/close") {
+      closed = JSON.parse(String(init.body));
+      return Response.json({ active: false });
+    }
+    if (path === "/api/draft") {
+      if (!init.method) return new Response(null, { status: 404 });
+      return init.method === "DELETE"
+        ? new Response(null, { status: 204 })
+        : Response.json({
+            ...JSON.parse(String(init.body)),
+            updatedAt: "2026-01-01T12:00:00Z",
+          });
+    }
+    return Response.json({ patients: [] });
+  });
+  await act(async () => {
+    render(
+      <WindowGate>
+        <App
+          initialPlan={addPortion(emptyWeekPlan(), 0, 0, {
+            id: "n",
+            food: "Noci",
+            grams: 30,
+          })}
+        />
+      </WindowGate>,
+    );
+  });
+  fireEvent.change(screen.getByLabelText("Grammi di Noci"), {
+    target: { value: "45" },
+  });
+  await act(() => vi.advanceTimersByTimeAsync(1000));
+  fireEvent.change(screen.getByLabelText("Grammi di Noci"), {
+    target: { value: "30" },
+  });
+  fireEvent(window, new Event("pagehide"));
+  expect(closed?.draft).toBeNull();
 });

@@ -14,6 +14,7 @@ import {
 } from "./components/PatientPlanHeader";
 import { SchemaScreen } from "./components/SchemaScreen";
 import { SummaryPanel } from "./components/SummaryPanel";
+import { useWindowSession } from "./components/WindowGate";
 import { writeDraft } from "./draftApi";
 import { defaultGrams, lookupFood } from "./foods";
 import { formatNumber } from "./format";
@@ -47,14 +48,32 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
   const [patientBusy, setPatientBusy] = useState(true);
   // Same comparison as the header's: the Word is generated from the saved one.
   const [savedSchema, setSavedSchema] = useState(schema);
-  const updateDraft = useCallback(
-    (dirty: readonly boolean[]) =>
-      writeDraft({
-        patientId: patient?.id ?? null,
-        ...(dirty[0] ? { plan } : {}),
-        ...(dirty[1] ? { schema } : {}),
-      }),
+  const session = useWindowSession();
+  const draftValue = useCallback(
+    (dirty: readonly boolean[]) => ({
+      patientId: patient?.id ?? null,
+      ...(dirty[0] ? { plan } : {}),
+      ...(dirty[1] ? { schema } : {}),
+    }),
     [patient?.id, plan, schema],
+  );
+  const pendingDraft = useCallback(
+    (dirty: readonly boolean[]) => {
+      if (session)
+        session.pendingDraft = dirty.some(Boolean) ? draftValue(dirty) : null;
+    },
+    [session, draftValue],
+  );
+  const updateDraft = useCallback(
+    async (dirty: readonly boolean[]) => {
+      const written = await writeDraft(
+        draftValue(dirty),
+        session?.windowId ?? null,
+      );
+      if (session && written) session.lastWrittenAt = written.updatedAt;
+      return written;
+    },
+    [session, draftValue],
   );
   const documents: PatientDocument[] = [
     {
@@ -129,6 +148,7 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
           documents={documents}
           onBusyChange={setPatientBusy}
           onDraftChange={updateDraft}
+          onDraftPending={pendingDraft}
           recoverDraft
         />
         <fieldset className="view-switch" inert={patientBusy}>
