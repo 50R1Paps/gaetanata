@@ -20,6 +20,7 @@ it("keeps editors out of the waiting window and starts App normally when presenc
   vi.useFakeTimers();
   let active = false;
   vi.stubGlobal("fetch", async (path: string) => {
+    if (path === "/api/draft") return new Response(null, { status: 404 });
     if (path === "/api/window") return Response.json({ active });
     if (path === "/api/template") return Response.json({ available: false });
     return Response.json({ patients: [] });
@@ -51,6 +52,7 @@ it.each(["network", "http"])(
     vi.useFakeTimers();
     let offline = false;
     vi.stubGlobal("fetch", async (path: string) => {
+      if (path === "/api/draft") return new Response(null, { status: 404 });
       if (path === "/api/window") {
         if (offline) {
           if (failure === "network") throw new Error("offline");
@@ -90,6 +92,7 @@ it("uses distinct page identities and frees the active place on pagehide so a wa
   let owner: string | null = null;
   const identities = new Set<string>();
   vi.stubGlobal("fetch", async (path: string, init: RequestInit = {}) => {
+    if (path === "/api/draft") return new Response(null, { status: 404 });
     if (path.startsWith("/api/window")) {
       const { windowId } = JSON.parse(String(init.body));
       identities.add(windowId);

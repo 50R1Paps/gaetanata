@@ -55,8 +55,25 @@ conferma e errore. In caso di errore il lavoro resta nell'editor: ripremi
 Prima di cambiare paziente puoi **Salva e cambia**, **Scarta e cambia** oppure
 **Annulla cambio**. Prima di selezionare il primo paziente, un piano compilato
 senza scheda può essere scartato oppure mantenuto annullando il cambio, ma non
-salvato senza un paziente. La chiusura o ricarica della pagina avvisa se restano
-modifiche non salvate; riaprendo l'app, seleziona nuovamente la scheda.
+salvato senza un paziente.
+
+Mentre lavori, le modifiche non salvate a piano e schema vengono scritte in
+una **bozza** locale, circa un secondo dopo l'ultima modifica. La bozza contiene
+solo i documenti modificati, anche per un piano senza paziente, non scade e non
+sostituisce mai il salvataggio esplicito. Salvando entrambi i documenti oppure
+scartando le modifiche, la bozza viene eliminata.
+
+Alla riapertura un riquadro indica paziente (oppure «piano senza paziente»),
+documenti contenuti, data e ora dell'ultima modifica. Finché non scegli
+**Ripristina** o **Scarta**, il resto dell'interfaccia è bloccato.
+**Ripristina** apre il paziente e rimette le modifiche sopra i documenti salvati:
+restano «modificato, non salvato» fino a **Salva piano** o **Salva schema**.
+La bozza continua ad aggiornarsi mentre lavori. Se il caricamento fallisce,
+il riquadro mostra il motivo e permette di riprovare senza perdere la bozza.
+**Scarta** elimina la bozza e avvia l'app vuota, senza selezionare un paziente.
+
+La **scheda paziente non è coperta dalla bozza**: premi **Salva scheda** prima
+di chiudere per conservare le sue modifiche.
 
 I piani restano nello stesso database locale delle schede, anche dopo il
 riavvio. La seconda migrazione aggiunge i piani senza modificare le schede

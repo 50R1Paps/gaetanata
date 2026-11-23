@@ -32,6 +32,7 @@ beforeEach(() => {
   blobs = [];
   downloads = [];
   vi.stubGlobal("fetch", async (path: string, init: RequestInit = {}) => {
+    if (path === "/api/draft") return new Response(null, { status: 404 });
     if (path === "/api/patients") return Response.json({ patients });
     if (path === "/api/template") {
       if (init.method === "PUT") {

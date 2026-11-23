@@ -44,7 +44,7 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
   const [dayIndex, setDayIndex] = useState(0);
   const [mealIndex, setMealIndex] = useState(0);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const [patientBusy, setPatientBusy] = useState(false);
+  const [patientBusy, setPatientBusy] = useState(true);
   // Same comparison as the header's: the Word is generated from the saved one.
   const [savedSchema, setSavedSchema] = useState(schema);
   const updateDraft = useCallback(
@@ -129,8 +129,9 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
           documents={documents}
           onBusyChange={setPatientBusy}
           onDraftChange={updateDraft}
+          recoverDraft
         />
-        <fieldset className="view-switch">
+        <fieldset className="view-switch" inert={patientBusy}>
           <legend className="visually-hidden">Vista</legend>
           {(
             [
