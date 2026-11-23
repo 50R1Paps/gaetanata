@@ -36,11 +36,14 @@ export function PatientPlanHeader({
   setPatient,
   documents,
   onBusyChange,
+  onDraftChange,
 }: {
   patient: Patient | null;
   setPatient: (patient: Patient | null) => void;
   documents: readonly PatientDocument[];
   onBusyChange?: (busy: boolean) => void;
+  /** Same fixed document order; only changed documents belong in the bozza. */
+  onDraftChange?: (dirty: readonly boolean[]) => Promise<unknown>;
 }) {
   const [baselines, setBaselines] = useState(() =>
     documents.map((document) => document.value),
@@ -55,9 +58,40 @@ export function PatientPlanHeader({
   const [pending, setPending] = useState(false);
   const decision = useRef<((choice: SwitchChoice) => void) | null>(null);
   const dirty = documents.map(
-    (document, index) => document.value !== baselines[index],
+    (document, index) =>
+      JSON.stringify(document.value) !== JSON.stringify(baselines[index]),
   );
   const anyDirty = dirty.some(Boolean);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const draftQueue = useRef(Promise.resolve());
+  const hadChanges = useRef(false);
+  const dirtySignature = JSON.stringify(dirty);
+
+  useEffect(() => {
+    const write = onDraftChange;
+    const changed = JSON.parse(dirtySignature) as boolean[];
+    const hasChanges = changed.some(Boolean);
+    if (!write || (!hasChanges && !hadChanges.current)) return;
+    hadChanges.current = hasChanges;
+    const enqueue = () => {
+      // Capture this render's values; serialize requests so an older PUT cannot
+      // arrive after the DELETE from a successful save or patient switch.
+      draftQueue.current = draftQueue.current
+        .then(() => write(changed))
+        .then(() => setDraftError(null))
+        .catch((failure: unknown) => {
+          setDraftError(
+            `Bozza non scritta: ${failure instanceof Error ? failure.message : String(failure)}`,
+          );
+        });
+    };
+    if (!hasChanges) {
+      enqueue();
+      return;
+    }
+    const timer = window.setTimeout(enqueue, 1000);
+    return () => window.clearTimeout(timer);
+  }, [onDraftChange, dirtySignature]);
   const baseId = useId();
   const saveId = (index: number) => `${baseId}-save-${index}`;
   const saveSwitchId = `${baseId}-save-switch`;
@@ -285,6 +319,11 @@ export function PatientPlanHeader({
           </span>
         </Fragment>
       ))}
+      {draftError && (
+        <p role="alert" className="error">
+          {draftError}
+        </p>
+      )}
       {error && !pending && (
         <p role="alert" className="error">
           {error}
