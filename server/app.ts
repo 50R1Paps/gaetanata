@@ -17,12 +17,15 @@ import { type PatientStore, patientStore } from "./patients.ts";
 import { planHandler } from "./plans.ts";
 import { readBody } from "./request-body.ts";
 import { schemaHandler } from "./schemas.ts";
+import { windowHandler } from "./windows.ts";
 
 export const APP_ID = "gaetanata";
 
 export type ServerOptions = {
   port: number;
   databaseFile: string;
+  /** Time without presence before another window may become active. */
+  windowStaleAfterMs?: number;
   /** Built frontend to serve; omit when a dev middleware serves the frontend. */
   staticDir?: string;
   /** Handles non-API requests in dev mode (Vite middleware). */
@@ -47,11 +50,25 @@ export async function startServer(options: ServerOptions): Promise<Server> {
   const handlePlan = planHandler(db);
   const handleSchema = schemaHandler(db);
   const handleDocument = documentHandler(options.databaseFile, db);
+  const windows = windowHandler({ staleAfterMs: options.windowStaleAfterMs });
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     if (url.pathname === "/api/health") {
       sendJson(res, 200, { app: APP_ID, schemaVersion: schemaVersion(db) });
+      return;
+    }
+    if (
+      url.pathname === "/api/window" ||
+      url.pathname === "/api/window/close"
+    ) {
+      windows
+        .handle(req, res, url.pathname === "/api/window/close")
+        .catch((error) => {
+          console.error(error);
+          if (res.headersSent) res.end();
+          else sendJson(res, 500, { error: "Errore interno del server" });
+        });
       return;
     }
     if (url.pathname === "/api/template") {
