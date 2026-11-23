@@ -1,13 +1,22 @@
-import { type KeyboardEvent, useMemo, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { type Food, mealSlots } from "./calc";
 import { FoodSearch } from "./components/FoodSearch";
 import { MealCard } from "./components/MealCard";
 import {
+  type DirtyDocuments,
   type PatientDocument,
   PatientPlanHeader,
 } from "./components/PatientPlanHeader";
 import { SchemaScreen } from "./components/SchemaScreen";
 import { SummaryPanel } from "./components/SummaryPanel";
+import { useWindowSession } from "./components/WindowGate";
+import { writeDraft } from "./draftApi";
 import { defaultGrams, lookupFood } from "./foods";
 import { formatNumber } from "./format";
 import { localToday, type Patient } from "./patient";
@@ -37,11 +46,43 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
   const [dayIndex, setDayIndex] = useState(0);
   const [mealIndex, setMealIndex] = useState(0);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const [patientBusy, setPatientBusy] = useState(false);
+  const [patientBusy, setPatientBusy] = useState(true);
   // Same comparison as the header's: the Word is generated from the saved one.
   const [savedSchema, setSavedSchema] = useState(schema);
+  const session = useWindowSession();
+  const draftValue = useCallback(
+    (dirty: DirtyDocuments) => ({
+      patientId: patient?.id ?? null,
+      ...(dirty.plan ? { plan } : {}),
+      ...(dirty.schema ? { schema } : {}),
+    }),
+    [patient?.id, plan, schema],
+  );
+  const pendingDraft = useCallback(
+    (dirty: DirtyDocuments) => {
+      if (session)
+        session.pendingDraft =
+          dirty.plan || dirty.schema ? draftValue(dirty) : null;
+    },
+    [session, draftValue],
+  );
+  const updateDraft = useCallback(
+    async (dirty: DirtyDocuments) => {
+      const written = await writeDraft(
+        draftValue(dirty),
+        session?.windowId ?? null,
+      );
+      if (session) {
+        if (written) session.lastWrittenAt = written.updatedAt;
+        else delete session.lastWrittenAt;
+      }
+      return written;
+    },
+    [session, draftValue],
+  );
   const documents: PatientDocument[] = [
     {
+      draftKey: "plan",
       noun: "piano",
       object: "il piano",
       label: "Piano settimanale",
@@ -52,6 +93,7 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
       save: savePlan,
     } satisfies PatientDocument<WeekPlan>,
     {
+      draftKey: "schema",
       noun: "schema",
       object: "lo schema",
       label: "Schema",
@@ -112,8 +154,11 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
           setPatient={setPatient}
           documents={documents}
           onBusyChange={setPatientBusy}
+          onDraftChange={updateDraft}
+          onDraftPending={pendingDraft}
+          recoverDraft
         />
-        <fieldset className="view-switch">
+        <fieldset className="view-switch" inert={patientBusy}>
           <legend className="visually-hidden">Vista</legend>
           {(
             [

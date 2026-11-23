@@ -24,6 +24,7 @@ function Harness() {
         setPatient={setPatient}
         documents={[
           {
+            draftKey: "plan",
             noun: "piano",
             object: "il piano",
             label: "Piano settimanale",

@@ -8,7 +8,7 @@ function record(value: unknown): value is Record<string, unknown> {
 }
 
 /** Structural validation only: obsolete food names remain editable. */
-function validPlan(value: unknown): value is WeekPlan {
+export function validPlan(value: unknown): value is WeekPlan {
   return (
     record(value) &&
     Array.isArray(value.days) &&

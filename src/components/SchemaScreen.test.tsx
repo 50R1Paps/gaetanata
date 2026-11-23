@@ -20,6 +20,7 @@ beforeEach(() => {
   offline = false;
   vi.stubGlobal("fetch", async (path: string, init: RequestInit = {}) => {
     if (offline) throw new TypeError("fetch failed");
+    if (path === "/api/draft") return new Response(null, { status: 404 });
     if (path === "/api/patients") return Response.json({ patients });
     // The Word panel is tested in SchemaWordPanel.test.tsx.
     if (path === "/api/template") return Response.json({ available: false });

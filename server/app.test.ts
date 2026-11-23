@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { startServer } from "./app.ts";
+import { migrations } from "./db.ts";
 
 it("serves health and the SPA without exposing files outside the static directory", async () => {
   const dir = mkdtempSync(join(tmpdir(), "gaetanata-server-"));
@@ -22,7 +23,7 @@ it("serves health and the SPA without exposing files outside the static director
     const base = `http://127.0.0.1:${address.port}`;
     expect(await (await fetch(`${base}/api/health`)).json()).toEqual({
       app: "gaetanata",
-      schemaVersion: 4,
+      schemaVersion: migrations.length,
     });
     expect(
       await (await fetch(`${base}/..%2fpackage.json`)).text(),

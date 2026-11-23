@@ -31,6 +31,7 @@ beforeEach(() => {
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
+// Each case starts real Git and Node CLI processes; allow their loaded startup cost.
 it("skips an absent private list and ignores untracked text", () => {
   writeFileSync(join(dir, "safe.txt"), "innocuo");
   writeFileSync(join(dir, "untracked.txt"), "Down" + "loads/fixture");
@@ -38,7 +39,7 @@ it("skips an absent private list and ignores untracked text", () => {
   const result = scan();
   expect(result.status).toBe(0);
   expect(result.stdout).toContain("assente");
-});
+}, 15_000);
 
 it("matches Unicode whole words and phrases, ignoring comments and substrings", () => {
   writeFileSync(
@@ -53,7 +54,7 @@ it("matches Unicode whole words and phrases, ignoring comments and substrings", 
   expect(result.status).toBe(1);
   for (const match of ["ANN", "élÉnA", "Nome Finto"])
     expect(result.stderr).toContain(`safe.txt:1: ${match}`);
-});
+}, 15_000);
 
 it("checks the index rather than hiding staged secrets behind safe working text", () => {
   writeFileSync(join(dir, ".private-patterns"), "ParolaSegreta\n");
@@ -62,7 +63,7 @@ it("checks the index rather than hiding staged secrets behind safe working text"
   writeFileSync(join(dir, "safe.txt"), "innocuo");
   expect(scan().status).toBe(0);
   expect(scan(true).status).toBe(1);
-});
+}, 15_000);
 
 it("rejects all sensitive extensions and external test paths without flagging identifiers", () => {
   const extensions = [
@@ -105,4 +106,4 @@ it("rejects all sensitive extensions and external test paths without flagging id
   for (let line = 1; line <= 6; line++)
     expect(result.stderr).toContain(`outside.test.ts:${line}:`);
   expect(result.stderr).not.toContain("safe.txt");
-});
+}, 15_000);

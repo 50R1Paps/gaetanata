@@ -1,13 +1,27 @@
-import { Fragment, useEffect, useId, useRef, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from "react";
+import { type Draft, loadDraft, writeDraft } from "../draftApi";
 import type { Patient } from "../patient";
+import { listPatients } from "../patientsApi";
 import { PatientsDialog } from "./PatientsDialog";
+import { RestoreDraftPrompt } from "./RestoreDraftPrompt";
+import { useWindowId, useWindowSession } from "./WindowGate";
 
 /** Answer to the prompt shown when switching patient with unsaved changes. */
 type SwitchChoice = "saved" | "discarded" | "cancelled";
 
+export type DirtyDocuments = { plan: boolean; schema: boolean };
+
 /** Something saved per patient (the plan, the Schema), edited by the caller.
  * Methods, so documents of different types share one list. */
 export type PatientDocument<T = unknown> = {
+  draftKey: keyof DirtyDocuments;
   /** Lower case: "piano", "schema". */
   noun: string;
   /** Noun with its article: "il piano", "lo schema". */
@@ -36,12 +50,21 @@ export function PatientPlanHeader({
   setPatient,
   documents,
   onBusyChange,
+  onDraftChange,
+  onDraftPending,
+  recoverDraft = false,
 }: {
   patient: Patient | null;
   setPatient: (patient: Patient | null) => void;
   documents: readonly PatientDocument[];
   onBusyChange?: (busy: boolean) => void;
+  /** Only changed documents belong in the bozza. */
+  onDraftChange?: (dirty: DirtyDocuments) => Promise<unknown>;
+  onDraftPending?: (dirty: DirtyDocuments) => void;
+  recoverDraft?: boolean;
 }) {
+  const windowId = useWindowId();
+  const session = useWindowSession();
   const [baselines, setBaselines] = useState(() =>
     documents.map((document) => document.value),
   );
@@ -54,10 +77,85 @@ export function PatientPlanHeader({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const decision = useRef<((choice: SwitchChoice) => void) | null>(null);
+  const [recovery, setRecovery] = useState<Draft | null>();
+  const [recoveryPatient, setRecoveryPatient] = useState<Patient | null>(null);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
+  const [recoveryBusy, setRecoveryBusy] = useState(false);
+  const recoveryBlocked = recoverDraft && recovery !== null;
+
+  const readRecovery = useCallback(async () => {
+    setRecoveryBusy(true);
+    setRecoveryError(null);
+    try {
+      const draft = await loadDraft();
+      if (session && draft) session.lastWrittenAt = draft.updatedAt;
+      const patients = draft?.patientId ? await listPatients() : [];
+      const owner =
+        patients.find((item) => item.id === draft?.patientId) ?? null;
+      if (draft?.patientId && !owner)
+        throw new Error("La scheda del paziente non è disponibile.");
+      setRecoveryPatient(owner);
+      setRecovery(draft);
+    } catch (failure) {
+      setRecoveryError(
+        failure instanceof Error ? failure.message : String(failure),
+      );
+    } finally {
+      setRecoveryBusy(false);
+    }
+  }, [session]);
+
+  useEffect(() => {
+    if (recoverDraft) void readRecovery();
+  }, [recoverDraft, readRecovery]);
   const dirty = documents.map(
-    (document, index) => document.value !== baselines[index],
+    (document, index) =>
+      JSON.stringify(document.value) !== JSON.stringify(baselines[index]),
   );
   const anyDirty = dirty.some(Boolean);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const draftQueue = useRef(Promise.resolve());
+  const hadChanges = useRef(false);
+  const dirtySignature = JSON.stringify({
+    plan: documents.some(
+      (document, index) => document.draftKey === "plan" && dirty[index],
+    ),
+    schema: documents.some(
+      (document, index) => document.draftKey === "schema" && dirty[index],
+    ),
+  });
+
+  useEffect(() => {
+    if (!recoveryBlocked)
+      onDraftPending?.(JSON.parse(dirtySignature) as DirtyDocuments);
+  }, [onDraftPending, dirtySignature, recoveryBlocked]);
+
+  useEffect(() => {
+    const write = onDraftChange;
+    const changed = JSON.parse(dirtySignature) as DirtyDocuments;
+    const hasChanges = changed.plan || changed.schema;
+    if (recoveryBlocked) return;
+    if (!write || (!hasChanges && !hadChanges.current)) return;
+    hadChanges.current = hasChanges;
+    const enqueue = () => {
+      // Capture this render's values; serialize requests so an older PUT cannot
+      // arrive after the DELETE from a successful save or patient switch.
+      draftQueue.current = draftQueue.current
+        .then(() => write(changed))
+        .then(() => setDraftError(null))
+        .catch((failure: unknown) => {
+          setDraftError(
+            `Bozza non scritta: ${failure instanceof Error ? failure.message : String(failure)}`,
+          );
+        });
+    };
+    if (!hasChanges) {
+      enqueue();
+      return;
+    }
+    const timer = window.setTimeout(enqueue, 1000);
+    return () => window.clearTimeout(timer);
+  }, [onDraftChange, dirtySignature, recoveryBlocked]);
   const baseId = useId();
   const saveId = (index: number) => `${baseId}-save-${index}`;
   const saveSwitchId = `${baseId}-save-switch`;
@@ -74,17 +172,8 @@ export function PatientPlanHeader({
     document.getElementById(id)?.focus();
   });
   useEffect(() => {
-    onBusyChange?.(busy || pending);
-  }, [busy, pending, onBusyChange]);
-  useEffect(() => {
-    if (!anyDirty) return;
-    function warn(event: BeforeUnloadEvent) {
-      event.preventDefault();
-      event.returnValue = "";
-    }
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [anyDirty]);
+    onBusyChange?.(busy || pending || recoveryBlocked);
+  }, [busy, pending, recoveryBlocked, onBusyChange]);
 
   function setNotice(index: number, notice: string) {
     setNotices((current) =>
@@ -130,9 +219,12 @@ export function PatientPlanHeader({
     }
   }
 
-  async function select(next: Patient | null): Promise<boolean> {
+  async function select(
+    next: Patient | null,
+    restored?: readonly unknown[],
+  ): Promise<boolean> {
     if (busy || pending) return false;
-    if (next?.id === patient?.id) {
+    if (!restored && next?.id === patient?.id) {
       setPatient(next);
       return true;
     }
@@ -157,7 +249,7 @@ export function PatientPlanHeader({
       for (loading of documents)
         loaded.push(next ? await loading.load(next.id) : loading.empty());
       documents.forEach((document, index) => {
-        document.setValue(loaded[index]);
+        document.setValue(restored?.[index] ?? loaded[index]);
         document.setBaseline?.(loaded[index]);
       });
       setBaselines(loaded);
@@ -174,6 +266,10 @@ export function PatientPlanHeader({
       );
       return true;
     } catch (failure) {
+      if (restored)
+        setRecoveryError(
+          `Caricamento ${loading?.noun} non riuscito: ${failure instanceof Error ? failure.message : String(failure)}`,
+        );
       setNotices(
         documents.map(
           (document) => `${capitalize(document.noun)} precedente mantenuto.`,
@@ -216,80 +312,122 @@ export function PatientPlanHeader({
     .join(" e ");
   return (
     <>
-      <PatientsDialog
-        patient={patient}
-        onSelect={select}
-        onDeleted={deleted}
-        closeDisabled={pending || busy}
-      >
-        {pending && (
-          <section
-            className="confirm-delete confirm-switch"
-            aria-label="Modifiche non salvate"
-          >
-            <p>
-              {capitalize(changed)}{" "}
-              {dirtyIndexes.length > 1 ? "contengono" : "contiene"} modifiche
-              non salvate. Salvarle o scartarle prima di cambiare paziente?
+      {recoveryBlocked && (
+        <RestoreDraftPrompt
+          draft={recovery}
+          patient={recoveryPatient}
+          busy={recoveryBusy || busy}
+          error={recoveryError}
+          onRetry={readRecovery}
+          onRestore={async () => {
+            if (!recovery) return;
+            setRecoveryError(null);
+            const restored = documents.map(
+              (document) => recovery[document.draftKey],
+            );
+            if (await select(recoveryPatient, restored)) setRecovery(null);
+          }}
+          onDiscard={async () => {
+            setRecoveryBusy(true);
+            setRecoveryError(null);
+            try {
+              await writeDraft(
+                { patientId: recovery?.patientId ?? null },
+                windowId,
+              );
+              if (session) delete session.lastWrittenAt;
+              setRecovery(null);
+            } catch (failure) {
+              setRecoveryError(
+                failure instanceof Error ? failure.message : String(failure),
+              );
+            } finally {
+              setRecoveryBusy(false);
+            }
+          }}
+        />
+      )}
+      <div style={{ display: "contents" }} inert={recoveryBlocked}>
+        <PatientsDialog
+          patient={patient}
+          onSelect={select}
+          onDeleted={deleted}
+          closeDisabled={pending || busy}
+        >
+          {pending && (
+            <section
+              className="confirm-delete confirm-switch"
+              aria-label="Modifiche non salvate"
+            >
+              <p>
+                {capitalize(changed)}{" "}
+                {dirtyIndexes.length > 1 ? "contengono" : "contiene"} modifiche
+                non salvate. Salvarle o scartarle prima di cambiare paziente?
+              </p>
+              <button
+                type="button"
+                id={saveSwitchId}
+                disabled={!patient || busy}
+                onClick={async () => {
+                  if (await save(dirtyIndexes, saveSwitchId)) decide("saved");
+                }}
+              >
+                Salva e cambia
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => decide("discarded")}
+              >
+                Scarta e cambia
+              </button>
+              <button
+                type="button"
+                id={cancelSwitchId}
+                disabled={busy}
+                onClick={() => decide("cancelled")}
+              >
+                Annulla cambio
+              </button>
+            </section>
+          )}
+          {error && (
+            <p role="alert" className="error">
+              {error}
             </p>
+          )}
+        </PatientsDialog>
+        {documents.map((document, index) => (
+          <Fragment key={document.noun}>
             <button
               type="button"
-              id={saveSwitchId}
-              disabled={!patient || busy}
-              onClick={async () => {
-                if (await save(dirtyIndexes, saveSwitchId)) decide("saved");
-              }}
+              id={saveId(index)}
+              className="patient-button"
+              disabled={!patient || busy || pending}
+              onClick={() => save([index], saveId(index))}
             >
-              Salva e cambia
+              Salva {document.noun}
             </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => decide("discarded")}
-            >
-              Scarta e cambia
-            </button>
-            <button
-              type="button"
-              id={cancelSwitchId}
-              disabled={busy}
-              onClick={() => decide("cancelled")}
-            >
-              Annulla cambio
-            </button>
-          </section>
+            <span role="status" aria-label={document.label}>
+              {busy
+                ? notices[index]
+                : dirty[index]
+                  ? `${capitalize(document.noun)} modificato, non salvato.`
+                  : notices[index]}
+            </span>
+          </Fragment>
+        ))}
+        {draftError && (
+          <p role="alert" className="error">
+            {draftError}
+          </p>
         )}
-        {error && (
+        {error && !pending && (
           <p role="alert" className="error">
             {error}
           </p>
         )}
-      </PatientsDialog>
-      {documents.map((document, index) => (
-        <Fragment key={document.noun}>
-          <button
-            type="button"
-            id={saveId(index)}
-            className="patient-button"
-            disabled={!patient || busy || pending}
-            onClick={() => save([index], saveId(index))}
-          >
-            Salva {document.noun}
-          </button>
-          <span role="status" aria-label={document.label}>
-            {busy
-              ? notices[index]
-              : dirty[index]
-                ? `${capitalize(document.noun)} modificato, non salvato.`
-                : notices[index]}
-          </span>
-        </Fragment>
-      ))}
-      {error && !pending && (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      )}
+      </div>
     </>
   );
 }

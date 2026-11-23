@@ -15,6 +15,7 @@ beforeEach(() => {
   schema = emptySchema();
   plan = emptyWeekPlan();
   vi.stubGlobal("fetch", async (path: string) => {
+    if (path === "/api/draft") return new Response(null, { status: 404 });
     if (path === "/api/patients") return Response.json({ patients });
     if (path === "/api/template") return Response.json({ available: false });
     const document = path.split("/")[4];
