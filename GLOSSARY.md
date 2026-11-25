@@ -90,3 +90,7 @@ _Avoid_: Release, build, commit
 **Aggiornamento**:
 Passaggio dalla versione installata a una versione più recente, avviato da chi usa l'app; se non riesce, resta la versione di prima.
 _Avoid_: "Aggiorna" da solo, pull, update
+
+**Segnalazione**:
+Messaggio con cui chi usa l'app comunica a chi la sviluppa un problema o una richiesta, accompagnato dai dati tecnici dell'app e mai da dati dei pazienti.
+_Avoid_: Bug, ticket, issue, feedback
