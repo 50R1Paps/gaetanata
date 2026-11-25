@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import {
   createServer,
@@ -6,18 +7,22 @@ import {
   type ServerResponse,
 } from "node:http";
 import { extname, join, normalize, sep } from "node:path";
+import packageInfo from "../package.json" with { type: "json" };
 import {
   localToday,
   type PatientInput,
   validatePatient,
 } from "../src/patient.ts";
+import type { UpdateState } from "../src/update.ts";
 import { openDatabase, schemaVersion } from "./db.ts";
 import { documentHandler } from "./documents.ts";
 import { draftHandler } from "./draft.ts";
+import { inspectClone, installClone, installZip } from "./install-update.ts";
 import { type PatientStore, patientStore } from "./patients.ts";
 import { planHandler } from "./plans.ts";
 import { readBody } from "./request-body.ts";
 import { schemaHandler } from "./schemas.ts";
+import { checkRelease } from "./update.ts";
 import { windowHandler } from "./windows.ts";
 
 export const APP_ID = "gaetanata";
@@ -25,11 +30,18 @@ export const APP_ID = "gaetanata";
 export type ServerOptions = {
   port: number;
   databaseFile: string;
+  /** Release API and repository used for updates. */
+  releaseSource?: { apiUrl: string; gitUrl: string };
   /** Time without presence before another window may become active. */
   windowStaleAfterMs?: number;
   /** Grace after explicit closure; presence silence never starts it. */
   idleGraceMs?: number;
   onIdle?: () => void;
+  /** Installation directory and launcher callback; absent in development. */
+  appDir?: string;
+  onRestart?: () => void;
+  nodeVersion?: string;
+  failedUpdateVersion?: string | undefined;
   /** Built frontend to serve; omit when a dev middleware serves the frontend. */
   staticDir?: string;
   /** Handles non-API requests in dev mode (Vite middleware). */
@@ -51,25 +63,152 @@ const contentTypes: Record<string, string> = {
 export async function startServer(options: ServerOptions): Promise<Server> {
   const db = openDatabase(options.databaseFile);
   const patients = patientStore(db);
-  const handlePlan = planHandler(db);
-  const handleSchema = schemaHandler(db);
-  const handleDocument = documentHandler(options.databaseFile, db);
-  const drafts = draftHandler(db, (windowId) => windows.isActive(windowId));
+  const frozen = () => update.status === "progress";
+  const handlePlan = planHandler(db, frozen);
+  const handleSchema = schemaHandler(db, frozen);
+  const handleDocument = documentHandler(options.databaseFile, db, frozen);
+  const drafts = draftHandler(
+    db,
+    (windowId) => windows.isActive(windowId),
+    frozen,
+  );
+  let update: UpdateState = options.failedUpdateVersion
+    ? {
+        status: "failed",
+        message: `Aggiornamento non riuscito, stai usando ancora la versione ${options.failedUpdateVersion}`,
+      }
+    : { status: "idle" };
   const windows = windowHandler({
     staleAfterMs: options.windowStaleAfterMs,
     idleGraceMs: options.idleGraceMs,
     onIdle: options.onIdle,
     writeDraft: drafts.write,
     clearDraft: drafts.clear,
+    getUpdate: () => update,
   });
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
+    if (
+      url.pathname.startsWith("/api/") &&
+      ["POST", "PUT", "PATCH", "DELETE"].includes(req.method ?? "") &&
+      url.pathname !== "/api/update" &&
+      url.pathname !== "/api/window" &&
+      url.pathname !== "/api/window/close" &&
+      frozen()
+    ) {
+      sendJson(res, 409, { error: "Aggiornamento in corso" });
+      return;
+    }
     if (url.pathname === "/api/health") {
-      sendJson(res, 200, { app: APP_ID, schemaVersion: schemaVersion(db) });
+      sendJson(res, 200, {
+        app: APP_ID,
+        schemaVersion: schemaVersion(db),
+        version: packageInfo.version,
+      });
+      return;
+    }
+    if (url.pathname === "/api/update") {
+      void (async () => {
+        if (req.method !== "POST") {
+          sendJson(res, 405, { error: "Metodo non consentito" });
+          return;
+        }
+        const bytes = await readBody(req, res);
+        if (!bytes) return;
+        let body: unknown;
+        try {
+          body = JSON.parse(bytes.toString("utf8"));
+        } catch {
+          sendJson(res, 400, { error: "Richiesta non valida" });
+          return;
+        }
+        if (
+          !body ||
+          typeof body !== "object" ||
+          !("windowId" in body) ||
+          typeof body.windowId !== "string" ||
+          !windows.isActive(body.windowId)
+        ) {
+          sendJson(res, 409, { error: "Finestra non attiva" });
+          return;
+        }
+        if (
+          update.status !== "available" ||
+          !options.appDir ||
+          !options.onRestart ||
+          !options.releaseSource
+        ) {
+          sendJson(res, 409, { error: "Aggiornamento non disponibile" });
+          return;
+        }
+        const clone = existsSync(join(options.appDir, ".git"))
+          ? inspectClone(options.appDir)
+          : null;
+        if (clone && "error" in clone) {
+          sendJson(res, 409, { error: clone.error });
+          return;
+        }
+        if (!clone && !update.zipUrl) {
+          sendJson(res, 409, {
+            error: "Archivio della versione non disponibile",
+          });
+          return;
+        }
+        if ("draft" in body && body.draft !== undefined) {
+          if (body.draft === null) drafts.clear();
+          else {
+            const result = drafts.write(body.draft);
+            if (result.status !== 200) {
+              sendJson(res, result.status, result.body);
+              return;
+            }
+          }
+        }
+        const version = update.version;
+        const zipUrl = update.zipUrl;
+        update = {
+          status: "progress",
+          step: "scarico",
+          from: packageInfo.version,
+          version,
+        };
+        windows.beginUpdate();
+        sendJson(res, 202, { update });
+        const context = {
+          root: options.appDir,
+          databaseFile: options.databaseFile,
+          db,
+          from: packageInfo.version,
+          version,
+          nodeVersion: options.nodeVersion ?? process.versions.node,
+          setState: (state: UpdateState) => {
+            update = state;
+            if (state.status === "failed") windows.updateFinished();
+          },
+          restart: () => {
+            void windows.waitForUpdateWindows().then(options.onRestart);
+          },
+        };
+        if (clone && "ref" in clone)
+          void installClone({
+            ...context,
+            gitUrl: options.releaseSource.gitUrl,
+            ref: clone.ref,
+          });
+        else void installZip({ ...context, zipUrl: zipUrl ?? "" });
+      })().catch((error: unknown) => {
+        console.error(error);
+        if (res.headersSent) res.end();
+        else sendJson(res, 500, { error: "Errore interno del server" });
+      });
       return;
     }
     if (url.pathname === "/api/draft") {
+      if (update.status === "progress" && req.method !== "GET") {
+        sendJson(res, 409, { error: "Aggiornamento in corso" });
+        return;
+      }
       drafts.handle(req, res).catch((error) => {
         console.error(error);
         if (res.headersSent) res.end();
@@ -129,7 +268,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
             req,
             res,
           )
-        : handlePatients(patients, url.pathname, req, res);
+        : handlePatients(patients, url.pathname, req, res, frozen);
       handled.catch((error) => {
         console.error(error);
         if (res.headersSent) res.end();
@@ -165,6 +304,25 @@ export async function startServer(options: ServerOptions): Promise<Server> {
     resolve();
   });
   await promise;
+  if (options.releaseSource) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5_000);
+    server.once("close", () => controller.abort());
+    void checkRelease(
+      options.releaseSource.apiUrl,
+      packageInfo.version,
+      controller.signal,
+    )
+      .then((result) => {
+        if (update.status === "failed") {
+          if (result.status === "available")
+            update = { ...result, failedMessage: update.message };
+        } else if (update.status === "idle") {
+          update = result;
+        }
+      })
+      .finally(() => clearTimeout(timer));
+  }
   return server;
 }
 
@@ -180,13 +338,16 @@ async function handlePatients(
   pathname: string,
   req: IncomingMessage,
   res: ServerResponse,
+  frozen: () => boolean,
 ): Promise<void> {
   if (pathname === "/api/patients") {
     if (req.method === "GET") {
       sendJson(res, 200, { patients: patients.list() });
     } else if (req.method === "POST") {
       const input = await readPatient(req, res);
-      if (input) sendJson(res, 201, patients.create(input));
+      if (!input) return;
+      if (frozen()) sendJson(res, 409, { error: "Aggiornamento in corso" });
+      else sendJson(res, 201, patients.create(input));
     } else {
       sendJson(res, 405, { error: "Metodo non consentito" });
     }
@@ -203,6 +364,10 @@ async function handlePatients(
   } else if (req.method === "PUT") {
     const input = await readPatient(req, res);
     if (!input) return;
+    if (frozen()) {
+      sendJson(res, 409, { error: "Aggiornamento in corso" });
+      return;
+    }
     const patient = patients.update(id, input);
     sendJson(res, patient ? 200 : 404, patient ?? patientNotFound);
   } else if (req.method === "DELETE") {

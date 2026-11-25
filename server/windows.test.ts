@@ -51,11 +51,11 @@ it("renews the sole active window and transfers ownership only after close or st
     }
     expect(await presence("first")).toEqual({
       status: 200,
-      body: { active: true },
+      body: { active: true, update: { status: "idle" } },
     });
     expect(await presence("second")).toEqual({
       status: 200,
-      body: { active: false },
+      body: { active: false, update: { status: "idle" } },
     });
     await vi.advanceTimersByTimeAsync(60);
     expect((await presence("first")).body.active).toBe(true);
@@ -123,7 +123,7 @@ it("writes the closing bozza before transfer, rejects inactive writes and waits 
     expect(idle).toBe(0); // A registered waiting window still exists.
     expect(
       await (await call("/api/window", { windowId: "second" })).json(),
-    ).toEqual({ active: true });
+    ).toMatchObject({ active: true });
     for (const method of ["PUT", "DELETE"]) {
       expect(
         (
@@ -203,10 +203,10 @@ it("stops after the reopened window closes even when the previous browser crashe
     return response.json();
   }
   try {
-    expect(await presence("crashed")).toEqual({ active: true });
+    expect(await presence("crashed")).toMatchObject({ active: true });
     await vi.advanceTimersByTimeAsync(100);
     expect(idle).toBe(0);
-    expect(await presence("reopened")).toEqual({ active: true });
+    expect(await presence("reopened")).toMatchObject({ active: true });
     await presence("reopened", true);
     await vi.advanceTimersByTimeAsync(40);
     await stopped.promise;
@@ -257,7 +257,7 @@ it("writes a sleeping owner's closing bozza and starts shutdown after freeing it
     expect(idle).toBe(1);
     expect(
       await (await call("/api/window", { windowId: "next" })).json(),
-    ).toEqual({ active: true });
+    ).toMatchObject({ active: true });
   } finally {
     const { promise, resolve } = Promise.withResolvers<void>();
     server.close(() => resolve());
@@ -290,6 +290,7 @@ it("never starts shutdown when a waiting window closes while the owner sleeps", 
     await call("/api/window", "sleeping");
     expect(await (await call("/api/window", "waiting")).json()).toEqual({
       active: false,
+      update: { status: "idle" },
     });
     await vi.advanceTimersByTimeAsync(60);
     await call("/api/window/close", "waiting");
@@ -297,6 +298,7 @@ it("never starts shutdown when a waiting window closes while the owner sleeps", 
     expect(idle).toBe(0);
     expect(await (await call("/api/window", "sleeping")).json()).toEqual({
       active: true,
+      update: { status: "idle" },
     });
   } finally {
     const { promise, resolve } = Promise.withResolvers<void>();

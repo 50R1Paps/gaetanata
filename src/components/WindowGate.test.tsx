@@ -9,12 +9,81 @@ import {
 import { afterEach, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { addPortion, emptyWeekPlan } from "../plan";
+import { stubDialogs } from "./schemaTestKit";
 import { WindowGate } from "./WindowGate";
 
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.unstubAllGlobals();
+});
+
+it("does not offer installation when no release check is enabled", async () => {
+  vi.stubGlobal("fetch", async () =>
+    Response.json({ active: true, update: { status: "idle" } }),
+  );
+  await act(async () => {
+    render(<WindowGate>Contenuto</WindowGate>);
+  });
+  expect(
+    screen.queryByRole("button", { name: "Installa aggiornamento" }),
+  ).toBeNull();
+});
+
+it("shows the restored version's failure message", async () => {
+  vi.stubGlobal("fetch", async () =>
+    Response.json({
+      active: true,
+      update: {
+        status: "failed",
+        message:
+          "Aggiornamento non riuscito, stai usando ancora la versione 0.1.0",
+      },
+    }),
+  );
+  await act(async () => {
+    render(<WindowGate>Contenuto</WindowGate>);
+  });
+  expect(screen.getByRole("alert").textContent).toBe(
+    "Aggiornamento non riuscito, stai usando ancora la versione 0.1.0",
+  );
+});
+it("shows release notes and install button only after this window becomes active", async () => {
+  vi.useFakeTimers();
+  let active = false;
+  vi.stubGlobal("fetch", async (path: string) => {
+    if (path === "/api/window")
+      return Response.json({
+        active,
+        update: {
+          status: "available",
+          version: "2.0.0",
+          notes: "Novità\n- miglioramenti",
+        },
+      });
+    if (path === "/api/draft") return new Response(null, { status: 404 });
+    if (path === "/api/template") return Response.json({ available: false });
+    return Response.json({ patients: [] });
+  });
+  await act(async () => {
+    render(
+      <WindowGate presenceIntervalMs={50}>
+        <App />
+      </WindowGate>,
+    );
+  });
+  expect(screen.queryByText("Aggiornamento disponibile: 2.0.0")).toBeNull();
+  active = true;
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(50);
+  });
+  expect(screen.getByText("Aggiornamento disponibile: 2.0.0")).toBeTruthy();
+  expect(screen.getByText(/miglioramenti/).textContent).toBe(
+    "Novità\n- miglioramenti",
+  );
+  expect(
+    screen.getByRole("button", { name: "Installa aggiornamento" }),
+  ).toBeTruthy();
 });
 
 it("keeps editors out of the waiting window and starts App normally when presence grants ownership", async () => {
@@ -394,3 +463,141 @@ it.each(["delete", "discard"])(
     );
   },
 );
+
+it("blocks installation for an unsaved scheda, then shows steps and reloads after restart", async () => {
+  vi.useFakeTimers();
+  stubDialogs();
+  const reload = vi.fn();
+  let version = "0.1.0";
+  let offline = false;
+  let installed = false;
+  let step = "scarico";
+  vi.stubGlobal("fetch", async (path: string) => {
+    if (path === "/api/window")
+      return Response.json({
+        active: true,
+        update: installed
+          ? { status: "progress", step, from: "0.1.0", version: "0.2.0" }
+          : { status: "available", version: "0.2.0", notes: "Novità" },
+      });
+    if (path === "/api/update") {
+      installed = true;
+      return Response.json(
+        {
+          update: { status: "progress", step, from: "0.1.0", version: "0.2.0" },
+        },
+        { status: 202 },
+      );
+    }
+    if (path === "/api/health") {
+      if (offline) throw new Error("restarting");
+      return Response.json({ app: "gaetanata", version });
+    }
+    if (path === "/api/draft") return new Response(null, { status: 404 });
+    if (path === "/api/template") return Response.json({ available: false });
+    return Response.json({ patients: [] });
+  });
+  await act(async () => {
+    render(
+      <WindowGate presenceIntervalMs={50} reload={reload}>
+        <App />
+      </WindowGate>,
+    );
+  });
+  fireEvent.click(screen.getByRole("button", { name: /Paziente:/ }));
+  fireEvent.change(screen.getByLabelText("Nome (obbligatorio)"), {
+    target: { value: "Paziente prova" },
+  });
+  const button = screen.getByRole("button", {
+    name: "Installa aggiornamento",
+  }) as HTMLButtonElement;
+  expect(button.disabled).toBe(true);
+  expect(
+    screen.getByText("Salva la scheda paziente prima di aggiornare."),
+  ).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Nome (obbligatorio)"), {
+    target: { value: "" },
+  });
+  expect(button.disabled).toBe(false);
+  await act(async () => {
+    fireEvent.click(button);
+  });
+  expect(screen.getByText("Scarico").getAttribute("aria-current")).toBe("step");
+  offline = true;
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(50);
+  });
+  expect(screen.getByText("Aggiornamento in corso")).toBeTruthy();
+  expect(screen.queryByText(/Gaetanata si è chiusa/)).toBeNull();
+  offline = false;
+  step = "preparo";
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(50);
+  });
+  expect(
+    screen.getByText("Preparo l'interfaccia").getAttribute("aria-current"),
+  ).toBe("step");
+  version = "0.2.0";
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(50);
+  });
+  expect(reload).toHaveBeenCalledOnce();
+});
+
+it("freezes the editor while installation is pending and preserves edits on refusal", async () => {
+  const { promise, resolve } = Promise.withResolvers<Response>();
+  vi.stubGlobal("fetch", async (path: string) => {
+    if (path === "/api/update") return promise;
+    return Response.json({
+      active: true,
+      update: { status: "available", version: "0.2.0", notes: "Novità" },
+    });
+  });
+  await act(async () => {
+    render(
+      <WindowGate>
+        <input aria-label="Modifica" defaultValue="testo" />
+      </WindowGate>,
+    );
+  });
+  const editor = screen.getByLabelText("Modifica") as HTMLInputElement;
+  fireEvent.change(editor, { target: { value: "modificato" } });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Installa aggiornamento" }),
+  );
+  expect(editor.matches(":disabled")).toBe(true);
+  await act(async () => {
+    resolve(Response.json({ error: "Non disponibile" }, { status: 409 }));
+    await promise;
+  });
+  expect(editor.matches(":disabled")).toBe(false);
+  expect(editor.value).toBe("modificato");
+  expect(screen.getByRole("alert").textContent).toBe("Non disponibile");
+});
+
+it("shows an update in progress in an inactive window", async () => {
+  vi.stubGlobal("fetch", async (path: string) => {
+    if (path === "/api/window")
+      return Response.json({
+        active: false,
+        update: {
+          status: "progress",
+          step: "installo",
+          from: "0.1.0",
+          version: "0.2.0",
+        },
+      });
+    throw new Error("unexpected request");
+  });
+  await act(async () => {
+    render(
+      <WindowGate>
+        <App />
+      </WindowGate>,
+    );
+  });
+  expect(screen.getByText("Aggiornamento in corso")).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Installa aggiornamento" }),
+  ).toBeNull();
+});

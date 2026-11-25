@@ -8,6 +8,7 @@ import { readBody } from "./request-body.ts";
 export function draftHandler(
   db: DatabaseSync,
   isActive: (windowId: string) => boolean,
+  frozen: () => boolean = () => false,
 ) {
   const patient = db.prepare("SELECT id FROM patients WHERE id = ?");
   const get = db.prepare(
@@ -58,6 +59,7 @@ export function draftHandler(
     const value = body as Record<string, unknown>;
     if (typeof value.windowId !== "string" || !isActive(value.windowId))
       return send(409, { error: "Finestra non attiva" });
+    if (frozen()) return send(409, { error: "Aggiornamento in corso" });
     if (req.method === "DELETE") {
       remove.run();
       res.writeHead(204).end();

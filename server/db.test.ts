@@ -43,6 +43,8 @@ describe("database migrations", () => {
     db.exec("PRAGMA user_version = 2");
     db.close();
     expect(() => openDatabase(file, ["SELECT 1"])).toThrow(/versione 2/);
+    expect(() => openDatabase(file, ["SELECT 1"])).toThrow(/aggiornamento/i);
+    expect(() => openDatabase(file, ["SELECT 1"])).not.toThrow(/git pull/i);
   });
 
   it("rolls back a failing migration without advancing the version", () => {

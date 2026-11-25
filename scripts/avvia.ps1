@@ -1,6 +1,6 @@
 # Avvia Gaetanata su Windows. Se manca un Node adatto, ne scarica uno
 # portabile in .runtime\ (nessuna installazione di sistema, nessun permesso di amministratore).
-param([switch]$Hidden)
+param([switch]$Hidden, [switch]$ResumeUpdate)
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $root = Split-Path -Parent $PSScriptRoot
@@ -11,9 +11,8 @@ $runtimeDir = Join-Path $root '.runtime\node'
 $runtimeNode = Join-Path $runtimeDir 'node.exe'
 
 function Test-Node([string]$node) {
-  # node:sqlite without flags needs Node >= 22.13.
-  & $node -e 'const [a,b]=process.versions.node.split(String.fromCharCode(46)).map(Number);process.exit(a>22||(a===22&&b>=13)?0:1)' 2>$null
-  return $LASTEXITCODE -eq 0
+  $version = & $node -p 'process.versions.node' 2>$null
+  return ($LASTEXITCODE -eq 0 -and [version]$version -ge $minimum)
 }
 
 function Get-PortableNode {
@@ -32,9 +31,17 @@ function Get-PortableNode {
     $actual = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
     if ($actual -ne $expected) { throw 'Checksum di Node non valido: download corrotto, riprova.' }
     Expand-Archive $zip -DestinationPath $tmp
-    if (Test-Path $runtimeDir) { Remove-Item -Recurse -Force $runtimeDir }
+    $oldRuntime = "$runtimeDir.previous"
+    if (Test-Path $oldRuntime) { Remove-Item -Recurse -Force $oldRuntime }
     New-Item -ItemType Directory (Split-Path $runtimeDir) -Force | Out-Null
-    Move-Item (Join-Path $tmp ($file -replace '\.zip$', '')) $runtimeDir
+    if (Test-Path $runtimeDir) { Move-Item $runtimeDir $oldRuntime }
+    try {
+      Move-Item (Join-Path $tmp ($file -replace '\.zip$', '')) $runtimeDir
+    } catch {
+      if (Test-Path $oldRuntime) { Move-Item $oldRuntime $runtimeDir }
+      throw
+    }
+    if (Test-Path $oldRuntime) { Remove-Item -Recurse -Force $oldRuntime }
   } finally {
     Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
   }
@@ -45,6 +52,11 @@ function Open-Setup {
 }
 
 try {
+$requirement = (Get-Content (Join-Path $root 'package.json') -Raw | ConvertFrom-Json).engines.node
+if ($requirement -notmatch '^>=(\d+)\.(\d+)\.(\d+)$') {
+  throw 'engines.node deve essere nel formato >=X.Y.Z'
+}
+$minimum = [version]::new([int]$Matches[1], [int]$Matches[2], [int]$Matches[3])
   $shell = New-Object -ComObject WScript.Shell
   $desktop = [Environment]::GetFolderPath('Desktop')
   $programs = [Environment]::GetFolderPath('Programs')
@@ -66,6 +78,7 @@ if (-not $env:GAETANATA_FORCE_RUNTIME -and $systemNode -and (Test-Node $systemNo
   if (-not ((Test-Path $runtimeNode) -and (Test-Node $runtimeNode))) {
     if ($Hidden) { Open-Setup; exit 0 }
     Get-PortableNode
+    if (-not (Test-Node $runtimeNode)) { throw 'Il Node portabile non soddisfa engines.node.' }
   }
   $node = $runtimeNode
 }
@@ -92,10 +105,17 @@ if ($Hidden) {
     throw "Avvio fallito (codice $code): $reason"
   }
 } else {
-  & $node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/start.ts
+  $arguments = @('--experimental-strip-types', '--disable-warning=ExperimentalWarning', 'scripts/start.ts')
+  if ($ResumeUpdate) { $arguments += '--resume-update' }
+  & $node @arguments
   exit $LASTEXITCODE
 }
 } catch {
+  if ($ResumeUpdate -and $env:GAETANATA_PREVIOUS_NODE -and (Test-Path $env:GAETANATA_PREVIOUS_NODE)) {
+    $ErrorActionPreference = 'Continue'
+    & $env:GAETANATA_PREVIOUS_NODE --experimental-strip-types --disable-warning=ExperimentalWarning scripts/start.ts --rollback-update
+    exit $LASTEXITCODE
+  }
   if (-not $Hidden) { throw }
   $dataDir = if ($env:GAETANATA_DATA_DIR) { $env:GAETANATA_DATA_DIR } else { Join-Path $root 'data' }
   New-Item -ItemType Directory -Force $dataDir | Out-Null

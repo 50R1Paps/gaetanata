@@ -22,6 +22,18 @@ it("reports setup required without installing or starting a server", () => {
     );
     expect(result.status).toBe(10);
     expect(result.stderr).toBe("");
+    mkdirSync(join(root, ".aggiornamento"));
+    writeFileSync(join(root, ".aggiornamento", "riavvio.json"), "{}");
+    const duringRestart = spawnSync(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        join(root, "scripts/start.ts"),
+        "--check-setup",
+      ],
+      { encoding: "utf8" },
+    );
+    expect(duringRestart.status).toBe(0);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

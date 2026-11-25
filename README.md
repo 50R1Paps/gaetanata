@@ -18,6 +18,22 @@ Se l'avvio dall'icona fallisce, un dialogo indica il file `data/avvio.log` da co
 
 I dati sono salvati sul computer in `data/gaetanata.db`. Per un backup, chiudi l'app e copia l'intera cartella `data/`.
 
+All'avvio Gaetanata controlla in silenzio se è disponibile una versione più
+recente e ne mostra le note nella finestra attiva. Il controllo non impedisce
+l'avvio anche se la rete non è disponibile.
+
+## Aggiornamento
+
+Quando compare un aggiornamento, leggi le note e premi **Installa aggiornamento** nella finestra attiva. Salva prima la scheda paziente; le modifiche al piano e allo schema restano nella bozza. La finestra mostra i passi e si ricarica da sola; puoi chiuderla e riaprire l'icona durante l'operazione. Il database viene copiato in `data/prima-di-aggiornamento.db` (nella cartella dati configurata), sovrascrivendo la copia precedente.
+
+Se la nuova versione richiede un Node più recente, durante il riavvio può comparire un terminale per scaricarlo e preparare l'app.
+
+Se l'aggiornamento non riesce, Gaetanata ripristina la versione precedente e mostra un avviso. Se la nuova versione non si avvia, ripristina anche la copia del database.
+
+L'aggiornamento funziona sia per chi ha installato dallo ZIP sia per i clone Git puliti: se hai modificato file tracciati nel clone, contatta chi ti aiuta. Il clone viene portato sul tag della Versione con HEAD staccato. Nelle installazioni ZIP, tutti i file e le cartelle nella radice diversi da `data/`, `.runtime/`, `node_modules/`, `dist/` e `.aggiornamento/` vengono spostati nella cartella `.aggiornamento/precedente/`, sovrascritta al prossimo aggiornamento: conserva altrove i file personali. La prima versione con questo pulsante va installata a mano; il launcher già in memoria gestisce il successivo riavvio, quindi eventuali modifiche al launcher hanno effetto dall'aggiornamento seguente.
+
+Per pubblicare una Versione, consulta le [istruzioni di sviluppo](docs/funzioni/sviluppo.md#pubblicare-una-versione).
+
 ## Documentazione
 
 - [Piano settimanale](docs/funzioni/piano-settimanale.md): editor, scorciatoie, salvataggio e media dei nutrienti.

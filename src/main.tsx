@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.tsx";
+import { VersionFooter } from "./components/VersionFooter";
 import { WindowGate } from "./components/WindowGate";
 
 const root = document.getElementById("root");
@@ -11,5 +12,6 @@ createRoot(root).render(
     <WindowGate>
       <App />
     </WindowGate>
+    <VersionFooter />
   </StrictMode>,
 );

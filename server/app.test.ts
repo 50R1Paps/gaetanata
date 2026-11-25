@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
+import packageInfo from "../package.json" with { type: "json" };
 import { startServer } from "./app.ts";
 import { migrations } from "./db.ts";
 
@@ -24,6 +25,7 @@ it("serves health and the SPA without exposing files outside the static director
     expect(await (await fetch(`${base}/api/health`)).json()).toEqual({
       app: "gaetanata",
       schemaVersion: migrations.length,
+      version: packageInfo.version,
     });
     expect(
       await (await fetch(`${base}/..%2fpackage.json`)).text(),

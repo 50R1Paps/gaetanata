@@ -24,6 +24,7 @@ coverage/
 # Local databases
 /data/
 /.runtime/
+/.aggiornamento/
 *.db
 *.sqlite
 *.sqlite3
