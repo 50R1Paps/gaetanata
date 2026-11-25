@@ -6,6 +6,7 @@ import {
   type Server,
   type ServerResponse,
 } from "node:http";
+import { platform, release } from "node:os";
 import { extname, join, normalize, sep } from "node:path";
 import packageInfo from "../package.json" with { type: "json" };
 import {
@@ -63,6 +64,9 @@ const contentTypes: Record<string, string> = {
 /** Listens on 127.0.0.1 only: patient data must never be reachable from the network. */
 export async function startServer(options: ServerOptions): Promise<Server> {
   const db = openDatabase(options.databaseFile);
+  const installation = existsSync(join(options.appDir ?? process.cwd(), ".git"))
+    ? "clone"
+    : "ZIP";
   const errors = errorLog(options.databaseFile);
   const recordServerError = (error: unknown) => {
     errors.record("server", error);
@@ -97,6 +101,19 @@ export async function startServer(options: ServerOptions): Promise<Server> {
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
+    if (url.pathname === "/api/report") {
+      if (req.method !== "GET") {
+        sendJson(res, 405, { error: "Metodo non consentito" });
+        return;
+      }
+      sendJson(res, 200, {
+        version: packageInfo.version,
+        system: `${platform()} ${release()}`,
+        installation,
+        errors: errors.latest(5),
+      });
+      return;
+    }
     if (url.pathname === "/api/errors") {
       void (async () => {
         if (req.method !== "POST") {
@@ -186,9 +203,8 @@ export async function startServer(options: ServerOptions): Promise<Server> {
           sendJson(res, 409, { error: "Aggiornamento non disponibile" });
           return;
         }
-        const clone = existsSync(join(options.appDir, ".git"))
-          ? inspectClone(options.appDir)
-          : null;
+        const clone =
+          installation === "clone" ? inspectClone(options.appDir) : null;
         if (clone && "error" in clone) {
           sendJson(res, 409, { error: clone.error });
           return;

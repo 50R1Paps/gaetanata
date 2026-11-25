@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
+import { useReport } from "./Report";
 
 export function VersionFooter() {
+  const report = useReport();
   const [version, setVersion] = useState<string>();
 
   useEffect(() => {
@@ -20,5 +22,12 @@ export function VersionFooter() {
     };
   }, []);
 
-  return <footer>{version && `Versione ${version}`}</footer>;
+  return (
+    <footer>
+      {version && `Versione ${version}`}
+      <button type="button" onClick={() => report?.openReport()}>
+        Segnala problema
+      </button>
+    </footer>
+  );
 }

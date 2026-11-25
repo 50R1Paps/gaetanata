@@ -9,6 +9,7 @@ import {
 import type { DraftInput } from "../draftApi";
 import type { UpdateState } from "../update";
 import { closeWindow, signalWindow } from "../windowApi";
+import { useReport } from "./Report";
 
 type WindowSession = {
   windowId: string;
@@ -58,6 +59,13 @@ export function WindowGate({
   const [status, setStatus] = useState<
     "pending" | "active" | "waiting" | "closed"
   >("pending");
+  const setReportScreen = useReport()?.setScreen;
+  useEffect(() => {
+    if (update.status === "progress") setReportScreen?.("Aggiornamento");
+    else if (status === "waiting") setReportScreen?.("Finestra non attiva");
+    else if (status === "closed") setReportScreen?.("Server non disponibile");
+    else if (status === "pending") setReportScreen?.("Apertura di Gaetanata");
+  }, [status, update.status, setReportScreen]);
 
   useEffect(() => {
     let disposed = false;
