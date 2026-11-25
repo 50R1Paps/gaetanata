@@ -16,6 +16,7 @@ import type { UpdateState } from "../src/update.ts";
 import { openDatabase, schemaVersion } from "./db.ts";
 import { documentHandler } from "./documents.ts";
 import { draftHandler } from "./draft.ts";
+import { inspectClone, installClone } from "./install-update.ts";
 import { type PatientStore, patientStore } from "./patients.ts";
 import { planHandler } from "./plans.ts";
 import { readBody } from "./request-body.ts";
@@ -35,6 +36,9 @@ export type ServerOptions = {
   /** Grace after explicit closure; presence silence never starts it. */
   idleGraceMs?: number;
   onIdle?: () => void;
+  /** Installation directory and launcher callback; absent in development. */
+  appDir?: string;
+  onRestart?: () => void;
   /** Built frontend to serve; omit when a dev middleware serves the frontend. */
   staticDir?: string;
   /** Handles non-API requests in dev mode (Vite middleware). */
@@ -80,7 +84,89 @@ export async function startServer(options: ServerOptions): Promise<Server> {
       });
       return;
     }
+    if (url.pathname === "/api/update") {
+      void (async () => {
+        if (req.method !== "POST") {
+          sendJson(res, 405, { error: "Metodo non consentito" });
+          return;
+        }
+        const bytes = await readBody(req, res);
+        if (!bytes) return;
+        let body: unknown;
+        try {
+          body = JSON.parse(bytes.toString("utf8"));
+        } catch {
+          sendJson(res, 400, { error: "Richiesta non valida" });
+          return;
+        }
+        if (
+          !body ||
+          typeof body !== "object" ||
+          !("windowId" in body) ||
+          typeof body.windowId !== "string" ||
+          !windows.isActive(body.windowId)
+        ) {
+          sendJson(res, 409, { error: "Finestra non attiva" });
+          return;
+        }
+        if (
+          update.status !== "available" ||
+          !options.appDir ||
+          !options.onRestart ||
+          !options.releaseSource
+        ) {
+          sendJson(res, 409, { error: "Aggiornamento non disponibile" });
+          return;
+        }
+        const clone = inspectClone(options.appDir);
+        if ("error" in clone) {
+          sendJson(res, 409, { error: clone.error });
+          return;
+        }
+        if ("draft" in body && body.draft !== undefined) {
+          if (body.draft === null) drafts.clear();
+          else {
+            const result = drafts.write(body.draft);
+            if (result.status !== 200) {
+              sendJson(res, result.status, result.body);
+              return;
+            }
+          }
+        }
+        const version = update.version;
+        update = {
+          status: "progress",
+          step: "scarico",
+          from: packageInfo.version,
+          version,
+        };
+        sendJson(res, 202, { update });
+        void installClone({
+          root: options.appDir,
+          databaseFile: options.databaseFile,
+          db,
+          gitUrl: options.releaseSource.gitUrl,
+          from: packageInfo.version,
+          version,
+          ref: clone.ref,
+          setState: (state) => {
+            update = state;
+            if (state.status === "failed") windows.updateFinished();
+          },
+          restart: options.onRestart,
+        });
+      })().catch((error: unknown) => {
+        console.error(error);
+        if (res.headersSent) res.end();
+        else sendJson(res, 500, { error: "Errore interno del server" });
+      });
+      return;
+    }
     if (url.pathname === "/api/draft") {
+      if (update.status === "progress" && req.method !== "GET") {
+        sendJson(res, 409, { error: "Aggiornamento in corso" });
+        return;
+      }
       drafts.handle(req, res).catch((error) => {
         console.error(error);
         if (res.headersSent) res.end();

@@ -18,6 +18,7 @@ import {
   updatePatient,
 } from "../patientsApi";
 import { MetabolismPanel } from "./MetabolismPanel";
+import { usePatientDirtySetter } from "./WindowGate";
 
 type ListState =
   | { status: "loading" }
@@ -78,6 +79,10 @@ export function PatientManager({
   const dirty = (Object.keys(form) as PatientField[]).some(
     (field) => form[field] !== baseline[field],
   );
+  const setPatientDirty = usePatientDirtySetter();
+  useEffect(() => {
+    setPatientDirty?.(dirty || busy);
+  }, [setPatientDirty, dirty, busy]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: reloads triggers a retry
   useEffect(() => {

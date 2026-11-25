@@ -3,6 +3,7 @@ import {
   type ReactNode,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import type { DraftInput } from "../draftApi";
@@ -15,6 +16,17 @@ type WindowSession = {
   lastWrittenAt?: string;
 };
 const WindowSessionContext = createContext<WindowSession | null>(null);
+const PatientDirtyContext = createContext<((dirty: boolean) => void) | null>(
+  null,
+);
+
+export function usePatientDirtySetter() {
+  return useContext(PatientDirtyContext);
+}
+
+function reloadPage() {
+  window.location.reload();
+}
 
 /** The server-issued ownership uses this random, page-local identity. */
 export function useWindowId(): string | null {
@@ -28,13 +40,21 @@ export function useWindowSession() {
 export function WindowGate({
   children,
   presenceIntervalMs = 5_000,
+  reload = reloadPage,
 }: {
   children: ReactNode;
   presenceIntervalMs?: number;
+  reload?: () => void;
 }) {
   const [windowId] = useState(() => crypto.randomUUID());
   const [session] = useState<WindowSession>(() => ({ windowId }));
   const [update, setUpdate] = useState<UpdateState>({ status: "idle" });
+  const [patientDirty, setPatientDirty] = useState(false);
+  const [installing, setInstalling] = useState(false);
+  const [installError, setInstallError] = useState<string | null>(null);
+  const progress = useRef<Extract<UpdateState, { status: "progress" }> | null>(
+    null,
+  );
   const [status, setStatus] = useState<
     "pending" | "active" | "waiting" | "closed"
   >("pending");
@@ -44,8 +64,28 @@ export function WindowGate({
     let timer: number | undefined;
     async function presence() {
       try {
+        if (progress.current) {
+          const response = await fetch("/api/health");
+          if (response.ok) {
+            const health = await response.json();
+            if (
+              health.app === "gaetanata" &&
+              typeof health.version === "string" &&
+              health.version !== progress.current.from
+            ) {
+              reload();
+              return;
+            }
+          }
+        }
         const { active, update: nextUpdate } = await signalWindow(windowId);
         if (disposed) return;
+        if (nextUpdate.status === "progress") progress.current = nextUpdate;
+        else if (nextUpdate.status === "failed") progress.current = null;
+        if (progress.current && nextUpdate.status === "idle") {
+          timer = window.setTimeout(() => void presence(), presenceIntervalMs);
+          return;
+        }
         setUpdate(nextUpdate);
         // A waiting window must not send a former owner's documents.
         if (!active) delete session.pendingDraft;
@@ -54,7 +94,9 @@ export function WindowGate({
           void presence();
         }, presenceIntervalMs);
       } catch {
-        if (!disposed) setStatus("closed");
+        if (!disposed && progress.current)
+          timer = window.setTimeout(() => void presence(), presenceIntervalMs);
+        else if (!disposed) setStatus("closed");
       }
     }
     function pagehide() {
@@ -69,7 +111,43 @@ export function WindowGate({
       clearTimeout(timer);
       window.removeEventListener("pagehide", pagehide);
     };
-  }, [windowId, presenceIntervalMs, session]);
+  }, [windowId, presenceIntervalMs, session, reload]);
+
+  async function install() {
+    setInstalling(true);
+    setInstallError(null);
+    try {
+      const response = await fetch("/api/update", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ windowId, draft: session.pendingDraft }),
+      });
+      const body = await response.json();
+      if (!response.ok)
+        throw new Error(body.error ?? "Aggiornamento non riuscito");
+      progress.current = body.update;
+      setUpdate(body.update);
+    } catch (error) {
+      setInstallError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setInstalling(false);
+    }
+  }
+
+  if (update.status === "progress") {
+    const labels = {
+      scarico: "Scarico",
+      installo: "Installo",
+      preparo: "Preparo l'interfaccia",
+      riavvio: "Riavvio",
+    };
+    return (
+      <section role="status">
+        <h2>Aggiornamento in corso</h2>
+        {status === "active" && <p>{labels[update.step]}…</p>}
+      </section>
+    );
+  }
 
   if (status === "waiting")
     return <p role="status">Gaetanata è già aperta in un'altra finestra</p>;
@@ -92,17 +170,30 @@ export function WindowGate({
   if (status === "pending") return <p role="status">Apertura di Gaetanata…</p>;
   return (
     <WindowSessionContext value={session}>
-      {update.status === "available" && (
-        <section
-          className="update-banner"
-          aria-label="Aggiornamento disponibile"
-        >
-          <strong>Aggiornamento disponibile: {update.version}</strong>
-          <p>{update.notes}</p>
-          <button type="button">Installa aggiornamento</button>
-        </section>
-      )}
-      {children}
+      <PatientDirtyContext value={setPatientDirty}>
+        {update.status === "available" && (
+          <section
+            className="update-banner"
+            aria-label="Aggiornamento disponibile"
+          >
+            <strong>Aggiornamento disponibile: {update.version}</strong>
+            <p>{update.notes}</p>
+            <button
+              type="button"
+              disabled={patientDirty || installing}
+              onClick={() => void install()}
+            >
+              Installa aggiornamento
+            </button>
+            {patientDirty && (
+              <p>Salva la scheda paziente prima di aggiornare.</p>
+            )}
+            {installError && <p role="alert">{installError}</p>}
+          </section>
+        )}
+        {update.status === "failed" && <p role="alert">{update.message}</p>}
+        {children}
+      </PatientDirtyContext>
     </WindowSessionContext>
   );
 }

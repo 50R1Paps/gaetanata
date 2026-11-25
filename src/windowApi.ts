@@ -18,7 +18,17 @@ export async function signalWindow(
     typeof body.update.version === "string" &&
     typeof body.update.notes === "string"
       ? body.update
-      : { status: "idle" };
+      : body.update?.status === "progress" &&
+          ["scarico", "installo", "preparo", "riavvio"].includes(
+            body.update.step,
+          ) &&
+          typeof body.update.from === "string" &&
+          typeof body.update.version === "string"
+        ? body.update
+        : body.update?.status === "failed" &&
+            typeof body.update.message === "string"
+          ? body.update
+          : { status: "idle" };
   return { active: body.active, update };
 }
 

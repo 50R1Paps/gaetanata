@@ -26,6 +26,15 @@ export function windowHandler({
     clearTimeout(idleTimer);
   }
 
+  function updateFinished() {
+    if (registered.size !== 0 || !onIdle) return;
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      idleTimer = undefined;
+      onIdle();
+    }, idleGraceMs);
+  }
+
   function isActive(windowId: string): boolean {
     return (
       active?.windowId === windowId &&
@@ -78,7 +87,7 @@ export function windowHandler({
     if (close) {
       const wasActive =
         active?.windowId === windowId || (wasRegistered && !active);
-      if ("draft" in body) {
+      if ("draft" in body && getUpdate().status !== "progress") {
         if (!wasActive && active && isActive(active.windowId)) {
           reply(409, { error: "Finestra non attiva" });
           return;
@@ -95,13 +104,7 @@ export function windowHandler({
       }
       registered.delete(windowId);
       if (wasActive) active = null;
-      if (wasActive && registered.size === 0 && onIdle) {
-        clearTimeout(idleTimer);
-        idleTimer = setTimeout(() => {
-          idleTimer = undefined;
-          onIdle();
-        }, idleGraceMs);
-      }
+      if (wasActive && getUpdate().status !== "progress") updateFinished();
       reply(200, { active: false });
       return;
     }
@@ -114,5 +117,5 @@ export function windowHandler({
     reply(200, { active: isActive(windowId), update: getUpdate() });
   }
 
-  return { handle, isActive, dispose };
+  return { handle, isActive, dispose, updateFinished };
 }

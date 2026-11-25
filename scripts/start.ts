@@ -1,15 +1,17 @@
 // One-command start: install dependencies and rebuild only when needed,
 // then serve the app on 127.0.0.1 and open the browser.
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   existsSync,
   readdirSync,
   readFileSync,
   statSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -20,9 +22,10 @@ if (
   process.argv[1] &&
   pathToFileURL(process.argv[1]).href === import.meta.url
 ) {
+  const restartFile = join(root, ".aggiornamento", "riavvio.json");
   // Exit 10 means preparation is needed; no network, writes or server in this mode.
   if (process.argv.includes("--check-setup")) {
-    process.exit(needsSetup() ? 10 : 0);
+    process.exit(existsSync(restartFile) || !needsSetup() ? 0 : 10);
   }
 
   if (await alreadyRunning()) {
@@ -31,69 +34,124 @@ if (
     process.exit(0);
   }
 
-  ensureDependencies();
-  ensureBuild();
+  if (existsSync(restartFile)) {
+    const deadline = Date.now() + 60_000;
+    while (Date.now() < deadline) {
+      if (await alreadyRunning()) {
+        openBrowser(url);
+        process.exit(0);
+      }
+      await delay(500);
+    }
+    throw new Error(
+      "Il riavvio di Gaetanata non è riuscito. Contatta chi ti aiuta.",
+    );
+  }
 
-  // IPC also lets the server notice a closed launcher window on every platform.
-  const child = spawn(
-    process.execPath,
-    [...process.execArgv, join(root, "scripts", "serve.ts")],
-    {
-      cwd: root,
-      env: process.env,
-      windowsHide: true,
-      stdio: ["inherit", "inherit", "inherit", "ipc"],
-    },
-  );
-  const { promise: stopped, resolve } = Promise.withResolvers<void>();
-  child.on("message", async (message) => {
-    if (message !== "ready" || !(await alreadyRunning())) return;
-    console.log(
-      `Gaetanata è aperta su ${url} (chiudi la finestra dell'app per fermarla)`,
+  await ensureDependencies(root);
+  await ensureBuild(root);
+
+  let restarting = false;
+  let expectedVersion: string | undefined;
+  for (;;) {
+    // The launcher stays in memory while checkout replaces files on disk.
+    const child = spawn(
+      process.execPath,
+      [...process.execArgv, join(root, "scripts", "serve.ts")],
+      {
+        cwd: root,
+        env: process.env,
+        windowsHide: true,
+        stdio: ["inherit", "inherit", "inherit", "ipc"],
+      },
     );
-    console.log(
-      `I dati sono in ${process.env.GAETANATA_DATA_DIR ?? join(root, "data")}: copia quella cartella per fare un backup.`,
-    );
-    openBrowser(url);
-  });
-  child.on("error", (error) => {
-    console.error(error);
-    process.exitCode = 1;
-    resolve();
-  });
-  child.on("exit", (code, signal) => {
-    process.exitCode =
-      code ?? (signal === "SIGINT" ? 130 : signal === "SIGHUP" ? 129 : 143);
-    resolve();
-  });
-  const interrupt = () => child.kill("SIGINT");
-  const terminate = () => child.kill("SIGTERM");
-  const hangup = () => child.kill("SIGHUP");
-  process.on("SIGINT", interrupt);
-  process.on("SIGTERM", terminate);
-  process.on("SIGHUP", hangup);
-  process.on("exit", terminate);
-  await stopped;
-  process.off("SIGINT", interrupt);
-  process.off("SIGTERM", terminate);
-  process.off("SIGHUP", hangup);
-  process.off("exit", terminate);
+    const { promise: stopped, resolve } = Promise.withResolvers<number>();
+    let ready = false;
+    const timer = restarting
+      ? setTimeout(() => {
+          if (!ready) child.kill();
+        }, 60_000)
+      : undefined;
+    child.on("message", async (message) => {
+      if (message !== "ready") return;
+      const deadline = Date.now() + 60_000;
+      while (Date.now() < deadline && child.exitCode === null) {
+        if (await alreadyRunning(expectedVersion)) {
+          ready = true;
+          clearTimeout(timer);
+          if (restarting) {
+            if (existsSync(restartFile)) unlinkSync(restartFile);
+          } else {
+            console.log(
+              `Gaetanata è aperta su ${url} (chiudi la finestra dell'app per fermarla)`,
+            );
+            console.log(
+              `I dati sono in ${process.env.GAETANATA_DATA_DIR ?? join(root, "data")}: copia quella cartella per fare un backup.`,
+            );
+            openBrowser(url);
+          }
+          return;
+        }
+        await delay(500);
+      }
+    });
+    child.on("error", (error) => {
+      console.error(error);
+      resolve(1);
+    });
+    child.on("exit", (code, signal) => {
+      resolve(
+        code ?? (signal === "SIGINT" ? 130 : signal === "SIGHUP" ? 129 : 143),
+      );
+    });
+    const interrupt = () => child.kill("SIGINT");
+    const terminate = () => child.kill("SIGTERM");
+    const hangup = () => child.kill("SIGHUP");
+    process.on("SIGINT", interrupt);
+    process.on("SIGTERM", terminate);
+    process.on("SIGHUP", hangup);
+    process.on("exit", terminate);
+    const code = await stopped;
+    clearTimeout(timer);
+    process.off("SIGINT", interrupt);
+    process.off("SIGTERM", terminate);
+    process.off("SIGHUP", hangup);
+    process.off("exit", terminate);
+    if (code !== 75) {
+      process.exitCode = code;
+      break;
+    }
+    const protocol: unknown = JSON.parse(readFileSync(restartFile, "utf8"));
+    if (
+      !protocol ||
+      typeof protocol !== "object" ||
+      !("a" in protocol) ||
+      typeof protocol.a !== "string"
+    )
+      throw new Error("Protocollo di riavvio non valido");
+    expectedVersion = protocol.a;
+    restarting = true;
+  }
 }
 
-async function alreadyRunning(): Promise<boolean> {
+async function alreadyRunning(expectedVersion?: string): Promise<boolean> {
   try {
     const res = await fetch(`${url}/api/health`, {
       signal: AbortSignal.timeout(1000),
     });
-    const body = (await res.json()) as { app?: string };
-    return body.app === "gaetanata";
+    const body = (await res.json()) as { app?: string; version?: string };
+    return (
+      res.ok &&
+      body.app === "gaetanata" &&
+      (expectedVersion === undefined || body.version === expectedVersion)
+    );
   } catch {
     return false;
   }
 }
 
-function buildHash(): string {
-  return hashFiles([
+function buildHash(root: string): string {
+  return hashFiles(root, [
     ...listFiles(join(root, "src")),
     ...(existsSync(join(root, "public"))
       ? listFiles(join(root, "public"))
@@ -112,28 +170,30 @@ function needsSetup(): boolean {
   return (
     !matchesStamp(
       join(root, "node_modules", ".gaetanata-lock"),
-      hashFiles([join(root, "package-lock.json")]),
-    ) || !matchesStamp(join(root, "dist", ".gaetanata-build"), buildHash())
+      hashFiles(root, [join(root, "package-lock.json")]),
+    ) || !matchesStamp(join(root, "dist", ".gaetanata-build"), buildHash(root))
   );
 }
 
-function ensureDependencies(): void {
+export async function ensureDependencies(root: string): Promise<void> {
   const stamp = join(root, "node_modules", ".gaetanata-lock");
-  const lockHash = hashFiles([join(root, "package-lock.json")]);
+  const lockHash = hashFiles(root, [join(root, "package-lock.json")]);
   if (matchesStamp(stamp, lockHash)) return;
   console.log(
     "Installo le dipendenze (solo la prima volta o dopo un aggiornamento)...",
   );
-  run(npmCli(), ["ci", "--no-audit", "--no-fund"]);
+  await run(root, npmCli(), ["ci", "--no-audit", "--no-fund"]);
   writeFileSync(stamp, lockHash);
 }
 
-function ensureBuild(): void {
+export async function ensureBuild(root: string): Promise<void> {
   const stamp = join(root, "dist", ".gaetanata-build");
-  const sourceHash = buildHash();
+  const sourceHash = buildHash(root);
   if (matchesStamp(stamp, sourceHash)) return;
   console.log("Preparo l'interfaccia...");
-  run(join(root, "node_modules", "vite", "bin", "vite.js"), ["build"]);
+  await run(root, join(root, "node_modules", "vite", "bin", "vite.js"), [
+    "build",
+  ]);
   writeFileSync(stamp, sourceHash);
 }
 
@@ -149,14 +209,19 @@ function npmCli(): string {
   return found;
 }
 
-function run(script: string, args: string[]): void {
-  const result = spawnSync(process.execPath, [script, ...args], {
+function run(root: string, script: string, args: string[]): Promise<void> {
+  const { promise, resolve, reject } = Promise.withResolvers<void>();
+  const child = spawn(process.execPath, [script, ...args], {
     cwd: root,
     stdio: "inherit",
+    windowsHide: true,
   });
-  if (result.status !== 0) {
-    throw new Error(`Comando fallito: ${script} ${args.join(" ")}`);
-  }
+  child.once("error", reject);
+  child.once("exit", (code) => {
+    if (code === 0) resolve();
+    else reject(new Error(`Comando fallito: ${script} ${args.join(" ")}`));
+  });
+  return promise;
 }
 
 function listFiles(dir: string): string[] {
@@ -166,7 +231,7 @@ function listFiles(dir: string): string[] {
     .sort();
 }
 
-function hashFiles(files: string[]): string {
+function hashFiles(root: string, files: string[]): string {
   const hash = createHash("sha256");
   for (const file of files) {
     hash.update(file.slice(root.length));
