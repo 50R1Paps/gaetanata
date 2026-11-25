@@ -5,6 +5,7 @@ import { dirname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { localToday } from "../src/patient.ts";
 import { type DietSchema, emptySchema } from "../src/schema.ts";
+import { parsePatientJson } from "./db.ts";
 import { IncompleteDocumentError } from "./document-values.ts";
 import { generateDocument } from "./generate-document.ts";
 import { patientStore } from "./patients.ts";
@@ -87,7 +88,7 @@ export function documentHandler(
       }
       const row = getSchema.get(id) as { schema_json: string } | undefined;
       const schema: DietSchema = row
-        ? JSON.parse(row.schema_json)
+        ? parsePatientJson(row.schema_json, id)
         : emptySchema();
       try {
         const { bytes, filename } = generateDocument(
