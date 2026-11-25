@@ -6,6 +6,8 @@ export type UpdateState =
       notes: string;
       zipUrl?: string;
       failedMessage?: string;
+      failedFrom?: string;
+      failedVersion?: string;
     }
   | {
       status: "progress";
@@ -13,4 +15,4 @@ export type UpdateState =
       from: string;
       version: string;
     }
-  | { status: "failed"; message: string };
+  | { status: "failed"; message: string; from?: string; version?: string };

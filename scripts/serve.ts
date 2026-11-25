@@ -16,6 +16,7 @@ const server = await startServer({
   releaseSource: GITHUB_RELEASE_SOURCE,
   appDir: root,
   failedUpdateVersion: process.env.GAETANATA_AGGIORNAMENTO_FALLITO,
+  failedUpdateTarget: process.env.GAETANATA_AGGIORNAMENTO_VERSIONE_TENTATA,
   onRestart: () => server.close(() => process.exit(75)),
   onIdle: () => server.close(() => process.exit(0)),
 });

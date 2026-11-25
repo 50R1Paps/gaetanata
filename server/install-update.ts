@@ -150,6 +150,8 @@ async function prepareAndRestart(
 function failed(context: UpdateContext, restoreError?: unknown) {
   context.setState({
     status: "failed",
+    from: context.from,
+    version: context.version,
     message: restoreError
       ? "Ripristino non riuscito. Contatta chi ti aiuta."
       : `Aggiornamento non riuscito, stai usando ancora la versione ${context.from}`,

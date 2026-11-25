@@ -51,6 +51,7 @@ if (
   let restarting = false;
   let expectedVersion: string | undefined;
   let failedVersion: string | undefined;
+  let failedTarget: string | undefined;
   let previousRef: string | undefined;
   let previousType: "clone" | "zip" = "clone";
   let previousVersion: string | undefined;
@@ -77,6 +78,7 @@ if (
     if (rollbackUpdate) {
       restore(previousType, previousRef, restartFile);
       failedVersion = previousVersion;
+      failedTarget = expectedVersion;
       restarting = false;
       expectedVersion = undefined;
     } else {
@@ -87,6 +89,7 @@ if (
         console.error(error);
         restore(previousType, previousRef, restartFile);
         failedVersion = previousVersion;
+        failedTarget = expectedVersion;
         restarting = false;
         expectedVersion = undefined;
       }
@@ -99,7 +102,11 @@ if (
       [...process.execArgv, join(root, "scripts", "serve.ts")],
       {
         cwd: root,
-        env: { ...process.env, GAETANATA_AGGIORNAMENTO_FALLITO: failedVersion },
+        env: {
+          ...process.env,
+          GAETANATA_AGGIORNAMENTO_FALLITO: failedVersion,
+          GAETANATA_AGGIORNAMENTO_VERSIONE_TENTATA: failedTarget,
+        },
         windowsHide: true,
         stdio: ["inherit", "inherit", "inherit", "ipc"],
       },
@@ -166,6 +173,7 @@ if (
         throw new Error("Protocollo di riavvio non valido");
       restore(previousType, previousRef ?? "", restartFile);
       failedVersion = previousVersion;
+      failedTarget = expectedVersion;
       restarting = false;
       expectedVersion = undefined;
       continue;
@@ -238,6 +246,7 @@ if (
         launcher.kill();
         restore(protocol.tipo, protocol.refPrecedente, restartFile);
         failedVersion = protocol.da;
+        failedTarget = protocol.a;
         restarting = false;
         expectedVersion = undefined;
         continue;

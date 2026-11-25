@@ -489,6 +489,10 @@ it.each(["version mismatch", "partial checkout"])(
       expect((await presence()).message).toBe(
         "Aggiornamento non riuscito, stai usando ancora la versione 0.1.0",
       );
+      expect(await presence()).toMatchObject({
+        from: "0.1.0",
+        version: "0.2.0",
+      });
       expect(
         git(clone, "symbolic-ref", "--short", "HEAD").toString().trim(),
       ).toBe(git(source, "symbolic-ref", "--short", "HEAD").toString().trim());

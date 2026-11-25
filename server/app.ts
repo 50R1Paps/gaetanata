@@ -44,6 +44,7 @@ export type ServerOptions = {
   onRestart?: () => void;
   nodeVersion?: string;
   failedUpdateVersion?: string | undefined;
+  failedUpdateTarget?: string | undefined;
   /** Built frontend to serve; omit when a dev middleware serves the frontend. */
   staticDir?: string;
   /** Handles non-API requests in dev mode (Vite middleware). */
@@ -86,6 +87,10 @@ export async function startServer(options: ServerOptions): Promise<Server> {
     ? {
         status: "failed",
         message: `Aggiornamento non riuscito, stai usando ancora la versione ${options.failedUpdateVersion}`,
+        from: options.failedUpdateVersion,
+        ...(options.failedUpdateTarget
+          ? { version: options.failedUpdateTarget }
+          : {}),
       }
     : { status: "idle" };
   if (update.status === "failed")
@@ -382,7 +387,12 @@ export async function startServer(options: ServerOptions): Promise<Server> {
       .then((result) => {
         if (update.status === "failed") {
           if (result.status === "available")
-            update = { ...result, failedMessage: update.message };
+            update = {
+              ...result,
+              failedMessage: update.message,
+              ...(update.from ? { failedFrom: update.from } : {}),
+              ...(update.version ? { failedVersion: update.version } : {}),
+            };
         } else if (update.status === "idle") {
           update = result;
         }

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import type { Draft } from "../draftApi";
 import type { Patient } from "../patient";
+import { ErrorMessage } from "./ErrorMessage";
 
 export function RestoreDraftPrompt({
   draft,
@@ -63,11 +64,7 @@ export function RestoreDraftPrompt({
           )}
         </>
       )}
-      {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      )}
+      {error && <ErrorMessage message={error} />}
     </section>
   );
 }
