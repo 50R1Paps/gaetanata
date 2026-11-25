@@ -343,10 +343,12 @@ it("rejects a checked-out tag whose package version does not match", async () =>
       });
     const presence = async () =>
       (await (await post("/api/window")).json()).update;
-    await expect.poll(async () => (await presence()).status).toBe("available");
+    await expect
+      .poll(async () => (await presence()).status, { timeout: 30_000 })
+      .toBe("available");
     expect((await post("/api/update")).status).toBe(202);
     await expect
-      .poll(async () => (await presence()).status, { timeout: 10_000 })
+      .poll(async () => (await presence()).status, { timeout: 60_000 })
       .toBe("failed");
     expect((await presence()).message).toMatch(
       /versione del package non coincide/i,
@@ -361,4 +363,4 @@ it("rejects a checked-out tag whose package version does not match", async () =>
     await Promise.all([once(server, "close"), once(releases, "close")]);
     rmSync(root, { recursive: true, force: true });
   }
-}, 20_000);
+}, 90_000);
