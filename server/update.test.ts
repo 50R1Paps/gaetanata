@@ -31,7 +31,10 @@ it("checks a local release once and shares the newer version and notes through p
   const server = await startServer({
     port: 0,
     databaseFile: ":memory:",
-    releaseSource: `http://127.0.0.1:${address.port}/latest`,
+    releaseSource: {
+      apiUrl: `http://127.0.0.1:${address.port}/latest`,
+      gitUrl: ".",
+    },
   });
   servers.push(server);
   const app = server.address();
@@ -76,7 +79,10 @@ it.each([
   const server = await startServer({
     port: 0,
     databaseFile: ":memory:",
-    releaseSource: `http://127.0.0.1:${address.port}/latest`,
+    releaseSource: {
+      apiUrl: `http://127.0.0.1:${address.port}/latest`,
+      gitUrl: ".",
+    },
   });
   servers.push(server);
   const app = server.address();
@@ -104,7 +110,10 @@ it("starts normally when the release server is unreachable", async () => {
   const server = await startServer({
     port: 0,
     databaseFile: ":memory:",
-    releaseSource: `http://127.0.0.1:${address.port}/latest`,
+    releaseSource: {
+      apiUrl: `http://127.0.0.1:${address.port}/latest`,
+      gitUrl: ".",
+    },
   });
   servers.push(server);
   const app = server.address();

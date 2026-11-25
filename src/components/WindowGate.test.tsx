@@ -9,6 +9,7 @@ import {
 import { afterEach, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { addPortion, emptyWeekPlan } from "../plan";
+import { stubDialogs } from "./schemaTestKit";
 import { WindowGate } from "./WindowGate";
 
 afterEach(() => {
@@ -431,3 +432,108 @@ it.each(["delete", "discard"])(
     );
   },
 );
+
+it("blocks installation for an unsaved scheda, then shows steps and reloads after restart", async () => {
+  vi.useFakeTimers();
+  stubDialogs();
+  const reload = vi.fn();
+  let version = "0.1.0";
+  let offline = false;
+  let installed = false;
+  let step = "scarico";
+  vi.stubGlobal("fetch", async (path: string) => {
+    if (path === "/api/window")
+      return Response.json({
+        active: true,
+        update: installed
+          ? { status: "progress", step, from: "0.1.0", version: "0.2.0" }
+          : { status: "available", version: "0.2.0", notes: "Novità" },
+      });
+    if (path === "/api/update") {
+      installed = true;
+      return Response.json(
+        {
+          update: { status: "progress", step, from: "0.1.0", version: "0.2.0" },
+        },
+        { status: 202 },
+      );
+    }
+    if (path === "/api/health") {
+      if (offline) throw new Error("restarting");
+      return Response.json({ app: "gaetanata", version });
+    }
+    if (path === "/api/draft") return new Response(null, { status: 404 });
+    if (path === "/api/template") return Response.json({ available: false });
+    return Response.json({ patients: [] });
+  });
+  await act(async () => {
+    render(
+      <WindowGate presenceIntervalMs={50} reload={reload}>
+        <App />
+      </WindowGate>,
+    );
+  });
+  fireEvent.click(screen.getByRole("button", { name: /Paziente:/ }));
+  fireEvent.change(screen.getByLabelText("Nome (obbligatorio)"), {
+    target: { value: "Paziente prova" },
+  });
+  const button = screen.getByRole("button", {
+    name: "Installa aggiornamento",
+  }) as HTMLButtonElement;
+  expect(button.disabled).toBe(true);
+  expect(
+    screen.getByText("Salva la scheda paziente prima di aggiornare."),
+  ).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Nome (obbligatorio)"), {
+    target: { value: "" },
+  });
+  expect(button.disabled).toBe(false);
+  await act(async () => {
+    fireEvent.click(button);
+  });
+  expect(screen.getByText("Scarico…")).toBeTruthy();
+  offline = true;
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(50);
+  });
+  expect(screen.getByText("Aggiornamento in corso")).toBeTruthy();
+  expect(screen.queryByText(/Gaetanata si è chiusa/)).toBeNull();
+  offline = false;
+  step = "preparo";
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(50);
+  });
+  expect(screen.getByText("Preparo l'interfaccia…")).toBeTruthy();
+  version = "0.2.0";
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(50);
+  });
+  expect(reload).toHaveBeenCalledOnce();
+});
+
+it("shows an update in progress in an inactive window", async () => {
+  vi.stubGlobal("fetch", async (path: string) => {
+    if (path === "/api/window")
+      return Response.json({
+        active: false,
+        update: {
+          status: "progress",
+          step: "installo",
+          from: "0.1.0",
+          version: "0.2.0",
+        },
+      });
+    throw new Error("unexpected request");
+  });
+  await act(async () => {
+    render(
+      <WindowGate>
+        <App />
+      </WindowGate>,
+    );
+  });
+  expect(screen.getByText("Aggiornamento in corso")).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Installa aggiornamento" }),
+  ).toBeNull();
+});
