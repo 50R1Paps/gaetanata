@@ -147,8 +147,7 @@ it.each([false, true])(
     const server = await startServer({
       port: 0,
       databaseFile: ":memory:",
-      failedUpdateVersion: "0.1.0",
-      failedUpdateTarget: "99.2.0",
+      failedUpdate: { installed: "0.1.0", attempted: "99.2.0" },
       releaseSource: {
         apiUrl: `http://127.0.0.1:${address.port}`,
         gitUrl: ".",
@@ -173,15 +172,13 @@ it.each([false, true])(
           ? {
               status: "available",
               version: "99.3.0",
-              failedFrom: "0.1.0",
-              failedVersion: "99.2.0",
+              failedUpdate: { installed: "0.1.0", attempted: "99.2.0" },
               failedMessage:
                 "Aggiornamento non riuscito, stai usando ancora la versione 0.1.0",
             }
           : {
               status: "failed",
-              from: "0.1.0",
-              version: "99.2.0",
+              failedUpdate: { installed: "0.1.0", attempted: "99.2.0" },
               message:
                 "Aggiornamento non riuscito, stai usando ancora la versione 0.1.0",
             },

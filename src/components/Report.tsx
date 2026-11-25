@@ -7,34 +7,42 @@ import {
   useState,
 } from "react";
 
-type TechnicalData = {
-  version: string;
-  system: string;
-  installation: "clone" | "ZIP";
-  errors: { date: string; origin: string; message: string; stack: string }[];
+import {
+  type ReportScreenName,
+  reportScreens,
+  type TechnicalData,
+} from "../report";
+import type { FailedUpdate } from "../update";
+
+type ReportDetails = {
+  screen: ReportScreenName;
+  initialError?: string;
+  failedUpdate?: FailedUpdate;
 };
+type KnownTechnicalData = Pick<TechnicalData, "version" | "errors"> &
+  Partial<Pick<TechnicalData, "system" | "installation">>;
 
 const recipient = "gaetanata.qualify006@simplelogin.com";
 
-export type FailedUpdate = { from?: string; version: string };
+const mailtoLimit = 2000;
 
-function reportText(
-  data: TechnicalData,
-  description: string,
-  screen: string,
-  initialError?: string,
-  failedUpdate?: FailedUpdate,
-) {
+function reportText({
+  data,
+  description,
+  screen,
+  initialError,
+  failedUpdate,
+}: ReportDetails & { data: KnownTechnicalData; description: string }) {
   const subject = `Segnalazione Gaetanata ${data.version}`;
   const mailto = (body: string) =>
     `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   const details = [
-    `Sistema operativo: ${data.system}`,
-    `Installazione: ${data.installation}`,
-    `Schermata: ${screen}`,
+    ...(data.system ? [`Sistema operativo: ${data.system}`] : []),
+    ...(data.installation ? [`Installazione: ${data.installation}`] : []),
+    `Schermata: ${reportScreens[screen]}`,
   ];
   const base = () =>
-    `${description}\n\nDati tecnici\nVersione: ${data.version}${failedUpdate ? `\nVersione installata: ${failedUpdate.from ?? data.version}\nVersione non riuscita: ${failedUpdate.version}` : ""}${details.length ? `\n${details.join("\n")}` : ""}`;
+    `${description}\n\nDati tecnici\nVersione: ${data.version}${failedUpdate ? `\nVersione installata: ${failedUpdate.installed ?? data.version}${failedUpdate.attempted ? `\nVersione non riuscita: ${failedUpdate.attempted}` : ""}` : ""}${details.length ? `\n${details.join("\n")}` : ""}`;
   const errors = [
     ...(initialError ? [`Errore di partenza: ${initialError}`] : []),
     ...(data.errors.length
@@ -44,17 +52,17 @@ function reportText(
       : []),
   ].join("\n\n");
   let body = base() + (errors ? `\n\n${errors}` : "");
-  if (mailto(body).length <= 2000)
+  if (mailto(body).length <= mailtoLimit)
     return { subject, body, mailto: mailto(body) };
   // Only diagnostics are expendable. Even an oversized description stays whole.
   const marker = "\n\n[Errori tagliati]";
   while (
     details.length &&
-    mailto(base() + (errors ? marker : "")).length > 2000
+    mailto(base() + (errors ? marker : "")).length > mailtoLimit
   )
     details.pop();
   body = base();
-  if (errors && mailto(body + marker).length <= 2000) {
+  if (errors && mailto(body + marker).length <= mailtoLimit) {
     const characters = Array.from(errors);
     let low = 0;
     let high = characters.length;
@@ -62,7 +70,7 @@ function reportText(
       const middle = Math.ceil((low + high) / 2);
       if (
         mailto(`${body}\n\n${characters.slice(0, middle).join("")}${marker}`)
-          .length <= 2000
+          .length <= mailtoLimit
       )
         low = middle;
       else high = middle - 1;
@@ -74,7 +82,8 @@ function reportText(
 
 type ReportSession = {
   openReport: (initialError?: string, failedUpdate?: FailedUpdate) => void;
-  setScreen: (screen: string) => void;
+  setScreen: (screen: ReportScreenName) => void;
+  setVersion: (version: string) => void;
 };
 const ReportContext = createContext<ReportSession | null>(null);
 
@@ -83,12 +92,9 @@ export function useReport() {
 }
 
 export function ReportProvider({ children }: { children: ReactNode }) {
-  const [report, setReport] = useState<{
-    screen: string;
-    initialError?: string;
-    failedUpdate?: FailedUpdate;
-  } | null>(null);
-  const [screen, setScreen] = useState("Finestra non attiva");
+  const [report, setReport] = useState<ReportDetails | null>(null);
+  const [screen, setScreen] = useState<ReportScreenName>("waiting");
+  const [version, setVersion] = useState<string>();
   return (
     <ReportContext
       value={{
@@ -99,29 +105,34 @@ export function ReportProvider({ children }: { children: ReactNode }) {
             ...(failedUpdate ? { failedUpdate } : {}),
           }),
         setScreen,
+        setVersion,
       }}
     >
       {children}
-      {report && <ReportScreen {...report} close={() => setReport(null)} />}
+      {report && (
+        <ReportScreen
+          {...report}
+          version={version}
+          close={() => setReport(null)}
+        />
+      )}
     </ReportContext>
   );
 }
 
 function ReportScreen({
-  screen,
-  initialError,
-  failedUpdate,
   close,
-}: {
-  screen: string;
-  initialError?: string;
-  failedUpdate?: FailedUpdate;
+  version,
+  ...details
+}: ReportDetails & {
   close: () => void;
+  version: string | undefined;
 }) {
-  const [data, setData] = useState<TechnicalData | null>(null);
+  const [data, setData] = useState<KnownTechnicalData | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const [description, setDescription] = useState("");
   const [message, setMessage] = useState("");
+  const [unavailable, setUnavailable] = useState(false);
   useEffect(() => {
     dialog.current?.showModal();
     const controller = new AbortController();
@@ -134,15 +145,15 @@ function ReportScreen({
         if (!controller.signal.aborted) setData(body);
       })
       .catch(() => {
-        if (!controller.signal.aborted)
-          setMessage(
-            "Impossibile leggere i dati tecnici. Chiudi e riapri la segnalazione.",
-          );
+        if (!controller.signal.aborted) {
+          setUnavailable(true);
+          setData({ version: version ?? "Non disponibile", errors: [] });
+        }
       });
     return () => controller.abort();
-  }, []);
+  }, [version]);
   const { subject, body, mailto } = data
-    ? reportText(data, description, screen, initialError, failedUpdate)
+    ? reportText({ data, description, ...details })
     : { subject: "", body: "", mailto: "" };
   async function send(method: "gmail" | "mail" | "copy") {
     if (!description.trim()) {
@@ -200,6 +211,11 @@ function ReportScreen({
         </>
       ) : (
         <p>Lettura dei dati tecnici…</p>
+      )}
+      {unavailable && (
+        <p>
+          Dati tecnici non disponibili. Puoi inviare comunque la segnalazione.
+        </p>
       )}
       {message && <p role="status">{message}</p>}
       <div className="report-actions">

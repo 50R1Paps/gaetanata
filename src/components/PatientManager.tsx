@@ -23,7 +23,7 @@ import { usePatientDirtySetter } from "./WindowGate";
 
 type ListState =
   | { status: "loading" }
-  | { status: "error"; message: string }
+  | { status: "error"; message: string; reportable: boolean }
   | { status: "ready"; patients: Patient[] };
 
 const byName = (a: Patient, b: Patient) =>
@@ -98,7 +98,12 @@ export function PatientManager({
         setForm(active ? patientToForm(active) : emptyPatientForm);
       },
       (error: unknown) => {
-        if (current) setList({ status: "error", message: messageOf(error) });
+        if (current)
+          setList({
+            status: "error",
+            message: messageOf(error),
+            reportable: isOperationFailure(error),
+          });
       },
     );
     return () => {
@@ -163,9 +168,7 @@ export function PatientManager({
       setNotice("Scheda salvata.");
     } catch (error) {
       if (error instanceof ApiError) showErrors(error.fields);
-      setReportable(
-        !(error instanceof ApiError) || Object.keys(error.fields).length === 0,
-      );
+      setReportable(isOperationFailure(error));
       setFailure(`Salvataggio non riuscito: ${messageOf(error)}`);
     } finally {
       // Unless an invalid field already claimed it, focus goes back to the
@@ -193,7 +196,7 @@ export function PatientManager({
     } catch (error) {
       setConfirmingDelete(false);
       focusNext.current = deleteId;
-      setReportable(true);
+      setReportable(isOperationFailure(error));
       setFailure(`Eliminazione non riuscita: ${messageOf(error)}`);
     } finally {
       setBusy(false);
@@ -256,8 +259,8 @@ export function PatientManager({
           <ErrorMessage
             as="div"
             message={`Impossibile leggere le schede: ${list.message}`}
+            reportable={list.reportable}
           >
-            <p>Impossibile leggere le schede: {list.message}</p>
             <button type="button" onClick={() => setReloads((n) => n + 1)}>
               Riprova
             </button>
@@ -389,4 +392,10 @@ export function PatientManager({
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function isOperationFailure(error: unknown) {
+  return (
+    !(error instanceof ApiError) || error.status === 0 || error.status >= 500
+  );
 }

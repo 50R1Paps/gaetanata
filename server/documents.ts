@@ -5,9 +5,9 @@ import { dirname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { localToday } from "../src/patient.ts";
 import { type DietSchema, emptySchema } from "../src/schema.ts";
-import { parsePatientJson } from "./db.ts";
 import { IncompleteDocumentError } from "./document-values.ts";
 import { generateDocument } from "./generate-document.ts";
+import { parsePatientJson } from "./patient-json.ts";
 import { patientStore } from "./patients.ts";
 import { readBody, templateBodyLimit } from "./request-body.ts";
 import { validateTemplate } from "./template-contract.ts";
@@ -88,7 +88,7 @@ export function documentHandler(
       }
       const row = getSchema.get(id) as { schema_json: string } | undefined;
       const schema: DietSchema = row
-        ? parsePatientJson(row.schema_json, id)
+        ? parsePatientJson(row.schema_json, { kind: "patient", patientId: id })
         : emptySchema();
       try {
         const { bytes, filename } = generateDocument(

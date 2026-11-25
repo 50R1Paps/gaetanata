@@ -202,22 +202,19 @@ export function SchemaWordPanel({
         <ErrorMessage
           as="div"
           className="schema-problem schema-word-error"
-          message={problem.message}
+          message={
+            problem.issues.length > 0
+              ? "Completa i dati prima di generare il Word:"
+              : problem.message
+          }
           reportable={problem.issues.length === 0}
         >
-          {problem.issues.length > 0 ? (
-            <>
-              <p>Completa i dati prima di generare il Word:</p>
-              <ul>
-                {problem.issues.map((issue) => (
-                  <li key={`${issue.field}-${issue.message}`}>
-                    {issue.message}
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : (
-            <p>{problem.message}</p>
+          {problem.issues.length > 0 && (
+            <ul>
+              {problem.issues.map((issue) => (
+                <li key={`${issue.field}-${issue.message}`}>{issue.message}</li>
+              ))}
+            </ul>
           )}
         </ErrorMessage>
       )}

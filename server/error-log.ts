@@ -1,13 +1,7 @@
-import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-export type ErrorOrigin = "server" | "interfaccia" | "aggiornamento";
-export type ErrorEntry = {
-  date: string;
-  origin: ErrorOrigin;
-  message: string;
-  stack: string;
-};
+import type { ErrorEntry, ErrorOrigin } from "../src/report.ts";
 
 /** The database directory is the data directory, including custom installations. */
 export function errorLog(databaseFile: string) {
@@ -15,8 +9,15 @@ export function errorLog(databaseFile: string) {
     databaseFile === ":memory:"
       ? undefined
       : join(dirname(databaseFile), "errori.json");
-  let entries: ErrorEntry[] =
-    file && existsSync(file) ? JSON.parse(readFileSync(file, "utf8")) : [];
+  let entries: ErrorEntry[] = [];
+  if (file) {
+    try {
+      const stored: unknown = JSON.parse(readFileSync(file, "utf8"));
+      if (Array.isArray(stored) && stored.every(isErrorEntry)) entries = stored;
+    } catch {
+      // A missing or unreadable diagnostic log must not prevent startup.
+    }
+  }
   return {
     record(origin: ErrorOrigin, error: unknown): void {
       const message =
@@ -43,8 +44,24 @@ export function errorLog(databaseFile: string) {
       }
     },
     latest(count: number): ErrorEntry[] {
-      const limit = Math.max(0, Math.trunc(count));
-      return limit === 0 ? [] : entries.slice(-limit).reverse();
+      return entries.slice(-count).reverse();
     },
   };
+}
+
+function isErrorEntry(value: unknown): value is ErrorEntry {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    "date" in value &&
+    typeof value.date === "string" &&
+    "origin" in value &&
+    (value.origin === "server" ||
+      value.origin === "interfaccia" ||
+      value.origin === "aggiornamento") &&
+    "message" in value &&
+    typeof value.message === "string" &&
+    "stack" in value &&
+    typeof value.stack === "string"
+  );
 }

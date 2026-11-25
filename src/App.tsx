@@ -48,8 +48,8 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
   const report = useReport();
   const setReportScreen = report?.setScreen;
   useEffect(() => {
-    setReportScreen?.(view === "schema" ? "Schema" : "Piano settimanale");
-    return () => setReportScreen?.("Finestra non attiva");
+    setReportScreen?.(view);
+    return () => setReportScreen?.("waiting");
   }, [view, setReportScreen]);
   const [dayIndex, setDayIndex] = useState(0);
   const [mealIndex, setMealIndex] = useState(0);
