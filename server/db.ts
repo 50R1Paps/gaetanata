@@ -75,7 +75,7 @@ function migrate(db: DatabaseSync, steps: readonly string[]): void {
   const current = schemaVersion(db);
   if (current > steps.length) {
     throw new Error(
-      `Il database è alla versione ${current}, questa versione dell'app conosce solo fino alla ${steps.length}. Aggiorna l'app (git pull).`,
+      `Il database è alla versione ${current}, questa versione dell'app conosce solo fino alla ${steps.length}. Per un aggiornamento di Gaetanata, contatta chi ti aiuta.`,
     );
   }
   for (let version = current; version < steps.length; version++) {
