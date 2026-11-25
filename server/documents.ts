@@ -1,4 +1,5 @@
-import { readFile, rename, writeFile } from "node:fs/promises";
+import { renameSync, rmSync } from "node:fs";
+import { readFile, writeFile } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { dirname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
@@ -29,7 +30,11 @@ function sendDocument(
   res.end(bytes);
 }
 
-export function documentHandler(databaseFile: string, db: DatabaseSync) {
+export function documentHandler(
+  databaseFile: string,
+  db: DatabaseSync,
+  frozen: () => boolean = () => false,
+) {
   const templateFile = join(dirname(databaseFile), "template.docx");
   const patients = patientStore(db);
   const getSchema = db.prepare(
@@ -91,6 +96,8 @@ export function documentHandler(databaseFile: string, db: DatabaseSync) {
           schema,
           localToday(),
         );
+        if (frozen())
+          return send(res, 409, { error: "Aggiornamento in corso" });
         insertDocument.run(
           id,
           new Date().toISOString(),
@@ -132,7 +139,11 @@ export function documentHandler(databaseFile: string, db: DatabaseSync) {
     // Atomic replacement: a failed upload leaves the previous template intact.
     const temporary = `${templateFile}.${crypto.randomUUID()}.tmp`;
     await writeFile(temporary, bytes);
-    await rename(temporary, templateFile);
+    if (frozen()) {
+      rmSync(temporary, { force: true });
+      return send(res, 409, { error: "Aggiornamento in corso" });
+    }
+    renameSync(temporary, templateFile);
     send(res, 200, { available: true });
   };
 }

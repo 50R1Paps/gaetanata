@@ -18,6 +18,18 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it("does not offer installation when no release check is enabled", async () => {
+  vi.stubGlobal("fetch", async () =>
+    Response.json({ active: true, update: { status: "idle" } }),
+  );
+  await act(async () => {
+    render(<WindowGate>Contenuto</WindowGate>);
+  });
+  expect(
+    screen.queryByRole("button", { name: "Installa aggiornamento" }),
+  ).toBeNull();
+});
+
 it("shows the restored version's failure message", async () => {
   vi.stubGlobal("fetch", async () =>
     Response.json({
@@ -510,7 +522,7 @@ it("blocks installation for an unsaved scheda, then shows steps and reloads afte
   await act(async () => {
     fireEvent.click(button);
   });
-  expect(screen.getByText("Scarico…")).toBeTruthy();
+  expect(screen.getByText("Scarico").getAttribute("aria-current")).toBe("step");
   offline = true;
   await act(async () => {
     await vi.advanceTimersByTimeAsync(50);
@@ -522,12 +534,45 @@ it("blocks installation for an unsaved scheda, then shows steps and reloads afte
   await act(async () => {
     await vi.advanceTimersByTimeAsync(50);
   });
-  expect(screen.getByText("Preparo l'interfaccia…")).toBeTruthy();
+  expect(
+    screen.getByText("Preparo l'interfaccia").getAttribute("aria-current"),
+  ).toBe("step");
   version = "0.2.0";
   await act(async () => {
     await vi.advanceTimersByTimeAsync(50);
   });
   expect(reload).toHaveBeenCalledOnce();
+});
+
+it("freezes the editor while installation is pending and preserves edits on refusal", async () => {
+  const { promise, resolve } = Promise.withResolvers<Response>();
+  vi.stubGlobal("fetch", async (path: string) => {
+    if (path === "/api/update") return promise;
+    return Response.json({
+      active: true,
+      update: { status: "available", version: "0.2.0", notes: "Novità" },
+    });
+  });
+  await act(async () => {
+    render(
+      <WindowGate>
+        <input aria-label="Modifica" defaultValue="testo" />
+      </WindowGate>,
+    );
+  });
+  const editor = screen.getByLabelText("Modifica") as HTMLInputElement;
+  fireEvent.change(editor, { target: { value: "modificato" } });
+  fireEvent.click(
+    screen.getByRole("button", { name: "Installa aggiornamento" }),
+  );
+  expect(editor.matches(":disabled")).toBe(true);
+  await act(async () => {
+    resolve(Response.json({ error: "Non disponibile" }, { status: 409 }));
+    await promise;
+  });
+  expect(editor.matches(":disabled")).toBe(false);
+  expect(editor.value).toBe("modificato");
+  expect(screen.getByRole("alert").textContent).toBe("Non disponibile");
 });
 
 it("shows an update in progress in an inactive window", async () => {

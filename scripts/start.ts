@@ -37,22 +37,11 @@ if (
     process.exit(0);
   }
 
-  const rollbackUpdate = process.argv.includes("--rollback-update");
+  const rollbackUpdate =
+    process.argv.includes("--rollback-update") ||
+    (existsSync(restartFile) && !process.argv.includes("--resume-update"));
   const resumeUpdate =
     process.argv.includes("--resume-update") || rollbackUpdate;
-  if (existsSync(restartFile) && !resumeUpdate) {
-    const deadline = Date.now() + 60_000;
-    while (Date.now() < deadline) {
-      if (await alreadyRunning()) {
-        openBrowser(url);
-        process.exit(0);
-      }
-      await delay(500);
-    }
-    throw new Error(
-      "Il riavvio di Gaetanata non è riuscito. Contatta chi ti aiuta.",
-    );
-  }
 
   if (!resumeUpdate) {
     await ensureDependencies(root);
@@ -77,9 +66,7 @@ if (
       !("tipo" in protocol) ||
       (protocol.tipo !== "clone" && protocol.tipo !== "zip") ||
       !("refPrecedente" in protocol) ||
-      typeof protocol.refPrecedente !== "string" ||
-      !("nodeCompleto" in protocol) ||
-      protocol.nodeCompleto !== true
+      typeof protocol.refPrecedente !== "string"
     )
       throw new Error("Protocollo di riavvio non valido");
     expectedVersion = protocol.a;
@@ -132,6 +119,11 @@ if (
           ready = true;
           clearTimeout(timer);
           if (restarting) {
+            for (const name of ["node_modules", "dist"])
+              rmSync(join(root, ".aggiornamento", "precedente", name), {
+                recursive: true,
+                force: true,
+              });
             if (existsSync(restartFile)) unlinkSync(restartFile);
           } else {
             console.log(
@@ -267,43 +259,50 @@ function restore(
   previousRef: string,
   restartFile: string,
 ): void {
-  if (previousType === "clone") {
-    execFileSync("git", ["checkout", previousRef], {
-      cwd: root,
-      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
-      stdio: "inherit",
-    });
-  } else {
-    const protectedNames = [
-      "data",
-      ".runtime",
-      "node_modules",
-      "dist",
-      ".aggiornamento",
-    ];
-    for (const name of readdirSync(root)) {
-      if (!protectedNames.includes(name))
+  try {
+    if (previousType === "clone") {
+      execFileSync("git", ["checkout", "--force", previousRef], {
+        cwd: root,
+        env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+        stdio: "inherit",
+      });
+    } else {
+      const protectedNames = [
+        "data",
+        ".runtime",
+        "node_modules",
+        "dist",
+        ".aggiornamento",
+      ];
+      for (const name of readdirSync(root)) {
+        if (!protectedNames.includes(name))
+          rmSync(join(root, name), { recursive: true, force: true });
+      }
+      const saved = join(root, ".aggiornamento", "precedente");
+      for (const name of readdirSync(saved)) {
+        if (name !== "node_modules" && name !== "dist")
+          renameSync(join(saved, name), join(root, name));
+      }
+    }
+    const previous = join(root, ".aggiornamento", "precedente");
+    for (const name of ["node_modules", "dist"]) {
+      const saved = join(previous, name);
+      if (existsSync(saved)) {
         rmSync(join(root, name), { recursive: true, force: true });
+        renameSync(saved, join(root, name));
+      }
     }
-    const saved = join(root, ".aggiornamento", "precedente");
-    for (const name of readdirSync(saved)) {
-      if (name !== "node_modules" && name !== "dist")
-        renameSync(join(saved, name), join(root, name));
-    }
+    const data = process.env.GAETANATA_DATA_DIR ?? join(root, "data");
+    const database = join(data, "gaetanata.db");
+    rmSync(`${database}-wal`, { force: true });
+    rmSync(`${database}-shm`, { force: true });
+    copyFileSync(join(data, "prima-di-aggiornamento.db"), database);
+  } catch (error) {
+    console.error(
+      "Ripristino non riuscito; provo ad avviare Gaetanata:",
+      error,
+    );
   }
-  const previous = join(root, ".aggiornamento", "precedente");
-  for (const name of ["node_modules", "dist"]) {
-    const saved = join(previous, name);
-    if (existsSync(saved)) {
-      rmSync(join(root, name), { recursive: true, force: true });
-      renameSync(saved, join(root, name));
-    }
-  }
-  const data = process.env.GAETANATA_DATA_DIR ?? join(root, "data");
-  const database = join(data, "gaetanata.db");
-  rmSync(`${database}-wal`, { force: true });
-  rmSync(`${database}-shm`, { force: true });
-  copyFileSync(join(data, "prima-di-aggiornamento.db"), database);
   rmSync(restartFile, { force: true });
 }
 

@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { once } from "node:events";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -8,7 +9,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { createServer } from "node:http";
+import { createServer, request } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -68,6 +69,86 @@ it("refuses a modified clone without changing tracked files", async () => {
     rmSync(root, { recursive: true, force: true });
   }
 }, 15_000);
+
+it("rejects writes admitted before the update and all new writes during the freeze", async () => {
+  const root = mkdtempSync(join(tmpdir(), "gaetanata-barrier-"));
+  const releases = createServer((req, res) => {
+    if (req.url === "/archive") return;
+    const address = releases.address();
+    if (!address || typeof address === "string") throw new Error("address");
+    res.end(
+      JSON.stringify({
+        tag_name: "v99.0.0",
+        body: "novità",
+        zipball_url: `http://127.0.0.1:${address.port}/archive`,
+      }),
+    );
+  });
+  releases.listen(0, "127.0.0.1");
+  await once(releases, "listening");
+  const address = releases.address();
+  if (!address || typeof address === "string") throw new Error("address");
+  const server = await startServer({
+    port: 0,
+    databaseFile: join(root, "data", "gaetanata.db"),
+    appDir: root,
+    onRestart: () => {},
+    releaseSource: { apiUrl: `http://127.0.0.1:${address.port}`, gitUrl: root },
+  });
+  try {
+    const app = server.address();
+    if (!app || typeof app === "string") throw new Error("address");
+    const base = `http://127.0.0.1:${app.port}`;
+    const presence = () =>
+      fetch(`${base}/api/window`, {
+        method: "POST",
+        body: JSON.stringify({ windowId: "active" }),
+      }).then((response) => response.json());
+    await expect
+      .poll(async () => (await presence()).update.status)
+      .toBe("available");
+    const admitted = Promise.withResolvers<void>();
+    server.on("request", (req) => {
+      if (req.url === "/api/draft" && req.method === "DELETE")
+        admitted.resolve();
+    });
+    const pending = request(`${base}/api/draft`, {
+      method: "DELETE",
+      headers: { "transfer-encoding": "chunked" },
+    });
+    pending.write('{"windowId":');
+    await admitted.promise;
+    const started = await fetch(`${base}/api/update`, {
+      method: "POST",
+      body: JSON.stringify({ windowId: "active" }),
+    });
+    expect(started.status).toBe(202);
+    const response = once(pending, "response");
+    pending.end('"active"}');
+    const [late] = await response;
+    expect(late.statusCode).toBe(409);
+    late.resume();
+    for (const path of [
+      "/api/patients",
+      "/api/patients/1/plan",
+      "/api/patients/1/schema",
+      "/api/draft",
+    ]) {
+      const result = await fetch(`${base}${path}`, {
+        method: "PUT",
+        body: "{}",
+      });
+      expect(result.status).toBe(409);
+    }
+  } finally {
+    server.closeAllConnections();
+    releases.closeAllConnections();
+    server.close();
+    releases.close();
+    await Promise.all([once(server, "close"), once(releases, "close")]);
+    rmSync(root, { recursive: true, force: true });
+  }
+}, 20_000);
 
 it("restores ZIP files when the archive has the wrong version", async () => {
   const root = mkdtempSync(join(tmpdir(), "gaetanata-zip-"));
@@ -307,87 +388,102 @@ it.each([
   90_000,
 );
 
-it("rejects a checked-out tag whose package version does not match", async () => {
-  const root = mkdtempSync(join(tmpdir(), "gaetanata-version-"));
-  const source = join(root, "source");
-  const clone = join(root, "clone");
-  mkdirSync(source);
-  const git = (cwd: string, ...args: string[]) =>
-    execFileSync("git", args, { cwd, stdio: "pipe" });
-  git(source, "init");
-  git(source, "config", "user.email", "test@example.invalid");
-  git(source, "config", "user.name", "Test");
-  writeFileSync(join(source, ".gitignore"), "/data/\n/.aggiornamento/\n");
-  writeFileSync(
-    join(source, "package.json"),
-    JSON.stringify({ version: "0.1.0" }),
-  );
-  git(source, "add", ".");
-  git(source, "commit", "-m", "first");
-  git(source, "tag", "v0.1.0");
-  git(root, "clone", source, clone);
-  writeFileSync(
-    join(source, "package.json"),
-    JSON.stringify({ version: "0.3.0" }),
-  );
-  git(source, "add", ".");
-  git(source, "commit", "-m", "mismatch");
-  git(source, "tag", "v0.2.0");
-  const releases = createServer((_req, res) =>
-    res.end(JSON.stringify({ tag_name: "v0.2.0", body: "" })),
-  );
-  releases.listen(0, "127.0.0.1");
-  await once(releases, "listening");
-  const address = releases.address();
-  if (!address || typeof address === "string") throw new Error("address");
-  let restarted = false;
-  const server = await startServer({
-    port: 0,
-    databaseFile: join(clone, "data", "gaetanata.db"),
-    appDir: clone,
-    onRestart: () => {
-      restarted = true;
-    },
-    releaseSource: {
-      apiUrl: `http://127.0.0.1:${address.port}`,
-      gitUrl: source,
-    },
-  });
-  try {
-    const app = server.address();
-    if (!app || typeof app === "string") throw new Error("address");
-    const base = `http://127.0.0.1:${app.port}`;
-    const post = (path: string) =>
-      fetch(`${base}${path}`, {
-        method: "POST",
-        body: JSON.stringify({ windowId: "active" }),
-      });
-    const presence = async () =>
-      (await (await post("/api/window")).json()).update;
-    await expect
-      .poll(async () => (await presence()).status, { timeout: 30_000 })
-      .toBe("available");
-    expect((await post("/api/update")).status).toBe(202);
-    await expect
-      .poll(async () => (await presence()).status, { timeout: 60_000 })
-      .toBe("failed");
-    expect((await presence()).message).toBe(
-      "Aggiornamento non riuscito, stai usando ancora la versione 0.1.0",
+it.each(["version mismatch", "partial checkout"])(
+  "restores a clone after %s",
+  async (scenario) => {
+    const root = mkdtempSync(join(tmpdir(), "gaetanata-version-"));
+    const source = join(root, "source");
+    const clone = join(root, "clone");
+    mkdirSync(source);
+    const git = (cwd: string, ...args: string[]) =>
+      execFileSync("git", args, { cwd, stdio: "pipe" });
+    git(source, "init");
+    git(source, "config", "user.email", "test@example.invalid");
+    git(source, "config", "user.name", "Test");
+    writeFileSync(join(source, ".gitignore"), "/data/\n/.aggiornamento/\n");
+    writeFileSync(
+      join(source, "package.json"),
+      JSON.stringify({ version: "0.1.0" }),
     );
-    expect(
-      git(clone, "symbolic-ref", "--short", "HEAD").toString().trim(),
-    ).toBe(git(source, "symbolic-ref", "--short", "HEAD").toString().trim());
-    expect(restarted).toBe(false);
-    expect(existsSync(join(clone, "data", "prima-di-aggiornamento.db"))).toBe(
-      true,
+    git(source, "add", ".");
+    git(source, "commit", "-m", "first");
+    git(source, "tag", "v0.1.0");
+    git(root, "clone", source, clone);
+    writeFileSync(
+      join(source, "package.json"),
+      JSON.stringify({ version: "0.3.0" }),
     );
-  } finally {
-    server.close();
-    releases.close();
-    await Promise.all([once(server, "close"), once(releases, "close")]);
-    rmSync(root, { recursive: true, force: true });
-  }
-}, 90_000);
+    git(source, "add", ".");
+    git(source, "commit", "-m", "mismatch");
+    git(source, "tag", "v0.2.0");
+    if (scenario === "partial checkout") {
+      const hook = join(clone, ".git", "hooks", "post-checkout");
+      writeFileSync(
+        hook,
+        "#!/bin/sh\nif [ ! -f .git/failed-checkout ]; then touch .git/failed-checkout; echo broken > package.json; exit 1; fi\n",
+      );
+      chmodSync(hook, 0o755);
+    }
+    const releases = createServer((_req, res) =>
+      res.end(JSON.stringify({ tag_name: "v0.2.0", body: "" })),
+    );
+    releases.listen(0, "127.0.0.1");
+    await once(releases, "listening");
+    const address = releases.address();
+    if (!address || typeof address === "string") throw new Error("address");
+    let restarted = false;
+    const server = await startServer({
+      port: 0,
+      databaseFile: join(clone, "data", "gaetanata.db"),
+      appDir: clone,
+      onRestart: () => {
+        restarted = true;
+      },
+      releaseSource: {
+        apiUrl: `http://127.0.0.1:${address.port}`,
+        gitUrl: source,
+      },
+    });
+    try {
+      const app = server.address();
+      if (!app || typeof app === "string") throw new Error("address");
+      const base = `http://127.0.0.1:${app.port}`;
+      const post = (path: string) =>
+        fetch(`${base}${path}`, {
+          method: "POST",
+          body: JSON.stringify({ windowId: "active" }),
+        });
+      const presence = async () =>
+        (await (await post("/api/window")).json()).update;
+      await expect
+        .poll(async () => (await presence()).status, { timeout: 30_000 })
+        .toBe("available");
+      expect((await post("/api/update")).status).toBe(202);
+      await expect
+        .poll(async () => (await presence()).status, { timeout: 60_000 })
+        .toBe("failed");
+      expect((await presence()).message).toBe(
+        "Aggiornamento non riuscito, stai usando ancora la versione 0.1.0",
+      );
+      expect(
+        git(clone, "symbolic-ref", "--short", "HEAD").toString().trim(),
+      ).toBe(git(source, "symbolic-ref", "--short", "HEAD").toString().trim());
+      expect(
+        JSON.parse(readFileSync(join(clone, "package.json"), "utf8")).version,
+      ).toBe("0.1.0");
+      expect(restarted).toBe(false);
+      expect(existsSync(join(clone, "data", "prima-di-aggiornamento.db"))).toBe(
+        true,
+      );
+    } finally {
+      server.close();
+      releases.close();
+      await Promise.all([once(server, "close"), once(releases, "close")]);
+      rmSync(root, { recursive: true, force: true });
+    }
+  },
+  90_000,
+);
 
 it("installs a release ZIP and preserves data, runtime and the previous files", async () => {
   const parent = mkdtempSync(join(tmpdir(), "gaetanata-zip-install-"));

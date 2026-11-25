@@ -4,7 +4,10 @@ import { emptySchema, isDietSchema } from "../src/schema.ts";
 import { readBody } from "./request-body.ts";
 
 /** One current input-only Schema per patient, matching the plan HTTP contract. */
-export function schemaHandler(db: DatabaseSync) {
+export function schemaHandler(
+  db: DatabaseSync,
+  frozen: () => boolean = () => false,
+) {
   const patient = db.prepare("SELECT id FROM patients WHERE id = ?");
   const get = db.prepare(
     "SELECT schema_json FROM schemas WHERE patient_id = ?",
@@ -40,6 +43,7 @@ export function schemaHandler(db: DatabaseSync) {
         error:
           "Schema non valido: controlla impostazioni, correzioni, fonti proteiche, pizza, colazione e spuntini.",
       });
+    if (frozen()) return send(409, { error: "Aggiornamento in corso" });
     // Deletion may have occurred while the body was being received.
     if (!patient.get(id))
       return send(404, { error: "Scheda paziente non trovata" });
