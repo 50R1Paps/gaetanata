@@ -12,6 +12,7 @@ import {
   type PatientInput,
   validatePatient,
 } from "../src/patient.ts";
+import type { UpdateState } from "../src/update.ts";
 import { openDatabase, schemaVersion } from "./db.ts";
 import { documentHandler } from "./documents.ts";
 import { draftHandler } from "./draft.ts";
@@ -19,6 +20,7 @@ import { type PatientStore, patientStore } from "./patients.ts";
 import { planHandler } from "./plans.ts";
 import { readBody } from "./request-body.ts";
 import { schemaHandler } from "./schemas.ts";
+import { checkRelease } from "./update.ts";
 import { windowHandler } from "./windows.ts";
 
 export const APP_ID = "gaetanata";
@@ -26,6 +28,8 @@ export const APP_ID = "gaetanata";
 export type ServerOptions = {
   port: number;
   databaseFile: string;
+  /** Latest Release API URL; omitted when release checks are disabled. */
+  releaseSource?: string;
   /** Time without presence before another window may become active. */
   windowStaleAfterMs?: number;
   /** Grace after explicit closure; presence silence never starts it. */
@@ -56,12 +60,14 @@ export async function startServer(options: ServerOptions): Promise<Server> {
   const handleSchema = schemaHandler(db);
   const handleDocument = documentHandler(options.databaseFile, db);
   const drafts = draftHandler(db, (windowId) => windows.isActive(windowId));
+  let update: UpdateState = { status: "idle" };
   const windows = windowHandler({
     staleAfterMs: options.windowStaleAfterMs,
     idleGraceMs: options.idleGraceMs,
     onIdle: options.onIdle,
     writeDraft: drafts.write,
     clearDraft: drafts.clear,
+    getUpdate: () => update,
   });
 
   const server = createServer((req, res) => {
@@ -170,6 +176,20 @@ export async function startServer(options: ServerOptions): Promise<Server> {
     resolve();
   });
   await promise;
+  if (options.releaseSource) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5_000);
+    server.once("close", () => controller.abort());
+    void checkRelease(
+      options.releaseSource,
+      packageInfo.version,
+      controller.signal,
+    )
+      .then((result) => {
+        update = result;
+      })
+      .finally(() => clearTimeout(timer));
+  }
   return server;
 }
 

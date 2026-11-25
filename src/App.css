@@ -21,6 +21,19 @@ body {
   margin: 0;
 }
 
+.update-banner {
+  margin: 12px 12px 0;
+  padding: 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
+
+.update-banner p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 button,
 input {
   font: inherit;

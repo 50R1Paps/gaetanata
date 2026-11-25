@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import type { UpdateState } from "../src/update.ts";
 import { readBody } from "./request-body.ts";
 
 /** Presence only assigns ownership; silence must never shut down the server (ADR 0008). */
@@ -8,12 +9,14 @@ export function windowHandler({
   onIdle,
   writeDraft,
   clearDraft,
+  getUpdate,
 }: {
   staleAfterMs?: number | undefined;
   idleGraceMs?: number | undefined;
   onIdle?: (() => void) | undefined;
   writeDraft: (body: unknown) => { status: number; body: unknown };
   clearDraft: () => unknown;
+  getUpdate: () => UpdateState;
 }) {
   let active: { windowId: string; seenAt: number } | null = null;
   const registered = new Map<string, number>();
@@ -108,7 +111,7 @@ export function windowHandler({
     if (!active || !isActive(active.windowId) || active.windowId === windowId) {
       active = { windowId, seenAt: now };
     }
-    reply(200, { active: isActive(windowId) });
+    reply(200, { active: isActive(windowId), update: getUpdate() });
   }
 
   return { handle, isActive, dispose };

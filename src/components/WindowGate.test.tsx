@@ -16,6 +16,43 @@ afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
+it("shows release notes and install button only after this window becomes active", async () => {
+  vi.useFakeTimers();
+  let active = false;
+  vi.stubGlobal("fetch", async (path: string) => {
+    if (path === "/api/window")
+      return Response.json({
+        active,
+        update: {
+          status: "available",
+          version: "2.0.0",
+          notes: "Novità\n- miglioramenti",
+        },
+      });
+    if (path === "/api/draft") return new Response(null, { status: 404 });
+    if (path === "/api/template") return Response.json({ available: false });
+    return Response.json({ patients: [] });
+  });
+  await act(async () => {
+    render(
+      <WindowGate presenceIntervalMs={50}>
+        <App />
+      </WindowGate>,
+    );
+  });
+  expect(screen.queryByText("Aggiornamento disponibile: 2.0.0")).toBeNull();
+  active = true;
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(50);
+  });
+  expect(screen.getByText("Aggiornamento disponibile: 2.0.0")).toBeTruthy();
+  expect(screen.getByText(/miglioramenti/).textContent).toBe(
+    "Novità\n- miglioramenti",
+  );
+  expect(
+    screen.getByRole("button", { name: "Installa aggiornamento" }),
+  ).toBeTruthy();
+});
 
 it("keeps editors out of the waiting window and starts App normally when presence grants ownership", async () => {
   vi.useFakeTimers();
