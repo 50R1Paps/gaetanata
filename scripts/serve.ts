@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { startServer } from "../server/app.ts";
 import { GITHUB_RELEASE_SOURCE } from "../server/update.ts";
+import { failedUpdateFromEnvironment } from "../src/update.ts";
 
 // An IPC disconnect includes abrupt launcher termination/window closure.
 process.on("disconnect", () => process.exit(0));
@@ -15,8 +16,7 @@ const server = await startServer({
   staticDir: join(root, "dist"),
   releaseSource: GITHUB_RELEASE_SOURCE,
   appDir: root,
-  failedUpdateVersion: process.env.GAETANATA_AGGIORNAMENTO_FALLITO,
-  failedUpdateTarget: process.env.GAETANATA_AGGIORNAMENTO_VERSIONE_TENTATA,
+  failedUpdate: failedUpdateFromEnvironment(process.env),
   onRestart: () => server.close(() => process.exit(75)),
   onIdle: () => server.close(() => process.exit(0)),
 });

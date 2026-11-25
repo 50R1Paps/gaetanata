@@ -98,7 +98,12 @@ export function PatientManager({
         setForm(active ? patientToForm(active) : emptyPatientForm);
       },
       (error: unknown) => {
-        if (current) setList({ status: "error", message: messageOf(error), reportable: isOperationFailure(error) });
+        if (current)
+          setList({
+            status: "error",
+            message: messageOf(error),
+            reportable: isOperationFailure(error),
+          });
       },
     );
     return () => {
@@ -256,7 +261,6 @@ export function PatientManager({
             message={`Impossibile leggere le schede: ${list.message}`}
             reportable={list.reportable}
           >
-            <p>Impossibile leggere le schede: {list.message}</p>
             <button type="button" onClick={() => setReloads((n) => n + 1)}>
               Riprova
             </button>
@@ -391,5 +395,7 @@ function messageOf(error: unknown): string {
 }
 
 function isOperationFailure(error: unknown) {
-  return !(error instanceof ApiError) || error.status === 0 || error.status >= 500;
+  return (
+    !(error instanceof ApiError) || error.status === 0 || error.status >= 500
+  );
 }

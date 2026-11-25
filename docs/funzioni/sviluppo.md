@@ -12,10 +12,17 @@ npm test         # test
 ```
 
 L'avvio con `npm start` o `avvia.*` usa `scripts/start.ts`, che carica solo
-moduli nativi, installa le dipendenze e prepara l'interfaccia. Solo dopo avvia
+moduli nativi a runtime (gli import di soli tipi locali sono ammessi), installa
+le dipendenze e prepara l'interfaccia. Solo dopo avvia
 `scripts/serve.ts` con lo stesso Node e gli stessi flag: il server eredita
 ambiente e console, segnala quando è pronto e si ferma anche se il launcher
 viene chiuso. Il browser si apre dopo la risposta di `/api/health`.
+Il polling di avvio termina anche quando il processo server muore per segnale.
+I contratti di segnalazione sono in `src/report.ts`; la coppia
+`FailedUpdate` in `src/update.ts` usa `installed` e `attempted` anche nel launcher.
+Le variabili `GAETANATA_AGGIORNAMENTO_FALLITO` (Versione rimasta) e
+`GAETANATA_AGGIORNAMENTO_VERSIONE_TENTATA` restano compatibili con i launcher
+precedenti, che possono trasmettere solo la prima.
 
 ## Pubblicare una Versione
 

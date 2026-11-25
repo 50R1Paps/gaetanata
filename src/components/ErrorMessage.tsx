@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { type FailedUpdate, useReport } from "./Report";
+import type { FailedUpdate } from "../update";
+import { useReport } from "./Report";
 
 /** Only diagnostic text belongs in message, never patient values or filenames. */
 export function ErrorMessage({
@@ -7,22 +8,21 @@ export function ErrorMessage({
   children,
   as: Tag = "p",
   className = "error",
-  id,
   failedUpdate,
   reportable = true,
 }: {
   message: string;
   children?: ReactNode;
-  as?: "p" | "div" | "span";
+  as?: "p" | "div";
   className?: string;
-  id?: string;
   failedUpdate?: FailedUpdate | undefined;
   reportable?: boolean;
 }) {
   const report = useReport();
   return (
-    <Tag role="alert" className={className} id={id}>
-      {children ?? message}
+    <Tag role="alert" className={className}>
+      {Tag === "div" ? <p>{message}</p> : message}
+      {children}
       {report && reportable && (
         <>
           {" "}

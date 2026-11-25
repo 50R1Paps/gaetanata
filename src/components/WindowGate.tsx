@@ -62,10 +62,8 @@ export function WindowGate({
   >("pending");
   const setReportScreen = useReport()?.setScreen;
   useEffect(() => {
-    if (update.status === "progress") setReportScreen?.("Aggiornamento");
-    else if (status === "waiting") setReportScreen?.("Finestra non attiva");
-    else if (status === "closed") setReportScreen?.("Server non disponibile");
-    else if (status === "pending") setReportScreen?.("Apertura di Gaetanata");
+    if (update.status === "progress") setReportScreen?.("update");
+    else if (status !== "active") setReportScreen?.(status);
   }, [status, update.status, setReportScreen]);
 
   useEffect(() => {
@@ -209,7 +207,7 @@ export function WindowGate({
             {installError && (
               <ErrorMessage
                 message={installError}
-                failedUpdate={{ version: update.version }}
+                failedUpdate={{ attempted: update.version }}
               />
             )}
           </section>
@@ -217,27 +215,13 @@ export function WindowGate({
         {update.status === "failed" && (
           <ErrorMessage
             message={update.message}
-            failedUpdate={
-              update.version
-                ? {
-                    version: update.version,
-                    ...(update.from ? { from: update.from } : {}),
-                  }
-                : undefined
-            }
+            failedUpdate={update.failedUpdate}
           />
         )}
         {update.status === "available" && update.failedMessage && (
           <ErrorMessage
             message={update.failedMessage}
-            failedUpdate={
-              update.failedVersion
-                ? {
-                    version: update.failedVersion,
-                    ...(update.failedFrom ? { from: update.failedFrom } : {}),
-                  }
-                : undefined
-            }
+            failedUpdate={update.failedUpdate}
           />
         )}
         <fieldset

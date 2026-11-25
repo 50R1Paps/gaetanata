@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { DatabaseSync } from "node:sqlite";
 import type { WeekPlan } from "../src/plan.ts";
-import { parsePatientJson } from "./db.ts";
+import { parsePatientJson } from "./patient-json.ts";
 import { readBody } from "./request-body.ts";
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -69,7 +69,7 @@ export function planHandler(
       return send(
         200,
         row
-          ? parsePatientJson(row.plan_json, id)
+          ? parsePatientJson(row.plan_json, { kind: "patient", patientId: id })
           : {
               days: Array.from({ length: 7 }, () => ({
                 included: true,

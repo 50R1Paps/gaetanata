@@ -1,13 +1,7 @@
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
-export type ErrorOrigin = "server" | "interfaccia" | "aggiornamento";
-export type ErrorEntry = {
-  date: string;
-  origin: ErrorOrigin;
-  message: string;
-  stack: string;
-};
+import type { ErrorEntry, ErrorOrigin } from "../src/report.ts";
 
 /** The database directory is the data directory, including custom installations. */
 export function errorLog(databaseFile: string) {
@@ -50,8 +44,7 @@ export function errorLog(databaseFile: string) {
       }
     },
     latest(count: number): ErrorEntry[] {
-      const limit = Math.max(0, Math.trunc(count));
-      return limit === 0 ? [] : entries.slice(-limit).reverse();
+      return entries.slice(-count).reverse();
     },
   };
 }
@@ -60,10 +53,15 @@ function isErrorEntry(value: unknown): value is ErrorEntry {
   return (
     value !== null &&
     typeof value === "object" &&
-    "date" in value && typeof value.date === "string" &&
+    "date" in value &&
+    typeof value.date === "string" &&
     "origin" in value &&
-    (value.origin === "server" || value.origin === "interfaccia" || value.origin === "aggiornamento") &&
-    "message" in value && typeof value.message === "string" &&
-    "stack" in value && typeof value.stack === "string"
+    (value.origin === "server" ||
+      value.origin === "interfaccia" ||
+      value.origin === "aggiornamento") &&
+    "message" in value &&
+    typeof value.message === "string" &&
+    "stack" in value &&
+    typeof value.stack === "string"
   );
 }

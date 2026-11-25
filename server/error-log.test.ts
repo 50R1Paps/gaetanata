@@ -1,6 +1,12 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -159,7 +165,10 @@ it("records failed updates, including a rollback reported after restart", async 
     });
     server.close();
     await once(server, "close");
-    server = await startServer({ ...options, failedUpdateVersion: "0.1.0" });
+    server = await startServer({
+      ...options,
+      failedUpdate: { installed: "0.1.0" },
+    });
     entries = JSON.parse(readFileSync(join(dir, "errori.json"), "utf8"));
     expect(entries).toHaveLength(2);
     expect(entries[1]).toMatchObject({
@@ -317,17 +326,29 @@ it.each(["{registro corrotto", "{}"])(
     writeFileSync(file, contents);
     let server: Server | undefined;
     try {
-      server = await startServer({ port: 0, databaseFile: join(dir, "app.db") });
+      server = await startServer({
+        port: 0,
+        databaseFile: join(dir, "app.db"),
+      });
       const address = server.address();
       if (!address || typeof address === "string") throw new Error("address");
       const base = `http://127.0.0.1:${address.port}`;
-      expect((await (await fetch(`${base}/api/report`)).json()).errors).toEqual([]);
-      expect((await fetch(`${base}/api/errors`, {
-        method: "POST",
-        body: JSON.stringify({ message: "Nuovo errore" }),
-      })).status).toBe(204);
+      expect((await (await fetch(`${base}/api/report`)).json()).errors).toEqual(
+        [],
+      );
+      expect(
+        (
+          await fetch(`${base}/api/errors`, {
+            method: "POST",
+            body: JSON.stringify({ message: "Nuovo errore" }),
+          })
+        ).status,
+      ).toBe(204);
       expect(JSON.parse(readFileSync(file, "utf8"))).toEqual([
-        expect.objectContaining({ origin: "interfaccia", message: "Nuovo errore" }),
+        expect.objectContaining({
+          origin: "interfaccia",
+          message: "Nuovo errore",
+        }),
       ]);
     } finally {
       if (server) {

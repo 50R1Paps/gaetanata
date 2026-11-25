@@ -198,8 +198,7 @@ it.each(["failed", "available", "install"])(
             ? {
                 status: "failed",
                 message: "Aggiornamento non riuscito",
-                from: "0.1.0",
-                version: "0.2.0",
+                failedUpdate: { installed: "0.1.0", attempted: "0.2.0" },
               }
             : {
                 status: "available",
@@ -208,8 +207,7 @@ it.each(["failed", "available", "install"])(
                 ...(state === "available"
                   ? {
                       failedMessage: "Aggiornamento non riuscito",
-                      failedFrom: "0.1.0",
-                      failedVersion: "0.2.0",
+                      failedUpdate: { installed: "0.1.0", attempted: "0.2.0" },
                     }
                   : {}),
               },
@@ -336,7 +334,7 @@ it.each(["lettura", "scarto", "ripristino", "scrittura"])(
   },
 );
 
-it("offre la segnalazione quando il server locale non risponde", async () => {
+it("non offre la segnalazione quando Gaetanata si è chiusa", async () => {
   vi.stubGlobal("fetch", async (path: string) => {
     if (path === "/api/report") return technicalData();
     throw new TypeError("Failed to fetch");
@@ -348,9 +346,10 @@ it("offre la segnalazione quando il server locale non risponde", async () => {
       </WindowGate>
     </ReportProvider>,
   );
-  await reportError(
+  await screen.findByText(
     "Gaetanata si è chiusa. Riaprila dall'icona. Nessuna bozza scritta in questa finestra.",
   );
+  expect(screen.queryByRole("button", { name: "Segnala problema" })).toBeNull();
 });
 
 it("segnala lo storico non aggiornato dopo un Word generato senza includere il nome del file", async () => {

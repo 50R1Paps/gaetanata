@@ -480,16 +480,19 @@ it.each(["--resume-update", "--rollback-update"])(
         join(previous, "scripts/serve.ts"),
         `
 import {startServer} from "../server/app.ts";
-import {writeFileSync} from "node:fs";
+import {readFileSync,writeFileSync} from "node:fs";
+import {failedUpdateFromEnvironment} from "../src/update.ts";
 process.on("disconnect", () => process.exit(0));
 const server = await startServer({
   port: Number(process.env.PORT), databaseFile: "data/gaetanata.db",
-  failedUpdateVersion: process.env.GAETANATA_AGGIORNAMENTO_FALLITO,
-  failedUpdateTarget: process.env.GAETANATA_AGGIORNAMENTO_VERSIONE_TENTATA,
+  failedUpdate: failedUpdateFromEnvironment(process.env),
   fallback: (req, res) => {
-    if (req.url !== "/restart") return res.writeHead(404).end();
+    if (req.url !== "/restart" && req.url !== "/success") return res.writeHead(404).end();
+    const version = req.url === "/success" ? "0.3.0" : "0.1.0";
+    const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+    writeFileSync("package.json", JSON.stringify({...pkg, version}));
     writeFileSync(".aggiornamento/riavvio.json", JSON.stringify({
-      da: "0.1.0", a: "0.1.0", tipo: "zip", refPrecedente: "",
+      da: "0.1.0", a: version, tipo: "zip", refPrecedente: "",
     }));
     res.on("finish", () => {
       server.close(() => process.exit(75));
@@ -537,9 +540,15 @@ process.send?.("ready");
         },
       );
       let output = "";
-      child.stdout?.on("data", (chunk: Buffer) => { output += chunk.toString(); });
-      child.stderr?.on("data", (chunk: Buffer) => { output += chunk.toString(); });
-      await expect.poll(() => output, { timeout: 15_000 }).toContain("Gaetanata è aperta su");
+      child.stdout?.on("data", (chunk: Buffer) => {
+        output += chunk.toString();
+      });
+      child.stderr?.on("data", (chunk: Buffer) => {
+        output += chunk.toString();
+      });
+      await expect
+        .poll(() => output, { timeout: 15_000 })
+        .toContain("Gaetanata è aperta su");
       await expect
         .poll(
           async () => {
@@ -560,36 +569,46 @@ process.send?.("ready");
         )
         .toMatchObject({
           status: "failed",
-          from: "0.1.0",
-          version: "99.2.0",
+          failedUpdate: { installed: "0.1.0", attempted: "99.2.0" },
         });
       const base = `http://127.0.0.1:${port}`;
-      const report = async () => (await (await fetch(`${base}/api/report`)).json());
+      const report = async () =>
+        await (await fetch(`${base}/api/report`)).json();
       expect((await report()).errors).toEqual([
         expect.objectContaining({
           origin: "aggiornamento",
           message: expect.stringContaining("99.2.0"),
         }),
       ]);
-      for (let restart = 0; restart < 2; restart++) {
-        expect(await (await fetch(`${base}/restart`)).text()).toBe("riavvio");
-        await expect.poll(async () => {
-          try {
-            const response = await fetch(`${base}/api/window`, {
-              method: "POST",
-              body: JSON.stringify({ windowId: "report" }),
-              signal: AbortSignal.timeout(1_000),
-            });
-            return (await response.json()).update;
-          } catch {
-            return null;
-          }
-        }, { timeout: 15_000 }).toMatchObject({ status: "idle" });
-        await expect.poll(() => existsSync(join(root, ".aggiornamento/riavvio.json"))).toBe(false);
+      for (const path of ["/restart", "/success"]) {
+        expect(await (await fetch(`${base}${path}`)).text()).toBe("riavvio");
+        await expect
+          .poll(
+            async () => {
+              try {
+                const response = await fetch(`${base}/api/window`, {
+                  method: "POST",
+                  body: JSON.stringify({ windowId: "report" }),
+                  signal: AbortSignal.timeout(1_000),
+                });
+                return (await response.json()).update;
+              } catch {
+                return null;
+              }
+            },
+            { timeout: 15_000 },
+          )
+          .toMatchObject({ status: "idle" });
+        await expect
+          .poll(() => existsSync(join(root, ".aggiornamento/riavvio.json")))
+          .toBe(false);
         expect((await report()).errors).toHaveLength(1);
+        expect((await (await fetch(`${base}/api/health`)).json()).version).toBe(
+          path === "/success" ? "0.3.0" : "0.1.0",
+        );
       }
     } finally {
-      if (child && child.exitCode === null) {
+      if (child && child.exitCode === null && child.signalCode === null) {
         const exited = once(child, "exit");
         child.kill();
         await exited;
@@ -620,27 +639,40 @@ it("stops readiness polling when the restored server exits by signal", async () 
     const previous = join(root, ".aggiornamento/precedente");
     mkdirSync(join(previous, "scripts"), { recursive: true });
     writeFileSync(join(previous, "package.json"), '{"type":"module"}');
-    writeFileSync(join(previous, "scripts/serve.ts"),
-      'process.send?.("ready", () => process.kill(process.pid, "SIGTERM"));');
+    writeFileSync(
+      join(previous, "scripts/serve.ts"),
+      'process.send?.("ready", () => process.kill(process.pid, "SIGTERM"));',
+    );
     mkdirSync(join(root, "data"));
     writeFileSync(join(root, "data/prima-di-aggiornamento.db"), "");
-    writeFileSync(join(root, ".aggiornamento/riavvio.json"), JSON.stringify({
-      da: "0.1.0", a: "0.2.0", tipo: "zip", refPrecedente: "",
-    }));
-    child = spawn(process.execPath, [
-      "--experimental-strip-types",
-      "--disable-warning=ExperimentalWarning",
-      join(root, "scripts/start.ts"), "--rollback-update",
-    ], {
-      cwd: root,
-      env: { ...process.env, PORT: "0", GAETANATA_NO_BROWSER: "1" },
-      stdio: "pipe",
-    });
+    writeFileSync(
+      join(root, ".aggiornamento/riavvio.json"),
+      JSON.stringify({
+        da: "0.1.0",
+        a: "0.2.0",
+        tipo: "zip",
+        refPrecedente: "",
+      }),
+    );
+    child = spawn(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        "--disable-warning=ExperimentalWarning",
+        join(root, "scripts/start.ts"),
+        "--rollback-update",
+      ],
+      {
+        cwd: root,
+        env: { ...process.env, PORT: "0", GAETANATA_NO_BROWSER: "1" },
+        stdio: "pipe",
+      },
+    );
     child.stdout?.resume();
     child.stderr?.resume();
-    await expect.poll(() => child?.exitCode, { timeout: 3_000 }).toBe(
-      process.platform === "win32" ? 1 : 143,
-    );
+    await expect
+      .poll(() => child?.exitCode, { timeout: 3_000 })
+      .toBe(process.platform === "win32" ? 1 : 143);
   } finally {
     if (child && child.exitCode === null && child.signalCode === null) {
       const exited = once(child, "exit");
