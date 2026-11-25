@@ -35,6 +35,26 @@ All'avvio Gaetanata controlla in silenzio se è disponibile una versione più
 recente e ne mostra le note nella finestra attiva. Il controllo non impedisce
 l'avvio anche se la rete non è disponibile.
 
+## Segnala problema
+
+Premi **Segnala problema**, a piè di pagina accanto alla Versione, anche in una
+finestra non attiva. Scrivi cosa è successo o cosa ti serve, senza inserire nomi
+o dati dei pazienti. L'anteprima mostra il testo esatto e i **Dati tecnici**:
+Versione, sistema operativo, installazione clone o ZIP, schermata aperta e ultimi
+cinque errori del registro.
+
+Scegli **Invia con Gmail** per aprire una composizione nel browser, **Invia con il
+programma di posta** per usare la posta del computer, oppure **Copia il testo**
+per incollarlo dove preferisci. L'app prepara il messaggio per
+`gaetanata.qualify006@simplelogin.com`, ma sei tu a inviarlo: non spedisce email
+automaticamente e non allega file. Copia funziona anche senza rete.
+
+Gli errori vengono abbreviati per mantenere l'indirizzo di posta entro circa
+2.000 caratteri; l'anteprima, Gmail e Copia usano lo stesso testo abbreviato.
+Se necessario vengono omessi anche gli altri dati tecnici, mai la Versione o
+la descrizione. Una descrizione molto lunga può superare comunque il limite
+del programma di posta: in quel caso usa Gmail o Copia.
+
 ## Aggiornamento
 
 Quando compare un aggiornamento, leggi le note e premi **Installa aggiornamento** nella finestra attiva. Salva prima la scheda paziente; le modifiche al piano e allo schema restano nella bozza. La finestra mostra i passi e si ricarica da sola; puoi chiuderla e riaprire l'icona durante l'operazione. Il database viene copiato in `data/prima-di-aggiornamento.db` (nella cartella dati configurata), sovrascrivendo la copia precedente.
