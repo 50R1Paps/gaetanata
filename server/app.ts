@@ -28,8 +28,8 @@ export const APP_ID = "gaetanata";
 export type ServerOptions = {
   port: number;
   databaseFile: string;
-  /** Latest Release API URL; omitted when release checks are disabled. */
-  releaseSource?: string;
+  /** Release API and repository used for updates. */
+  releaseSource?: { apiUrl: string; gitUrl: string };
   /** Time without presence before another window may become active. */
   windowStaleAfterMs?: number;
   /** Grace after explicit closure; presence silence never starts it. */
@@ -181,7 +181,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
     const timer = setTimeout(() => controller.abort(), 5_000);
     server.once("close", () => controller.abort());
     void checkRelease(
-      options.releaseSource,
+      options.releaseSource.apiUrl,
       packageInfo.version,
       controller.signal,
     )

@@ -1,7 +1,9 @@
 import type { UpdateState } from "../src/update.ts";
 
-export const GITHUB_RELEASE_SOURCE =
-  "https://api.github.com/repos/50R1Paps/gaetanata/releases/latest";
+export const GITHUB_RELEASE_SOURCE = {
+  apiUrl: "https://api.github.com/repos/50R1Paps/gaetanata/releases/latest",
+  gitUrl: "https://github.com/50R1Paps/gaetanata.git",
+};
 
 export async function checkRelease(
   source: string,
