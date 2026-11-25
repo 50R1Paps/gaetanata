@@ -126,3 +126,65 @@ it("starts normally when the release server is unreachable", async () => {
   expect((await response.json()).update).toEqual({ status: "idle" });
   expect((await fetch(`${base}/api/health`)).status).toBe(200);
 });
+
+it.each([false, true])(
+  "preserves rollback versions through presence with a newer release=%s",
+  async (newer) => {
+    const github = createServer((_req, res) => {
+      res.setHeader("content-type", "application/json");
+      res.end(
+        JSON.stringify({
+          tag_name: newer ? "v99.3.0" : "invalid",
+          body: "note",
+        }),
+      );
+    });
+    github.listen(0, "127.0.0.1");
+    await once(github, "listening");
+    servers.push(github);
+    const address = github.address();
+    if (!address || typeof address === "string") throw new Error("address");
+    const server = await startServer({
+      port: 0,
+      databaseFile: ":memory:",
+      failedUpdateVersion: "0.1.0",
+      failedUpdateTarget: "99.2.0",
+      releaseSource: {
+        apiUrl: `http://127.0.0.1:${address.port}`,
+        gitUrl: ".",
+      },
+    });
+    servers.push(server);
+    const app = server.address();
+    if (!app || typeof app === "string") throw new Error("address");
+    await expect
+      .poll(async () => {
+        const response = await fetch(
+          `http://127.0.0.1:${app.port}/api/window`,
+          {
+            method: "POST",
+            body: JSON.stringify({ windowId: "one" }),
+          },
+        );
+        return (await response.json()).update;
+      })
+      .toMatchObject(
+        newer
+          ? {
+              status: "available",
+              version: "99.3.0",
+              failedFrom: "0.1.0",
+              failedVersion: "99.2.0",
+              failedMessage:
+                "Aggiornamento non riuscito, stai usando ancora la versione 0.1.0",
+            }
+          : {
+              status: "failed",
+              from: "0.1.0",
+              version: "99.2.0",
+              message:
+                "Aggiornamento non riuscito, stai usando ancora la versione 0.1.0",
+            },
+      );
+  },
+);

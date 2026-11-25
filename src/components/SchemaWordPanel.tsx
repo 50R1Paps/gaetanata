@@ -9,6 +9,7 @@ import {
   uploadTemplate,
 } from "../documentsApi";
 import type { SchemaIssue } from "../schemaCalc";
+import { ErrorMessage } from "./ErrorMessage";
 
 const dateTimeFormat = new Intl.DateTimeFormat("it-IT", {
   day: "2-digit",
@@ -128,9 +129,7 @@ export function SchemaWordPanel({
     try {
       saveFile(await downloadPatientDocument(patientId, entry.id));
     } catch (failure) {
-      setHistoryError(
-        `Download di ${entry.filename} non riuscito: ${messageOf(failure)}`,
-      );
+      setHistoryError(`Download del Word non riuscito: ${messageOf(failure)}`);
     }
   }
 
@@ -176,9 +175,10 @@ export function SchemaWordPanel({
         />
       </div>
       {templateError && (
-        <p role="alert" className="schema-problem schema-word-error">
-          {templateError}
-        </p>
+        <ErrorMessage
+          className="schema-problem schema-word-error"
+          message={templateError}
+        />
       )}
 
       <div className="schema-word-row">
@@ -199,7 +199,12 @@ export function SchemaWordPanel({
       </div>
       <p role="status">{generating ? "Generazione in corso…" : notice}</p>
       {problem && (
-        <div role="alert" className="schema-problem schema-word-error">
+        <ErrorMessage
+          as="div"
+          className="schema-problem schema-word-error"
+          message={problem.message}
+          reportable={problem.issues.length === 0}
+        >
           {problem.issues.length > 0 ? (
             <>
               <p>Completa i dati prima di generare il Word:</p>
@@ -214,7 +219,7 @@ export function SchemaWordPanel({
           ) : (
             <p>{problem.message}</p>
           )}
-        </div>
+        </ErrorMessage>
       )}
 
       <h3 id={historyId}>Storico</h3>
@@ -243,9 +248,7 @@ export function SchemaWordPanel({
         </ul>
       )}
       {historyError && (
-        <p role="alert" className="schema-problem">
-          {historyError}
-        </p>
+        <ErrorMessage className="schema-problem" message={historyError} />
       )}
     </section>
   );

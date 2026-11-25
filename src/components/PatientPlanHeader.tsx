@@ -9,6 +9,7 @@ import {
 import { type Draft, loadDraft, writeDraft } from "../draftApi";
 import type { Patient } from "../patient";
 import { listPatients } from "../patientsApi";
+import { ErrorMessage } from "./ErrorMessage";
 import { PatientsDialog } from "./PatientsDialog";
 import { RestoreDraftPrompt } from "./RestoreDraftPrompt";
 import { useWindowId, useWindowSession } from "./WindowGate";
@@ -75,6 +76,7 @@ export function PatientPlanHeader({
     ),
   );
   const [error, setError] = useState<string | null>(null);
+  const [reportable, setReportable] = useState(true);
   const [pending, setPending] = useState(false);
   const decision = useRef<((choice: SwitchChoice) => void) | null>(null);
   const [recovery, setRecovery] = useState<Draft | null>();
@@ -199,6 +201,7 @@ export function PatientPlanHeader({
           await document.save(patient.id, document.value);
         } catch (failure) {
           setNotice(index, `${Noun} non salvato.`);
+          setReportable(!document.invalid);
           setError(
             `Salvataggio ${document.noun} non riuscito: ${failure instanceof Error ? failure.message : String(failure)}`,
           );
@@ -240,6 +243,7 @@ export function PatientPlanHeader({
     }
     setBusy(true);
     setError(null);
+    setReportable(true);
     setNotices(
       documents.map((document) => `Caricamento ${document.noun} in corso…`),
     );
@@ -391,11 +395,7 @@ export function PatientPlanHeader({
               </button>
             </section>
           )}
-          {error && (
-            <p role="alert" className="error">
-              {error}
-            </p>
-          )}
+          {error && <ErrorMessage message={error} reportable={reportable} />}
         </PatientsDialog>
         {documents.map((document, index) => (
           <Fragment key={document.noun}>
@@ -417,15 +417,9 @@ export function PatientPlanHeader({
             </span>
           </Fragment>
         ))}
-        {draftError && (
-          <p role="alert" className="error">
-            {draftError}
-          </p>
-        )}
+        {draftError && <ErrorMessage message={draftError} />}
         {error && !pending && (
-          <p role="alert" className="error">
-            {error}
-          </p>
+          <ErrorMessage message={error} reportable={reportable} />
         )}
       </div>
     </>

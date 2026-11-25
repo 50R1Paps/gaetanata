@@ -1,4 +1,4 @@
-import { execFileSync, spawn } from "node:child_process";
+import { type ChildProcess, execFileSync, spawn } from "node:child_process";
 import { once } from "node:events";
 import {
   cpSync,
@@ -7,11 +7,12 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { expect, it } from "vitest";
 
@@ -450,3 +451,122 @@ it("restores a ZIP after a resumed launcher fails to start the new server", asyn
     rmSync(root, { recursive: true, force: true });
   }
 }, 20_000);
+
+it.each(["--resume-update", "--rollback-update"])(
+  "reports both rollback versions from the real server after %s",
+  async (mode) => {
+    const root = mkdtempSync(join(tmpdir(), "gaetanata-report-rollback-"));
+    const reservation = createServer();
+    reservation.listen(0, "127.0.0.1");
+    await once(reservation, "listening");
+    const address = reservation.address();
+    if (!address || typeof address === "string") throw new Error("address");
+    const port = address.port;
+    reservation.close();
+    await once(reservation, "close");
+    let child: ChildProcess | undefined;
+    try {
+      const previous = join(root, ".aggiornamento/precedente");
+      for (const directory of ["src", "server", "scripts"]) {
+        cpSync(directory, join(previous, directory), { recursive: true });
+      }
+      // Dependencies are read-only; keep the fixture small and never run npm.
+      symlinkSync(
+        resolve("node_modules"),
+        join(root, "node_modules"),
+        "junction",
+      );
+      writeFileSync(
+        join(previous, "scripts/serve.ts"),
+        `
+import {startServer} from "../server/app.ts";
+process.on("disconnect", () => process.exit(0));
+const server = await startServer({
+  port: Number(process.env.PORT), databaseFile: "data/gaetanata.db",
+  failedUpdateVersion: process.env.GAETANATA_AGGIORNAMENTO_FALLITO,
+  failedUpdateTarget: process.env.GAETANATA_AGGIORNAMENTO_VERSIONE_TENTATA,
+});
+process.send?.("ready");
+`,
+      );
+      cpSync("package.json", join(previous, "package.json"));
+      cpSync("scripts/start.ts", join(root, "scripts/start.ts"));
+      writeFileSync(join(root, "scripts/serve.ts"), "process.exit(1)");
+      writeFileSync(join(root, "package.json"), '{"type":"module"}');
+      mkdirSync(join(root, "data"));
+      const db = new DatabaseSync(join(root, "data/prima-di-aggiornamento.db"));
+      db.close();
+      writeFileSync(
+        join(root, ".aggiornamento/riavvio.json"),
+        JSON.stringify({
+          da: "0.1.0",
+          a: "99.2.0",
+          tipo: "zip",
+          refPrecedente: "",
+          nodeCompleto: false,
+        }),
+      );
+      child = spawn(
+        process.execPath,
+        [
+          "--experimental-strip-types",
+          "--disable-warning=ExperimentalWarning",
+          join(root, "scripts/start.ts"),
+          mode,
+        ],
+        {
+          cwd: root,
+          env: {
+            ...process.env,
+            PORT: String(port),
+            GAETANATA_NO_BROWSER: "1",
+          },
+          stdio: "pipe",
+        },
+      );
+      await expect
+        .poll(
+          async () => {
+            try {
+              const response = await fetch(
+                `http://127.0.0.1:${port}/api/window`,
+                {
+                  method: "POST",
+                  body: JSON.stringify({ windowId: "report" }),
+                },
+              );
+              return (await response.json()).update;
+            } catch {
+              return null;
+            }
+          },
+          { timeout: 15_000 },
+        )
+        .toMatchObject({
+          status: "failed",
+          from: "0.1.0",
+          version: "99.2.0",
+        });
+    } finally {
+      if (child && child.exitCode === null) {
+        const exited = once(child, "exit");
+        child.kill();
+        await exited;
+      }
+      await expect
+        .poll(
+          () => {
+            try {
+              rmSync(root, { recursive: true, force: true });
+              return true;
+            } catch {
+              return false;
+            }
+          },
+          { timeout: 10_000 },
+        )
+        .toBe(true);
+    }
+  },
+  60_000,
+);

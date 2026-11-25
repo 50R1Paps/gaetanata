@@ -16,11 +16,14 @@ type TechnicalData = {
 
 const recipient = "gaetanata.qualify006@simplelogin.com";
 
+export type FailedUpdate = { from?: string; version: string };
+
 function reportText(
   data: TechnicalData,
   description: string,
   screen: string,
   initialError?: string,
+  failedUpdate?: FailedUpdate,
 ) {
   const subject = `Segnalazione Gaetanata ${data.version}`;
   const mailto = (body: string) =>
@@ -31,7 +34,7 @@ function reportText(
     `Schermata: ${screen}`,
   ];
   const base = () =>
-    `${description}\n\nDati tecnici\nVersione: ${data.version}${details.length ? `\n${details.join("\n")}` : ""}`;
+    `${description}\n\nDati tecnici\nVersione: ${data.version}${failedUpdate ? `\nVersione installata: ${failedUpdate.from ?? data.version}\nVersione non riuscita: ${failedUpdate.version}` : ""}${details.length ? `\n${details.join("\n")}` : ""}`;
   const errors = [
     ...(initialError ? [`Errore di partenza: ${initialError}`] : []),
     ...(data.errors.length
@@ -70,7 +73,7 @@ function reportText(
 }
 
 type ReportSession = {
-  openReport: (initialError?: string) => void;
+  openReport: (initialError?: string, failedUpdate?: FailedUpdate) => void;
   setScreen: (screen: string) => void;
 };
 const ReportContext = createContext<ReportSession | null>(null);
@@ -83,13 +86,18 @@ export function ReportProvider({ children }: { children: ReactNode }) {
   const [report, setReport] = useState<{
     screen: string;
     initialError?: string;
+    failedUpdate?: FailedUpdate;
   } | null>(null);
   const [screen, setScreen] = useState("Finestra non attiva");
   return (
     <ReportContext
       value={{
-        openReport: (initialError) =>
-          setReport({ screen, ...(initialError ? { initialError } : {}) }),
+        openReport: (initialError, failedUpdate) =>
+          setReport({
+            screen,
+            ...(initialError ? { initialError } : {}),
+            ...(failedUpdate ? { failedUpdate } : {}),
+          }),
         setScreen,
       }}
     >
@@ -102,10 +110,12 @@ export function ReportProvider({ children }: { children: ReactNode }) {
 function ReportScreen({
   screen,
   initialError,
+  failedUpdate,
   close,
 }: {
   screen: string;
   initialError?: string;
+  failedUpdate?: FailedUpdate;
   close: () => void;
 }) {
   const [data, setData] = useState<TechnicalData | null>(null);
@@ -132,7 +142,7 @@ function ReportScreen({
     return () => controller.abort();
   }, []);
   const { subject, body, mailto } = data
-    ? reportText(data, description, screen, initialError)
+    ? reportText(data, description, screen, initialError, failedUpdate)
     : { subject: "", body: "", mailto: "" };
   async function send(method: "gmail" | "mail" | "copy") {
     if (!description.trim()) {

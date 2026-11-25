@@ -43,6 +43,17 @@ o dati dei pazienti. L'anteprima mostra il testo esatto e i **Dati tecnici**:
 Versione, sistema operativo, installazione clone o ZIP, schermata aperta e ultimi
 cinque errori del registro.
 
+Il tasto compare anche nei messaggi delle operazioni non riuscite: lettura,
+salvataggio ed eliminazione delle schede, caricamento e salvataggio di piano e
+schema, lettura/ripristino/scarto/scrittura della bozza, template, generazione e
+download del Word, lettura e aggiornamento dello storico, server non disponibile
+e aggiornamento dell'app. Apre la stessa schermata con quell'errore prima degli
+errori del registro. Per un aggiornamento non riuscito riporta anche la Versione
+installata e quella non riuscita, anche dopo il ripristino; un launcher precedente
+può non conoscere la Versione tentata. I nomi dei file Word non entrano nell'errore.
+Le indicazioni per correggere i dati inseriti non sono errori operativi e non
+mostrano il tasto.
+
 Scegli **Invia con Gmail** per aprire una composizione nel browser, **Invia con il
 programma di posta** per usare la posta del computer, oppure **Copia il testo**
 per incollarlo dove preferisci. L'app prepara il messaggio per

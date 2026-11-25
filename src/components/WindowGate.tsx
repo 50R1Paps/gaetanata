@@ -9,6 +9,7 @@ import {
 import type { DraftInput } from "../draftApi";
 import type { UpdateState } from "../update";
 import { closeWindow, signalWindow } from "../windowApi";
+import { ErrorMessage } from "./ErrorMessage";
 import { useReport } from "./Report";
 
 type WindowSession = {
@@ -178,12 +179,9 @@ export function WindowGate({
         minute: "2-digit",
       });
     return (
-      <p role="alert">
-        Gaetanata si è chiusa. Riaprila dall'icona
-        {time
-          ? `: le modifiche fino alle ${time} sono nella bozza.`
-          : ". Nessuna bozza scritta in questa finestra."}
-      </p>
+      <ErrorMessage
+        message={`Gaetanata si è chiusa. Riaprila dall'icona${time ? `: le modifiche fino alle ${time} sono nella bozza.` : ". Nessuna bozza scritta in questa finestra."}`}
+      />
     );
   }
   if (status === "pending") return <p role="status">Apertura di Gaetanata…</p>;
@@ -207,12 +205,39 @@ export function WindowGate({
             {patientDirty && (
               <p>Salva la scheda paziente prima di aggiornare.</p>
             )}
-            {installError && <p role="alert">{installError}</p>}
+            {installError && (
+              <ErrorMessage
+                message={installError}
+                failedUpdate={{ version: update.version }}
+              />
+            )}
           </section>
         )}
-        {update.status === "failed" && <p role="alert">{update.message}</p>}
+        {update.status === "failed" && (
+          <ErrorMessage
+            message={update.message}
+            failedUpdate={
+              update.version
+                ? {
+                    version: update.version,
+                    ...(update.from ? { from: update.from } : {}),
+                  }
+                : undefined
+            }
+          />
+        )}
         {update.status === "available" && update.failedMessage && (
-          <p role="alert">{update.failedMessage}</p>
+          <ErrorMessage
+            message={update.failedMessage}
+            failedUpdate={
+              update.failedVersion
+                ? {
+                    version: update.failedVersion,
+                    ...(update.failedFrom ? { from: update.failedFrom } : {}),
+                  }
+                : undefined
+            }
+          />
         )}
         <fieldset
           disabled={installing}
