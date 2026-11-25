@@ -17,6 +17,7 @@ import type { UpdateState } from "../src/update.ts";
 import { openDatabase, schemaVersion } from "./db.ts";
 import { documentHandler } from "./documents.ts";
 import { draftHandler } from "./draft.ts";
+import { errorLog } from "./error-log.ts";
 import { inspectClone, installClone, installZip } from "./install-update.ts";
 import { type PatientStore, patientStore } from "./patients.ts";
 import { planHandler } from "./plans.ts";
@@ -62,6 +63,11 @@ const contentTypes: Record<string, string> = {
 /** Listens on 127.0.0.1 only: patient data must never be reachable from the network. */
 export async function startServer(options: ServerOptions): Promise<Server> {
   const db = openDatabase(options.databaseFile);
+  const errors = errorLog(options.databaseFile);
+  const recordServerError = (error: unknown) => {
+    errors.record("server", error);
+    console.error(error);
+  };
   const patients = patientStore(db);
   const frozen = () => update.status === "progress";
   const handlePlan = planHandler(db, frozen);
@@ -78,6 +84,8 @@ export async function startServer(options: ServerOptions): Promise<Server> {
         message: `Aggiornamento non riuscito, stai usando ancora la versione ${options.failedUpdateVersion}`,
       }
     : { status: "idle" };
+  if (update.status === "failed")
+    errors.record("aggiornamento", new Error(update.message));
   const windows = windowHandler({
     staleAfterMs: options.windowStaleAfterMs,
     idleGraceMs: options.idleGraceMs,
@@ -89,6 +97,42 @@ export async function startServer(options: ServerOptions): Promise<Server> {
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
+    if (url.pathname === "/api/errors") {
+      void (async () => {
+        if (req.method !== "POST") {
+          sendJson(res, 405, { error: "Metodo non consentito" });
+          return;
+        }
+        const bytes = await readBody(req, res);
+        if (!bytes) return;
+        let body: unknown;
+        try {
+          body = JSON.parse(bytes.toString("utf8"));
+        } catch {
+          body = null;
+        }
+        if (
+          !body ||
+          typeof body !== "object" ||
+          !("message" in body) ||
+          typeof body.message !== "string" ||
+          !body.message.trim() ||
+          ("stack" in body && typeof body.stack !== "string")
+        ) {
+          sendJson(res, 400, { error: "Errore interfaccia non valido" });
+          return;
+        }
+        const error = new Error(body.message);
+        error.stack = "stack" in body ? String(body.stack) : "";
+        errors.record("interfaccia", error);
+        res.writeHead(204).end();
+      })().catch((error: unknown) => {
+        recordServerError(error);
+        if (res.headersSent) res.end();
+        else sendJson(res, 500, { error: "Errore interno del server" });
+      });
+      return;
+    }
     if (
       url.pathname.startsWith("/api/") &&
       ["POST", "PUT", "PATCH", "DELETE"].includes(req.method ?? "") &&
@@ -182,6 +226,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
           from: packageInfo.version,
           version,
           nodeVersion: options.nodeVersion ?? process.versions.node,
+          onFailure: (error: unknown) => errors.record("aggiornamento", error),
           setState: (state: UpdateState) => {
             update = state;
             if (state.status === "failed") windows.updateFinished();
@@ -198,7 +243,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
           });
         else void installZip({ ...context, zipUrl: zipUrl ?? "" });
       })().catch((error: unknown) => {
-        console.error(error);
+        recordServerError(error);
         if (res.headersSent) res.end();
         else sendJson(res, 500, { error: "Errore interno del server" });
       });
@@ -210,7 +255,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
         return;
       }
       drafts.handle(req, res).catch((error) => {
-        console.error(error);
+        recordServerError(error);
         if (res.headersSent) res.end();
         else sendJson(res, 500, { error: "Errore interno del server" });
       });
@@ -223,7 +268,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
       windows
         .handle(req, res, url.pathname === "/api/window/close")
         .catch((error) => {
-          console.error(error);
+          recordServerError(error);
           if (res.headersSent) res.end();
           else sendJson(res, 500, { error: "Errore interno del server" });
         });
@@ -231,7 +276,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
     }
     if (url.pathname === "/api/template") {
       handleDocument(req, res).catch((error) => {
-        console.error(error);
+        recordServerError(error);
         if (res.headersSent) res.end();
         else sendJson(res, 500, { error: "Errore interno del server" });
       });
@@ -249,7 +294,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
         documentMatch[2] === "documents",
         documentMatch[3] === undefined ? undefined : Number(documentMatch[3]),
       ).catch((error) => {
-        console.error(error);
+        recordServerError(error);
         if (res.headersSent) res.end();
         else sendJson(res, 500, { error: "Errore interno del server" });
       });
@@ -270,7 +315,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
           )
         : handlePatients(patients, url.pathname, req, res, frozen);
       handled.catch((error) => {
-        console.error(error);
+        recordServerError(error);
         if (res.headersSent) res.end();
         else sendJson(res, 500, { error: "Errore interno del server" });
       });
@@ -286,7 +331,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
     }
     if (options.staticDir) {
       serveStatic(options.staticDir, url.pathname, res).catch((error) => {
-        console.error(error);
+        recordServerError(error);
         if (!res.headersSent) res.writeHead(500);
         res.end();
       });
@@ -304,6 +349,11 @@ export async function startServer(options: ServerOptions): Promise<Server> {
     resolve();
   });
   await promise;
+  // Observe fatal exceptions without changing Node's default crash behavior.
+  process.on("uncaughtExceptionMonitor", recordServerError);
+  server.once("close", () => {
+    process.off("uncaughtExceptionMonitor", recordServerError);
+  });
   if (options.releaseSource) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5_000);

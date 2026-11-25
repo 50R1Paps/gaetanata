@@ -90,3 +90,16 @@ function migrate(db: DatabaseSync, steps: readonly string[]): void {
     }
   }
 }
+
+/** JSON's native SyntaxError includes a fragment of the patient's data. */
+export function parsePatientJson<T>(text: string, patientId: number | null): T {
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(
+      patientId === null
+        ? "Dati della bozza non leggibili."
+        : `Dati salvati del paziente ${patientId} non leggibili.`,
+    );
+  }
+}

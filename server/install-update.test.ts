@@ -9,7 +9,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { createServer, request } from "node:http";
+import { createServer, request, type ServerResponse } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -72,8 +72,13 @@ it("refuses a modified clone without changing tracked files", async () => {
 
 it("rejects writes admitted before the update and all new writes during the freeze", async () => {
   const root = mkdtempSync(join(tmpdir(), "gaetanata-barrier-"));
+  const download = Promise.withResolvers<ServerResponse>();
+  let installing = false;
   const releases = createServer((req, res) => {
-    if (req.url === "/archive") return;
+    if (req.url === "/archive") {
+      download.resolve(res);
+      return;
+    }
     const address = releases.address();
     if (!address || typeof address === "string") throw new Error("address");
     res.end(
@@ -95,15 +100,15 @@ it("rejects writes admitted before the update and all new writes during the free
     onRestart: () => {},
     releaseSource: { apiUrl: `http://127.0.0.1:${address.port}`, gitUrl: root },
   });
+  const app = server.address();
+  if (!app || typeof app === "string") throw new Error("address");
+  const base = `http://127.0.0.1:${app.port}`;
+  const presence = () =>
+    fetch(`${base}/api/window`, {
+      method: "POST",
+      body: JSON.stringify({ windowId: "active" }),
+    }).then((response) => response.json());
   try {
-    const app = server.address();
-    if (!app || typeof app === "string") throw new Error("address");
-    const base = `http://127.0.0.1:${app.port}`;
-    const presence = () =>
-      fetch(`${base}/api/window`, {
-        method: "POST",
-        body: JSON.stringify({ windowId: "active" }),
-      }).then((response) => response.json());
     await expect
       .poll(async () => (await presence()).update.status)
       .toBe("available");
@@ -122,6 +127,7 @@ it("rejects writes admitted before the update and all new writes during the free
       method: "POST",
       body: JSON.stringify({ windowId: "active" }),
     });
+    installing = started.status === 202;
     expect(started.status).toBe(202);
     const response = once(pending, "response");
     pending.end('"active"}');
@@ -141,6 +147,21 @@ it("rejects writes admitted before the update and all new writes during the free
       expect(result.status).toBe(409);
     }
   } finally {
+    if (installing) {
+      // Finish the held download and await rollback before deleting its data.
+      const archive = new PizZip();
+      archive.file(
+        "release/package.json",
+        JSON.stringify({ version: "0.0.0" }),
+      );
+      (await download.promise).end(archive.generate({ type: "nodebuffer" }));
+      await expect
+        .poll(async () => (await presence()).update.status)
+        .toBe("failed");
+      await expect
+        .poll(() => existsSync(join(root, ".aggiornamento", "nuova")))
+        .toBe(false);
+    }
     server.closeAllConnections();
     releases.closeAllConnections();
     server.close();
@@ -193,6 +214,9 @@ it("restores ZIP files when the archive has the wrong version", async () => {
     await expect.poll(async () => (await presence()).status).toBe("available");
     expect((await post("/api/update")).status).toBe(202);
     await expect.poll(async () => (await presence()).status).toBe("failed");
+    await expect
+      .poll(() => existsSync(join(root, ".aggiornamento", "nuova")))
+      .toBe(false);
     expect(readFileSync(join(root, "tracked"), "utf8")).toBe("original");
     expect(existsSync(join(root, "package.json"))).toBe(false);
   } finally {

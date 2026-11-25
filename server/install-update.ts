@@ -82,6 +82,7 @@ type UpdateContext = {
   nodeVersion?: string;
   setState: (state: UpdateState) => void;
   restart: () => void;
+  onFailure?: (error: unknown) => void;
 };
 
 async function backupDatabase(context: UpdateContext, temporary: string) {
@@ -197,6 +198,7 @@ export async function installClone(
     }
     await prepareAndRestart(options, nodeCompleto);
   } catch (error) {
+    options.onFailure?.(error);
     await rm(temporaryBackup, { force: true });
     try {
       if (checkedOut) await git("checkout", "--force", ref);
@@ -207,6 +209,7 @@ export async function installClone(
       await rm(join(updateDir, "riavvio.json"), { force: true });
       failed(options);
     } catch (restoreError) {
+      options.onFailure?.(restoreError);
       console.error("Ripristino non riuscito", error, restoreError);
       failed(options, restoreError);
     }
@@ -305,6 +308,7 @@ export async function installZip(
     await writeRestart(options, "zip", "", nodeCompleto);
     await prepareAndRestart(options, nodeCompleto);
   } catch (error) {
+    options.onFailure?.(error);
     try {
       await rm(temporaryBackup, { force: true });
       for (const name of installed)
@@ -316,6 +320,7 @@ export async function installZip(
       await rm(join(updateDir, "riavvio.json"), { force: true });
       failed(options);
     } catch (restoreError) {
+      options.onFailure?.(restoreError);
       console.error("Ripristino non riuscito", error, restoreError);
       failed(options, restoreError);
     }

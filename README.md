@@ -18,6 +18,19 @@ Se l'avvio dall'icona fallisce, un dialogo indica il file `data/avvio.log` da co
 
 I dati sono salvati sul computer in `data/gaetanata.db`. Per un backup, chiudi l'app e copia l'intera cartella `data/`.
 
+Gli ultimi 50 errori del server e dell'interfaccia e i fallimenti degli
+Aggiornamenti restano in `data/errori.json`, nella stessa cartella del database
+anche quando è configurata una cartella dati diversa. Il registro sopravvive ai
+riavvii e conserva data, origine, messaggio e le prime sei righe dello stack,
+senza corpi o parametri delle richieste né dati dei pazienti. Gli errori di
+validazione e le richieste dell'interfaccia fallite per assenza di rete non
+vengono registrati; il controllo iniziale della Versione resta silenzioso.
+Un Aggiornamento già avviato che fallisce viene invece registrato anche se la
+causa è la rete.
+Se il registro non può essere scritto sul disco, l'operazione in corso non si
+interrompe: gli errori restano in memoria e vengono salvati alla successiva
+registrazione riuscita. Se l'app si chiude prima, queste voci non persistono.
+
 All'avvio Gaetanata controlla in silenzio se è disponibile una versione più
 recente e ne mostra le note nella finestra attiva. Il controllo non impedisce
 l'avvio anche se la rete non è disponibile.
