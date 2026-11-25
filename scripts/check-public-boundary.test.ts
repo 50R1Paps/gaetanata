@@ -13,13 +13,13 @@ function git(...args: string[]) {
   const result = spawnSync("git", args, { cwd: dir, encoding: "utf8" });
   expect(result.status, result.stderr).toBe(0);
 }
-function scan(staged = false) {
+function scan(staged = false, target = dir) {
   return spawnSync(
     process.execPath,
     [
       "--experimental-strip-types",
       scanner,
-      dir,
+      target,
       ...(staged ? ["--staged"] : []),
     ],
     { encoding: "utf8" },
@@ -63,6 +63,27 @@ it("checks the index rather than hiding staged secrets behind safe working text"
   writeFileSync(join(dir, "safe.txt"), "innocuo");
   expect(scan().status).toBe(0);
   expect(scan(true).status).toBe(1);
+}, 15_000);
+
+it("uses the main checkout's private list when scanning a linked worktree", () => {
+  writeFileSync(join(dir, ".private-patterns"), "ParolaSegreta\n");
+  writeFileSync(join(dir, "safe.txt"), "innocuo");
+  git("add", "safe.txt");
+  git(
+    "-c",
+    "user.name=t",
+    "-c",
+    "user.email=t@example.invalid",
+    "commit",
+    "-qm",
+    "init",
+  );
+  const worktree = join(dir, ".worktrees", "ramo");
+  git("worktree", "add", "-q", worktree, "-b", "ramo");
+  writeFileSync(join(worktree, "safe.txt"), "ParolaSegreta");
+  const result = scan(false, worktree);
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain("safe.txt:1: ParolaSegreta");
 }, 15_000);
 
 it("rejects all sensitive extensions and external test paths without flagging identifiers", () => {
