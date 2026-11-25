@@ -89,6 +89,8 @@ export async function installClone(options: {
     "prima-di-aggiornamento.tmp.db",
   );
   const backup = join(dirname(databaseFile), "prima-di-aggiornamento.db");
+  let checkedOut = false;
+  const moved: string[] = [];
   try {
     await git(
       "fetch",
@@ -111,6 +113,7 @@ export async function installClone(options: {
       }),
     );
     await git("checkout", "--detach", `v${version}`);
+    checkedOut = true;
     const pkg: unknown = JSON.parse(
       await readFile(join(root, "package.json"), "utf8"),
     );
@@ -124,8 +127,10 @@ export async function installClone(options: {
     await rm(previous, { recursive: true, force: true });
     await mkdir(previous, { recursive: true });
     for (const name of ["node_modules", "dist"]) {
-      if (existsSync(join(root, name)))
+      if (existsSync(join(root, name))) {
         await rename(join(root, name), join(previous, name));
+        moved.push(name);
+      }
     }
     progress("installo");
     await ensureDependencies(root);
@@ -138,9 +143,23 @@ export async function installClone(options: {
     restart();
   } catch (error) {
     await rm(temporaryBackup, { force: true });
-    setState({
-      status: "failed",
-      message: `Aggiornamento non riuscito: ${error instanceof Error ? error.message : String(error)}. Contatta chi ti aiuta.`,
-    });
+    try {
+      if (checkedOut) await git("checkout", ref);
+      for (const name of moved) {
+        await rm(join(root, name), { recursive: true, force: true });
+        await rename(join(previous, name), join(root, name));
+      }
+      await rm(join(updateDir, "riavvio.json"), { force: true });
+      setState({
+        status: "failed",
+        message: `Aggiornamento non riuscito, stai usando ancora la versione ${from}`,
+      });
+    } catch (restoreError) {
+      console.error("Ripristino non riuscito", error, restoreError);
+      setState({
+        status: "failed",
+        message: "Ripristino non riuscito. Contatta chi ti aiuta.",
+      });
+    }
   }
 }

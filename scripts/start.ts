@@ -1,11 +1,14 @@
 // One-command start: install dependencies and rebuild only when needed,
 // then serve the app on 127.0.0.1 and open the browser.
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
+  copyFileSync,
   existsSync,
   readdirSync,
   readFileSync,
+  renameSync,
+  rmSync,
   statSync,
   unlinkSync,
   writeFileSync,
@@ -53,6 +56,9 @@ if (
 
   let restarting = false;
   let expectedVersion: string | undefined;
+  let failedVersion: string | undefined;
+  let previousRef: string | undefined;
+  let previousVersion: string | undefined;
   for (;;) {
     // The launcher stays in memory while checkout replaces files on disk.
     const child = spawn(
@@ -60,7 +66,7 @@ if (
       [...process.execArgv, join(root, "scripts", "serve.ts")],
       {
         cwd: root,
-        env: process.env,
+        env: { ...process.env, GAETANATA_AGGIORNAMENTO_FALLITO: failedVersion },
         windowsHide: true,
         stdio: ["inherit", "inherit", "inherit", "ipc"],
       },
@@ -117,6 +123,33 @@ if (
     process.off("SIGTERM", terminate);
     process.off("SIGHUP", hangup);
     process.off("exit", terminate);
+    if (restarting && !ready) {
+      if (!previousRef || !previousVersion)
+        throw new Error("Protocollo di riavvio non valido");
+      execFileSync("git", ["checkout", previousRef], {
+        cwd: root,
+        env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+        stdio: "inherit",
+      });
+      const previous = join(root, ".aggiornamento", "precedente");
+      for (const name of ["node_modules", "dist"]) {
+        const saved = join(previous, name);
+        if (existsSync(saved)) {
+          rmSync(join(root, name), { recursive: true, force: true });
+          renameSync(saved, join(root, name));
+        }
+      }
+      const data = process.env.GAETANATA_DATA_DIR ?? join(root, "data");
+      const database = join(data, "gaetanata.db");
+      rmSync(`${database}-wal`, { force: true });
+      rmSync(`${database}-shm`, { force: true });
+      copyFileSync(join(data, "prima-di-aggiornamento.db"), database);
+      rmSync(restartFile, { force: true });
+      failedVersion = previousVersion;
+      restarting = false;
+      expectedVersion = undefined;
+      continue;
+    }
     if (code !== 75) {
       process.exitCode = code;
       break;
@@ -126,10 +159,18 @@ if (
       !protocol ||
       typeof protocol !== "object" ||
       !("a" in protocol) ||
-      typeof protocol.a !== "string"
+      typeof protocol.a !== "string" ||
+      !("da" in protocol) ||
+      typeof protocol.da !== "string" ||
+      !("tipo" in protocol) ||
+      protocol.tipo !== "clone" ||
+      !("refPrecedente" in protocol) ||
+      typeof protocol.refPrecedente !== "string"
     )
       throw new Error("Protocollo di riavvio non valido");
     expectedVersion = protocol.a;
+    previousRef = protocol.refPrecedente;
+    previousVersion = protocol.da;
     restarting = true;
   }
 }

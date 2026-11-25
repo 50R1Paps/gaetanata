@@ -26,6 +26,8 @@ l'avvio anche se la rete non è disponibile.
 
 Quando compare un aggiornamento, leggi le note e premi **Installa aggiornamento** nella finestra attiva. Salva prima la scheda paziente; le modifiche al piano e allo schema restano nella bozza. La finestra mostra i passi e si ricarica da sola; puoi chiuderla e riaprire l'icona durante l'operazione. Il database viene copiato in `data/prima-di-aggiornamento.db` (nella cartella dati configurata), sovrascrivendo la copia precedente.
 
+Se l'aggiornamento non riesce, Gaetanata ripristina la versione precedente e mostra un avviso. Se la nuova versione non si avvia, ripristina anche la copia del database.
+
 Per ora l'installazione dall'app funziona sui clone Git puliti: se hai modificato file tracciati, contatta chi ti aiuta. Il clone viene portato sul tag della Versione con HEAD staccato. Per le installazioni ZIP l'aggiornamento dall'app non è ancora disponibile. La prima versione con questo pulsante va installata a mano; il launcher già in memoria gestisce il successivo riavvio, quindi eventuali modifiche al launcher hanno effetto dall'aggiornamento seguente.
 
 ## Pubblicare una Versione

@@ -15,6 +15,7 @@ const server = await startServer({
   staticDir: join(root, "dist"),
   releaseSource: GITHUB_RELEASE_SOURCE,
   appDir: root,
+  failedUpdateVersion: process.env.GAETANATA_AGGIORNAMENTO_FALLITO,
   onRestart: () => server.close(() => process.exit(75)),
   onIdle: () => server.close(() => process.exit(0)),
 });
