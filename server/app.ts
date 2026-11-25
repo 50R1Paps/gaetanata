@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import {
   createServer,
@@ -16,7 +17,7 @@ import type { UpdateState } from "../src/update.ts";
 import { openDatabase, schemaVersion } from "./db.ts";
 import { documentHandler } from "./documents.ts";
 import { draftHandler } from "./draft.ts";
-import { inspectClone, installClone } from "./install-update.ts";
+import { inspectClone, installClone, installZip } from "./install-update.ts";
 import { type PatientStore, patientStore } from "./patients.ts";
 import { planHandler } from "./plans.ts";
 import { readBody } from "./request-body.ts";
@@ -124,9 +125,17 @@ export async function startServer(options: ServerOptions): Promise<Server> {
           sendJson(res, 409, { error: "Aggiornamento non disponibile" });
           return;
         }
-        const clone = inspectClone(options.appDir);
-        if ("error" in clone) {
+        const clone = existsSync(join(options.appDir, ".git"))
+          ? inspectClone(options.appDir)
+          : null;
+        if (clone && "error" in clone) {
           sendJson(res, 409, { error: clone.error });
+          return;
+        }
+        if (!clone && !update.zipUrl) {
+          sendJson(res, 409, {
+            error: "Archivio della versione non disponibile",
+          });
           return;
         }
         if ("draft" in body && body.draft !== undefined) {
@@ -140,6 +149,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
           }
         }
         const version = update.version;
+        const zipUrl = update.zipUrl;
         update = {
           status: "progress",
           step: "scarico",
@@ -147,14 +157,16 @@ export async function startServer(options: ServerOptions): Promise<Server> {
           version,
         };
         sendJson(res, 202, { update });
-        void installClone({
+        const install = clone ? installClone : installZip;
+        void install({
           root: options.appDir,
           databaseFile: options.databaseFile,
           db,
           gitUrl: options.releaseSource.gitUrl,
+          zipUrl: zipUrl ?? "",
           from: packageInfo.version,
           version,
-          ref: clone.ref,
+          ref: clone && "ref" in clone ? clone.ref : "",
           setState: (state) => {
             update = state;
             if (state.status === "failed") windows.updateFinished();

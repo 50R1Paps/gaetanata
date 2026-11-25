@@ -169,3 +169,68 @@ process.exit(75);`;
     rmSync(root, { recursive: true, force: true });
   }
 }, 60_000);
+
+it("restores ZIP files and the database after the new server fails", async () => {
+  const root = mkdtempSync(join(tmpdir(), "gaetanata-zip-rollback-"));
+  try {
+    cpSync("scripts/start.ts", join(root, "scripts/start.ts"));
+    mkdirSync(join(root, "src"));
+    mkdirSync(join(root, "node_modules/vite/bin"), { recursive: true });
+    mkdirSync(join(root, "data"));
+    writeFileSync(join(root, "package.json"), '{"type":"module"}');
+    writeFileSync(join(root, "package-lock.json"), "{}");
+    writeFileSync(
+      join(root, "node_modules/.gaetanata-lock"),
+      "017884b51b91073c9a6fa06ce0f8cafee3a89d685fce596de57d7c6da25ad303",
+    );
+    writeFileSync(
+      join(root, "node_modules/vite/bin/vite.js"),
+      'require("node:fs").mkdirSync("dist",{recursive:true})',
+    );
+    writeFileSync(join(root, "node_modules/old"), "dependencies");
+    writeFileSync(join(root, "index.html"), "");
+    writeFileSync(join(root, "vite.config.ts"), "");
+    writeFileSync(join(root, "old-file"), "old");
+    const db = new DatabaseSync(join(root, "data/gaetanata.db"));
+    db.exec("CREATE TABLE value (v TEXT); INSERT INTO value VALUES ('before')");
+    db.close();
+    const broken = `import {DatabaseSync} from "node:sqlite";const db=new DatabaseSync("data/gaetanata.db");db.exec("UPDATE value SET v='after'");db.close();process.exit(1);`;
+    const original = `import {mkdirSync,renameSync,copyFileSync,writeFileSync} from "node:fs";
+if(process.env.GAETANATA_AGGIORNAMENTO_FALLITO){writeFileSync("result",process.env.GAETANATA_AGGIORNAMENTO_FALLITO);process.exit(0)}
+mkdirSync(".aggiornamento/precedente",{recursive:true});
+copyFileSync("data/gaetanata.db","data/prima-di-aggiornamento.db");
+for(const name of ["scripts","src","package.json","package-lock.json","index.html","vite.config.ts","old-file","node_modules","dist"]) renameSync(name,".aggiornamento/precedente/"+name);
+mkdirSync("scripts");mkdirSync("node_modules");mkdirSync("dist");
+writeFileSync("scripts/serve.ts",${JSON.stringify(broken)});
+writeFileSync("new-file","new");
+writeFileSync(".aggiornamento/riavvio.json",JSON.stringify({da:"0.1.0",a:"0.2.0",tipo:"zip",refPrecedente:"",nodeCompleto:false}));
+process.exit(75);`;
+    writeFileSync(join(root, "scripts/serve.ts"), original);
+    const child = spawn(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        "--disable-warning=ExperimentalWarning",
+        join(root, "scripts/start.ts"),
+      ],
+      {
+        cwd: root,
+        env: { ...process.env, PORT: "0", GAETANATA_NO_BROWSER: "1" },
+        stdio: "pipe",
+      },
+    );
+    const [code] = await once(child, "exit");
+    expect(code).toBe(0);
+    expect(readFileSync(join(root, "result"), "utf8")).toBe("0.1.0");
+    expect(readFileSync(join(root, "old-file"), "utf8")).toBe("old");
+    expect(existsSync(join(root, "new-file"))).toBe(false);
+    expect(readFileSync(join(root, "node_modules/old"), "utf8")).toBe(
+      "dependencies",
+    );
+    const restored = new DatabaseSync(join(root, "data/gaetanata.db"));
+    expect(restored.prepare("SELECT v FROM value").get()?.v).toBe("before");
+    restored.close();
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}, 60_000);

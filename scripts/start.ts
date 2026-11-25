@@ -58,6 +58,7 @@ if (
   let expectedVersion: string | undefined;
   let failedVersion: string | undefined;
   let previousRef: string | undefined;
+  let previousType: "clone" | "zip" = "clone";
   let previousVersion: string | undefined;
   for (;;) {
     // The launcher stays in memory while checkout replaces files on disk.
@@ -124,13 +125,32 @@ if (
     process.off("SIGHUP", hangup);
     process.off("exit", terminate);
     if (restarting && !ready) {
-      if (!previousRef || !previousVersion)
+      if (!previousVersion || (previousType === "clone" && !previousRef))
         throw new Error("Protocollo di riavvio non valido");
-      execFileSync("git", ["checkout", previousRef], {
-        cwd: root,
-        env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
-        stdio: "inherit",
-      });
+      if (previousType === "clone") {
+        execFileSync("git", ["checkout", previousRef ?? ""], {
+          cwd: root,
+          env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+          stdio: "inherit",
+        });
+      } else {
+        const protectedNames = [
+          "data",
+          ".runtime",
+          "node_modules",
+          "dist",
+          ".aggiornamento",
+        ];
+        for (const name of readdirSync(root)) {
+          if (!protectedNames.includes(name))
+            rmSync(join(root, name), { recursive: true, force: true });
+        }
+        const saved = join(root, ".aggiornamento", "precedente");
+        for (const name of readdirSync(saved)) {
+          if (name !== "node_modules" && name !== "dist")
+            renameSync(join(saved, name), join(root, name));
+        }
+      }
       const previous = join(root, ".aggiornamento", "precedente");
       for (const name of ["node_modules", "dist"]) {
         const saved = join(previous, name);
@@ -163,12 +183,13 @@ if (
       !("da" in protocol) ||
       typeof protocol.da !== "string" ||
       !("tipo" in protocol) ||
-      protocol.tipo !== "clone" ||
+      (protocol.tipo !== "clone" && protocol.tipo !== "zip") ||
       !("refPrecedente" in protocol) ||
       typeof protocol.refPrecedente !== "string"
     )
       throw new Error("Protocollo di riavvio non valido");
     expectedVersion = protocol.a;
+    previousType = protocol.tipo;
     previousRef = protocol.refPrecedente;
     previousVersion = protocol.da;
     restarting = true;
