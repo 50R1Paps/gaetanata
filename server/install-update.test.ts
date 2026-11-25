@@ -350,9 +350,12 @@ it("rejects a checked-out tag whose package version does not match", async () =>
     await expect
       .poll(async () => (await presence()).status, { timeout: 60_000 })
       .toBe("failed");
-    expect((await presence()).message).toMatch(
-      /versione del package non coincide/i,
+    expect((await presence()).message).toBe(
+      "Aggiornamento non riuscito, stai usando ancora la versione 0.1.0",
     );
+    expect(
+      git(clone, "symbolic-ref", "--short", "HEAD").toString().trim(),
+    ).toBe(git(source, "symbolic-ref", "--short", "HEAD").toString().trim());
     expect(restarted).toBe(false);
     expect(existsSync(join(clone, "data", "prima-di-aggiornamento.db"))).toBe(
       true,

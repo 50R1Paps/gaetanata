@@ -17,6 +17,25 @@ afterEach(() => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
+
+it("shows the restored version's failure message", async () => {
+  vi.stubGlobal("fetch", async () =>
+    Response.json({
+      active: true,
+      update: {
+        status: "failed",
+        message:
+          "Aggiornamento non riuscito, stai usando ancora la versione 0.1.0",
+      },
+    }),
+  );
+  await act(async () => {
+    render(<WindowGate>Contenuto</WindowGate>);
+  });
+  expect(screen.getByRole("alert").textContent).toBe(
+    "Aggiornamento non riuscito, stai usando ancora la versione 0.1.0",
+  );
+});
 it("shows release notes and install button only after this window becomes active", async () => {
   vi.useFakeTimers();
   let active = false;

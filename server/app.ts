@@ -39,6 +39,7 @@ export type ServerOptions = {
   /** Installation directory and launcher callback; absent in development. */
   appDir?: string;
   onRestart?: () => void;
+  failedUpdateVersion?: string | undefined;
   /** Built frontend to serve; omit when a dev middleware serves the frontend. */
   staticDir?: string;
   /** Handles non-API requests in dev mode (Vite middleware). */
@@ -64,7 +65,12 @@ export async function startServer(options: ServerOptions): Promise<Server> {
   const handleSchema = schemaHandler(db);
   const handleDocument = documentHandler(options.databaseFile, db);
   const drafts = draftHandler(db, (windowId) => windows.isActive(windowId));
-  let update: UpdateState = { status: "idle" };
+  let update: UpdateState = options.failedUpdateVersion
+    ? {
+        status: "failed",
+        message: `Aggiornamento non riuscito, stai usando ancora la versione ${options.failedUpdateVersion}`,
+      }
+    : { status: "idle" };
   const windows = windowHandler({
     staleAfterMs: options.windowStaleAfterMs,
     idleGraceMs: options.idleGraceMs,
@@ -262,7 +268,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
     resolve();
   });
   await promise;
-  if (options.releaseSource) {
+  if (options.releaseSource && !options.failedUpdateVersion) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5_000);
     server.once("close", () => controller.abort());
