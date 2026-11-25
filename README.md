@@ -27,6 +27,9 @@ validazione e le richieste dell'interfaccia fallite per assenza di rete non
 vengono registrati; il controllo iniziale della Versione resta silenzioso.
 Un Aggiornamento già avviato che fallisce viene invece registrato anche se la
 causa è la rete.
+Se il registro non può essere scritto sul disco, l'operazione in corso non si
+interrompe: gli errori restano in memoria e vengono salvati alla successiva
+registrazione riuscita. Se l'app si chiude prima, queste voci non persistono.
 
 All'avvio Gaetanata controlla in silenzio se è disponibile una versione più
 recente e ne mostra le note nella finestra attiva. Il controllo non impedisce

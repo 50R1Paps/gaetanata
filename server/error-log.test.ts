@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -267,3 +267,44 @@ it.each(["plan", "schema", "draft", "document"])(
     }
   },
 );
+
+it("keeps serving requests when writing the registry fails", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "gaetanata-errors-unwritable-"));
+  const server = await startServer({
+    port: 0,
+    databaseFile: join(dir, "app.db"),
+  });
+  try {
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("address");
+    const base = `http://127.0.0.1:${address.port}`;
+    const blocked = join(dir, "errori.json.tmp");
+    mkdirSync(blocked);
+    const response = await fetch(`${base}/api/errors`, {
+      method: "POST",
+      body: JSON.stringify({ message: "Errore durante il blocco" }),
+      signal: AbortSignal.timeout(1_000),
+    });
+    expect(response.status).toBe(204);
+    expect((await fetch(`${base}/api/health`)).status).toBe(200);
+    rmSync(blocked, { recursive: true });
+    expect(
+      (
+        await fetch(`${base}/api/errors`, {
+          method: "POST",
+          body: JSON.stringify({ message: "Errore dopo il blocco" }),
+        })
+      ).status,
+    ).toBe(204);
+    expect(
+      JSON.parse(readFileSync(join(dir, "errori.json"), "utf8")).map(
+        (entry: { message: string }) => entry.message,
+      ),
+    ).toEqual(["Errore durante il blocco", "Errore dopo il blocco"]);
+  } finally {
+    server.closeAllConnections();
+    server.close();
+    await once(server, "close");
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

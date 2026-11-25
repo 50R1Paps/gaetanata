@@ -33,8 +33,13 @@ export function errorLog(databaseFile: string) {
       ];
       if (file) {
         const temporary = `${file}.tmp`;
-        writeFileSync(temporary, JSON.stringify(entries));
-        renameSync(temporary, file);
+        try {
+          writeFileSync(temporary, JSON.stringify(entries));
+          renameSync(temporary, file);
+        } catch {
+          // Diagnostics must never interrupt the operation being diagnosed.
+          console.error("Impossibile salvare il registro degli errori.");
+        }
       }
     },
     latest(count: number): ErrorEntry[] {
