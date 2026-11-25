@@ -11,7 +11,6 @@ import {
 } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
-import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import { ensureBuild, ensureDependencies } from "../scripts/start.ts";
 import type { UpdateState } from "../src/update.ts";
@@ -74,31 +73,92 @@ export function inspectClone(
   }
 }
 
-export async function installClone(options: {
+type UpdateContext = {
   root: string;
   databaseFile: string;
   db: DatabaseSync;
-  gitUrl: string;
   from: string;
   version: string;
-  ref: string;
   nodeVersion?: string;
   setState: (state: UpdateState) => void;
   restart: () => void;
-}): Promise<void> {
-  const {
-    root,
-    databaseFile,
-    db,
-    gitUrl,
-    from,
-    version,
-    ref,
-    setState,
-    restart,
-  } = options;
-  const progress = (step: "scarico" | "installo" | "preparo" | "riavvio") =>
-    setState({ status: "progress", step, from, version });
+};
+
+async function backupDatabase(context: UpdateContext, temporary: string) {
+  await rm(temporary, { force: true });
+  context.db.prepare("VACUUM INTO ?").run(temporary);
+  await rename(
+    temporary,
+    join(dirname(context.databaseFile), "prima-di-aggiornamento.db"),
+  );
+}
+
+async function validatePackage(path: string, context: UpdateContext) {
+  const pkg: unknown = JSON.parse(
+    await readFile(join(path, "package.json"), "utf8"),
+  );
+  if (
+    !pkg ||
+    typeof pkg !== "object" ||
+    !("version" in pkg) ||
+    pkg.version !== context.version
+  )
+    throw new Error("La versione del package non coincide con il tag.");
+  return !nodeSatisfies(pkg, context.nodeVersion ?? process.versions.node);
+}
+
+async function writeRestart(
+  context: UpdateContext,
+  tipo: "clone" | "zip",
+  refPrecedente: string,
+  nodeCompleto: boolean,
+) {
+  await writeFile(
+    join(context.root, ".aggiornamento", "riavvio.json"),
+    JSON.stringify({
+      da: context.from,
+      a: context.version,
+      tipo,
+      refPrecedente,
+      nodeCompleto,
+    }),
+  );
+}
+
+async function prepareAndRestart(
+  context: UpdateContext,
+  nodeCompleto: boolean,
+) {
+  const progress = (step: "installo" | "preparo" | "riavvio") =>
+    context.setState({
+      status: "progress",
+      step,
+      from: context.from,
+      version: context.version,
+    });
+  if (!nodeCompleto) {
+    progress("installo");
+    await ensureDependencies(context.root);
+    progress("preparo");
+    await ensureBuild(context.root);
+  }
+  progress("riavvio");
+  context.restart();
+}
+
+function failed(context: UpdateContext, restoreError?: unknown) {
+  context.setState({
+    status: "failed",
+    message: restoreError
+      ? "Ripristino non riuscito. Contatta chi ti aiuta."
+      : `Aggiornamento non riuscito, stai usando ancora la versione ${context.from}`,
+  });
+}
+
+export async function installClone(
+  options: UpdateContext & { gitUrl: string; ref: string },
+): Promise<void> {
+  const { root, databaseFile, gitUrl, version, ref } = options;
   const git = (...args: string[]) =>
     execute("git", args, {
       cwd: root,
@@ -112,7 +172,6 @@ export async function installClone(options: {
     dirname(databaseFile),
     "prima-di-aggiornamento.tmp.db",
   );
-  const backup = join(dirname(databaseFile), "prima-di-aggiornamento.db");
   let checkedOut = false;
   const moved: string[] = [];
   try {
@@ -122,36 +181,12 @@ export async function installClone(options: {
       gitUrl,
       `refs/tags/v${version}:refs/tags/v${version}`,
     );
-    await rm(temporaryBackup, { force: true });
-    db.prepare("VACUUM INTO ?").run(temporaryBackup);
-    await rename(temporaryBackup, backup);
+    await backupDatabase(options, temporaryBackup);
     await mkdir(updateDir, { recursive: true });
     checkedOut = true;
     await git("checkout", "--detach", `v${version}`);
-    const pkg: unknown = JSON.parse(
-      await readFile(join(root, "package.json"), "utf8"),
-    );
-    if (
-      !pkg ||
-      typeof pkg !== "object" ||
-      !("version" in pkg) ||
-      pkg.version !== version
-    )
-      throw new Error("La versione del package non coincide con il tag.");
-    const nodeCompleto = !nodeSatisfies(
-      pkg,
-      options.nodeVersion ?? process.versions.node,
-    );
-    await writeFile(
-      join(updateDir, "riavvio.json"),
-      JSON.stringify({
-        da: from,
-        a: version,
-        tipo: "clone",
-        refPrecedente: ref,
-        nodeCompleto,
-      }),
-    );
+    const nodeCompleto = await validatePackage(root, options);
+    await writeRestart(options, "clone", ref, nodeCompleto);
     await rm(previous, { recursive: true, force: true });
     await mkdir(previous, { recursive: true });
     for (const name of ["node_modules", "dist"]) {
@@ -160,17 +195,7 @@ export async function installClone(options: {
         moved.push(name);
       }
     }
-    if (!nodeCompleto) {
-      progress("installo");
-      await ensureDependencies(root);
-      progress("preparo");
-      await ensureBuild(root);
-    }
-    progress("riavvio");
-    // Presence runs every five seconds, including in inactive windows. Give
-    // those windows time to observe restart before the server disappears.
-    await delay(6_000);
-    restart();
+    await prepareAndRestart(options, nodeCompleto);
   } catch (error) {
     await rm(temporaryBackup, { force: true });
     try {
@@ -180,35 +205,18 @@ export async function installClone(options: {
         await rename(join(previous, name), join(root, name));
       }
       await rm(join(updateDir, "riavvio.json"), { force: true });
-      setState({
-        status: "failed",
-        message: `Aggiornamento non riuscito, stai usando ancora la versione ${from}`,
-      });
+      failed(options);
     } catch (restoreError) {
       console.error("Ripristino non riuscito", error, restoreError);
-      setState({
-        status: "failed",
-        message: "Ripristino non riuscito. Contatta chi ti aiuta.",
-      });
+      failed(options, restoreError);
     }
   }
 }
 
-export async function installZip(options: {
-  root: string;
-  databaseFile: string;
-  db: DatabaseSync;
-  gitUrl: string;
-  zipUrl: string;
-  from: string;
-  version: string;
-  ref: string;
-  nodeVersion?: string;
-  setState: (state: UpdateState) => void;
-  restart: () => void;
-}): Promise<void> {
-  const { root, databaseFile, db, zipUrl, from, version, setState, restart } =
-    options;
+export async function installZip(
+  options: UpdateContext & { zipUrl: string },
+): Promise<void> {
+  const { root, databaseFile, zipUrl } = options;
   const updateDir = join(root, ".aggiornamento");
   const previous = join(updateDir, "precedente");
   const staging = join(updateDir, "nuova");
@@ -216,7 +224,6 @@ export async function installZip(options: {
     dirname(databaseFile),
     "prima-di-aggiornamento.tmp.db",
   );
-  const backup = join(dirname(databaseFile), "prima-di-aggiornamento.db");
   const protectedNames = new Set([
     "data",
     ".runtime",
@@ -227,8 +234,6 @@ export async function installZip(options: {
   const moved: string[] = [];
   const installed: string[] = [];
   const dependencies: string[] = [];
-  const progress = (step: "installo" | "preparo" | "riavvio") =>
-    setState({ status: "progress", step, from, version });
   try {
     const response = await fetch(zipUrl, {
       signal: AbortSignal.timeout(120_000),
@@ -274,27 +279,12 @@ export async function installZip(options: {
         await writeFile(target, entry.asNodeBuffer());
       }
     }
-    const pkg: unknown = JSON.parse(
-      await readFile(join(staging, "package.json"), "utf8"),
-    );
-    if (
-      !pkg ||
-      typeof pkg !== "object" ||
-      !("version" in pkg) ||
-      pkg.version !== version
-    )
-      throw new Error("La versione del package non coincide con il tag.");
-    const nodeCompleto = !nodeSatisfies(
-      pkg,
-      options.nodeVersion ?? process.versions.node,
-    );
+    const nodeCompleto = await validatePackage(staging, options);
     for (const name of ["avvia.sh", "avvia.command"]) {
       if (existsSync(join(staging, name)))
         await chmod(join(staging, name), 0o755);
     }
-    await rm(temporaryBackup, { force: true });
-    db.prepare("VACUUM INTO ?").run(temporaryBackup);
-    await rename(temporaryBackup, backup);
+    await backupDatabase(options, temporaryBackup);
     await rm(previous, { recursive: true, force: true });
     await mkdir(previous, { recursive: true });
     for (const name of await readdir(root)) {
@@ -312,25 +302,8 @@ export async function installZip(options: {
         dependencies.push(name);
       }
     }
-    await writeFile(
-      join(updateDir, "riavvio.json"),
-      JSON.stringify({
-        da: from,
-        a: version,
-        tipo: "zip",
-        refPrecedente: "",
-        nodeCompleto,
-      }),
-    );
-    if (!nodeCompleto) {
-      progress("installo");
-      await ensureDependencies(root);
-      progress("preparo");
-      await ensureBuild(root);
-    }
-    progress("riavvio");
-    await delay(6_000);
-    restart();
+    await writeRestart(options, "zip", "", nodeCompleto);
+    await prepareAndRestart(options, nodeCompleto);
   } catch (error) {
     try {
       await rm(temporaryBackup, { force: true });
@@ -341,16 +314,10 @@ export async function installZip(options: {
         await rename(join(previous, name), join(root, name));
       }
       await rm(join(updateDir, "riavvio.json"), { force: true });
-      setState({
-        status: "failed",
-        message: `Aggiornamento non riuscito, stai usando ancora la versione ${from}`,
-      });
+      failed(options);
     } catch (restoreError) {
       console.error("Ripristino non riuscito", error, restoreError);
-      setState({
-        status: "failed",
-        message: "Ripristino non riuscito. Contatta chi ti aiuta.",
-      });
+      failed(options, restoreError);
     }
   } finally {
     await rm(staging, { recursive: true, force: true });

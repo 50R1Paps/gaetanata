@@ -67,7 +67,11 @@ export async function startServer(options: ServerOptions): Promise<Server> {
   const handlePlan = planHandler(db, frozen);
   const handleSchema = schemaHandler(db, frozen);
   const handleDocument = documentHandler(options.databaseFile, db, frozen);
-  const drafts = draftHandler(db, (windowId) => windows.isActive(windowId), frozen);
+  const drafts = draftHandler(
+    db,
+    (windowId) => windows.isActive(windowId),
+    frozen,
+  );
   let update: UpdateState = options.failedUpdateVersion
     ? {
         status: "failed",
@@ -85,12 +89,14 @@ export async function startServer(options: ServerOptions): Promise<Server> {
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
-    if (url.pathname.startsWith("/api/") &&
-        ["POST", "PUT", "PATCH", "DELETE"].includes(req.method ?? "") &&
-        url.pathname !== "/api/update" &&
-        url.pathname !== "/api/window" &&
-        url.pathname !== "/api/window/close" &&
-        frozen()) {
+    if (
+      url.pathname.startsWith("/api/") &&
+      ["POST", "PUT", "PATCH", "DELETE"].includes(req.method ?? "") &&
+      url.pathname !== "/api/update" &&
+      url.pathname !== "/api/window" &&
+      url.pathname !== "/api/window/close" &&
+      frozen()
+    ) {
       sendJson(res, 409, { error: "Aggiornamento in corso" });
       return;
     }
@@ -167,24 +173,30 @@ export async function startServer(options: ServerOptions): Promise<Server> {
           from: packageInfo.version,
           version,
         };
+        windows.beginUpdate();
         sendJson(res, 202, { update });
-        const install = clone ? installClone : installZip;
-        void install({
+        const context = {
           root: options.appDir,
           databaseFile: options.databaseFile,
           db,
-          gitUrl: options.releaseSource.gitUrl,
-          zipUrl: zipUrl ?? "",
           from: packageInfo.version,
           version,
-          ref: clone && "ref" in clone ? clone.ref : "",
           nodeVersion: options.nodeVersion ?? process.versions.node,
-          setState: (state) => {
+          setState: (state: UpdateState) => {
             update = state;
             if (state.status === "failed") windows.updateFinished();
           },
-          restart: options.onRestart,
-        });
+          restart: () => {
+            void windows.waitForUpdateWindows().then(options.onRestart);
+          },
+        };
+        if (clone && "ref" in clone)
+          void installClone({
+            ...context,
+            gitUrl: options.releaseSource.gitUrl,
+            ref: clone.ref,
+          });
+        else void installZip({ ...context, zipUrl: zipUrl ?? "" });
       })().catch((error: unknown) => {
         console.error(error);
         if (res.headersSent) res.end();
@@ -292,7 +304,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
     resolve();
   });
   await promise;
-  if (options.releaseSource && !options.failedUpdateVersion) {
+  if (options.releaseSource) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5_000);
     server.once("close", () => controller.abort());
@@ -302,7 +314,12 @@ export async function startServer(options: ServerOptions): Promise<Server> {
       controller.signal,
     )
       .then((result) => {
-        update = result;
+        if (update.status === "failed") {
+          if (result.status === "available")
+            update = { ...result, failedMessage: update.message };
+        } else if (update.status === "idle") {
+          update = result;
+        }
       })
       .finally(() => clearTimeout(timer));
   }

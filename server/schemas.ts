@@ -4,7 +4,10 @@ import { emptySchema, isDietSchema } from "../src/schema.ts";
 import { readBody } from "./request-body.ts";
 
 /** One current input-only Schema per patient, matching the plan HTTP contract. */
-export function schemaHandler(db: DatabaseSync, frozen: () => boolean = () => false) {
+export function schemaHandler(
+  db: DatabaseSync,
+  frozen: () => boolean = () => false,
+) {
   const patient = db.prepare("SELECT id FROM patients WHERE id = ?");
   const get = db.prepare(
     "SELECT schema_json FROM schemas WHERE patient_id = ?",

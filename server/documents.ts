@@ -30,7 +30,11 @@ function sendDocument(
   res.end(bytes);
 }
 
-export function documentHandler(databaseFile: string, db: DatabaseSync, frozen: () => boolean = () => false) {
+export function documentHandler(
+  databaseFile: string,
+  db: DatabaseSync,
+  frozen: () => boolean = () => false,
+) {
   const templateFile = join(dirname(databaseFile), "template.docx");
   const patients = patientStore(db);
   const getSchema = db.prepare(
@@ -92,7 +96,8 @@ export function documentHandler(databaseFile: string, db: DatabaseSync, frozen: 
           schema,
           localToday(),
         );
-        if (frozen()) return send(res, 409, { error: "Aggiornamento in corso" });
+        if (frozen())
+          return send(res, 409, { error: "Aggiornamento in corso" });
         insertDocument.run(
           id,
           new Date().toISOString(),

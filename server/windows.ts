@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { setTimeout as delay } from "node:timers/promises";
 import type { UpdateState } from "../src/update.ts";
 import { readBody } from "./request-body.ts";
 
@@ -20,6 +21,23 @@ export function windowHandler({
 }) {
   let active: { windowId: string; seenAt: number } | null = null;
   const registered = new Map<string, number>();
+  let pendingUpdateWindows = new Set<string>();
+
+  function beginUpdate() {
+    pendingUpdateWindows = new Set(registered.keys());
+  }
+
+  async function waitForUpdateWindows() {
+    while (pendingUpdateWindows.size) {
+      const now = Date.now();
+      for (const id of pendingUpdateWindows) {
+        const seenAt = registered.get(id);
+        if (seenAt === undefined || now - seenAt > staleAfterMs)
+          pendingUpdateWindows.delete(id);
+      }
+      if (pendingUpdateWindows.size) await delay(100);
+    }
+  }
   let idleTimer: ReturnType<typeof setTimeout> | undefined;
 
   function dispose() {
@@ -103,6 +121,7 @@ export function windowHandler({
         }
       }
       registered.delete(windowId);
+      pendingUpdateWindows.delete(windowId);
       if (wasActive) active = null;
       if (wasActive && getUpdate().status !== "progress") updateFinished();
       reply(200, { active: false });
@@ -110,6 +129,8 @@ export function windowHandler({
     }
     clearTimeout(idleTimer);
     idleTimer = undefined;
+    if (getUpdate().status === "progress")
+      pendingUpdateWindows.delete(windowId);
     registered.set(windowId, now);
     if (!active || !isActive(active.windowId) || active.windowId === windowId) {
       active = { windowId, seenAt: now };
@@ -117,5 +138,12 @@ export function windowHandler({
     reply(200, { active: isActive(windowId), update: getUpdate() });
   }
 
-  return { handle, isActive, dispose, updateFinished };
+  return {
+    handle,
+    isActive,
+    dispose,
+    updateFinished,
+    beginUpdate,
+    waitForUpdateWindows,
+  };
 }

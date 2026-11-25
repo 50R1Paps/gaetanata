@@ -45,7 +45,10 @@ export function validPlan(value: unknown): value is WeekPlan {
   );
 }
 
-export function planHandler(db: DatabaseSync, frozen: () => boolean = () => false) {
+export function planHandler(
+  db: DatabaseSync,
+  frozen: () => boolean = () => false,
+) {
   const patient = db.prepare("SELECT id FROM patients WHERE id = ?");
   const get = db.prepare("SELECT plan_json FROM plans WHERE patient_id = ?");
   const put = db.prepare(
