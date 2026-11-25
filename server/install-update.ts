@@ -24,6 +24,25 @@ const gitEnv = {
   GIT_SSH_COMMAND: "ssh -oBatchMode=yes",
 };
 
+function nodeSatisfies(pkg: object, version: string): boolean {
+  if (
+    !("engines" in pkg) ||
+    !pkg.engines ||
+    typeof pkg.engines !== "object" ||
+    !("node" in pkg.engines) ||
+    typeof pkg.engines.node !== "string"
+  )
+    return false;
+  const required = /^>=(\d+)\.(\d+)\.(\d+)$/.exec(pkg.engines.node);
+  const actual = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
+  if (!required || !actual) return false;
+  for (let i = 1; i <= 3; i++) {
+    const difference = Number(actual[i]) - Number(required[i]);
+    if (difference !== 0) return difference > 0;
+  }
+  return true;
+}
+
 /** Synchronous preflight keeps refusal and transition to progress atomic. */
 export function inspectClone(
   root: string,
@@ -63,6 +82,7 @@ export async function installClone(options: {
   from: string;
   version: string;
   ref: string;
+  nodeVersion?: string;
   setState: (state: UpdateState) => void;
   restart: () => void;
 }): Promise<void> {
@@ -106,16 +126,6 @@ export async function installClone(options: {
     db.prepare("VACUUM INTO ?").run(temporaryBackup);
     await rename(temporaryBackup, backup);
     await mkdir(updateDir, { recursive: true });
-    await writeFile(
-      join(updateDir, "riavvio.json"),
-      JSON.stringify({
-        da: from,
-        a: version,
-        tipo: "clone",
-        refPrecedente: ref,
-        nodeCompleto: false,
-      }),
-    );
     await git("checkout", "--detach", `v${version}`);
     checkedOut = true;
     const pkg: unknown = JSON.parse(
@@ -128,6 +138,20 @@ export async function installClone(options: {
       pkg.version !== version
     )
       throw new Error("La versione del package non coincide con il tag.");
+    const nodeCompleto = !nodeSatisfies(
+      pkg,
+      options.nodeVersion ?? process.versions.node,
+    );
+    await writeFile(
+      join(updateDir, "riavvio.json"),
+      JSON.stringify({
+        da: from,
+        a: version,
+        tipo: "clone",
+        refPrecedente: ref,
+        nodeCompleto,
+      }),
+    );
     await rm(previous, { recursive: true, force: true });
     await mkdir(previous, { recursive: true });
     for (const name of ["node_modules", "dist"]) {
@@ -136,10 +160,12 @@ export async function installClone(options: {
         moved.push(name);
       }
     }
-    progress("installo");
-    await ensureDependencies(root);
-    progress("preparo");
-    await ensureBuild(root);
+    if (!nodeCompleto) {
+      progress("installo");
+      await ensureDependencies(root);
+      progress("preparo");
+      await ensureBuild(root);
+    }
     progress("riavvio");
     // Presence runs every five seconds, including in inactive windows. Give
     // those windows time to observe restart before the server disappears.
@@ -177,6 +203,7 @@ export async function installZip(options: {
   from: string;
   version: string;
   ref: string;
+  nodeVersion?: string;
   setState: (state: UpdateState) => void;
   restart: () => void;
 }): Promise<void> {
@@ -257,6 +284,10 @@ export async function installZip(options: {
       pkg.version !== version
     )
       throw new Error("La versione del package non coincide con il tag.");
+    const nodeCompleto = !nodeSatisfies(
+      pkg,
+      options.nodeVersion ?? process.versions.node,
+    );
     for (const name of ["avvia.sh", "avvia.command"]) {
       if (existsSync(join(staging, name)))
         await chmod(join(staging, name), 0o755);
@@ -288,13 +319,15 @@ export async function installZip(options: {
         a: version,
         tipo: "zip",
         refPrecedente: "",
-        nodeCompleto: false,
+        nodeCompleto,
       }),
     );
-    progress("installo");
-    await ensureDependencies(root);
-    progress("preparo");
-    await ensureBuild(root);
+    if (!nodeCompleto) {
+      progress("installo");
+      await ensureDependencies(root);
+      progress("preparo");
+      await ensureBuild(root);
+    }
     progress("riavvio");
     await delay(6_000);
     restart();

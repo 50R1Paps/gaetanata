@@ -37,7 +37,10 @@ if (
     process.exit(0);
   }
 
-  if (existsSync(restartFile)) {
+  const rollbackUpdate = process.argv.includes("--rollback-update");
+  const resumeUpdate =
+    process.argv.includes("--resume-update") || rollbackUpdate;
+  if (existsSync(restartFile) && !resumeUpdate) {
     const deadline = Date.now() + 60_000;
     while (Date.now() < deadline) {
       if (await alreadyRunning()) {
@@ -51,8 +54,10 @@ if (
     );
   }
 
-  await ensureDependencies(root);
-  await ensureBuild(root);
+  if (!resumeUpdate) {
+    await ensureDependencies(root);
+    await ensureBuild(root);
+  }
 
   let restarting = false;
   let expectedVersion: string | undefined;
@@ -60,6 +65,46 @@ if (
   let previousRef: string | undefined;
   let previousType: "clone" | "zip" = "clone";
   let previousVersion: string | undefined;
+  if (resumeUpdate) {
+    const protocol: unknown = JSON.parse(readFileSync(restartFile, "utf8"));
+    if (
+      !protocol ||
+      typeof protocol !== "object" ||
+      !("a" in protocol) ||
+      typeof protocol.a !== "string" ||
+      !("da" in protocol) ||
+      typeof protocol.da !== "string" ||
+      !("tipo" in protocol) ||
+      (protocol.tipo !== "clone" && protocol.tipo !== "zip") ||
+      !("refPrecedente" in protocol) ||
+      typeof protocol.refPrecedente !== "string" ||
+      !("nodeCompleto" in protocol) ||
+      protocol.nodeCompleto !== true
+    )
+      throw new Error("Protocollo di riavvio non valido");
+    expectedVersion = protocol.a;
+    previousVersion = protocol.da;
+    previousType = protocol.tipo;
+    previousRef = protocol.refPrecedente;
+    restarting = true;
+    if (rollbackUpdate) {
+      restore(previousType, previousRef, restartFile);
+      failedVersion = previousVersion;
+      restarting = false;
+      expectedVersion = undefined;
+    } else {
+      try {
+        await ensureDependencies(root);
+        await ensureBuild(root);
+      } catch (error) {
+        console.error(error);
+        restore(previousType, previousRef, restartFile);
+        failedVersion = previousVersion;
+        restarting = false;
+        expectedVersion = undefined;
+      }
+    }
+  }
   for (;;) {
     // The launcher stays in memory while checkout replaces files on disk.
     const child = spawn(
@@ -127,44 +172,7 @@ if (
     if (restarting && !ready) {
       if (!previousVersion || (previousType === "clone" && !previousRef))
         throw new Error("Protocollo di riavvio non valido");
-      if (previousType === "clone") {
-        execFileSync("git", ["checkout", previousRef ?? ""], {
-          cwd: root,
-          env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
-          stdio: "inherit",
-        });
-      } else {
-        const protectedNames = [
-          "data",
-          ".runtime",
-          "node_modules",
-          "dist",
-          ".aggiornamento",
-        ];
-        for (const name of readdirSync(root)) {
-          if (!protectedNames.includes(name))
-            rmSync(join(root, name), { recursive: true, force: true });
-        }
-        const saved = join(root, ".aggiornamento", "precedente");
-        for (const name of readdirSync(saved)) {
-          if (name !== "node_modules" && name !== "dist")
-            renameSync(join(saved, name), join(root, name));
-        }
-      }
-      const previous = join(root, ".aggiornamento", "precedente");
-      for (const name of ["node_modules", "dist"]) {
-        const saved = join(previous, name);
-        if (existsSync(saved)) {
-          rmSync(join(root, name), { recursive: true, force: true });
-          renameSync(saved, join(root, name));
-        }
-      }
-      const data = process.env.GAETANATA_DATA_DIR ?? join(root, "data");
-      const database = join(data, "gaetanata.db");
-      rmSync(`${database}-wal`, { force: true });
-      rmSync(`${database}-shm`, { force: true });
-      copyFileSync(join(data, "prima-di-aggiornamento.db"), database);
-      rmSync(restartFile, { force: true });
+      restore(previousType, previousRef ?? "", restartFile);
       failedVersion = previousVersion;
       restarting = false;
       expectedVersion = undefined;
@@ -188,12 +196,115 @@ if (
       typeof protocol.refPrecedente !== "string"
     )
       throw new Error("Protocollo di riavvio non valido");
+    if ("nodeCompleto" in protocol && protocol.nodeCompleto === true) {
+      const acknowledgement = join(root, ".aggiornamento", "launcher-pronto");
+      rmSync(acknowledgement, { force: true });
+      const env = {
+        ...process.env,
+        GAETANATA_RESTART_PARENT: String(process.pid),
+        GAETANATA_PREVIOUS_NODE: process.execPath,
+      };
+      const launcher =
+        process.platform === "win32"
+          ? spawn(
+              process.env.ComSpec ?? "cmd.exe",
+              [
+                "/d",
+                "/s",
+                "/c",
+                `""${join(root, "avvia.cmd")}" --resume-update"`,
+              ],
+              {
+                cwd: root,
+                env,
+                detached: true,
+                stdio: "ignore",
+                windowsVerbatimArguments: true,
+              },
+            )
+          : spawn("bash", [join(root, "avvia.sh"), "--resume-update"], {
+              cwd: root,
+              env,
+              detached: true,
+              stdio: "ignore",
+            });
+      let launcherFailed = false;
+      launcher.once("error", () => {
+        launcherFailed = true;
+      });
+      launcher.once("exit", () => {
+        launcherFailed = true;
+      });
+      const deadline = Date.now() + 15_000;
+      while (
+        !launcherFailed &&
+        !existsSync(acknowledgement) &&
+        Date.now() < deadline
+      )
+        await delay(50);
+      if (!existsSync(acknowledgement)) {
+        launcher.kill();
+        restore(protocol.tipo, protocol.refPrecedente, restartFile);
+        failedVersion = protocol.da;
+        restarting = false;
+        expectedVersion = undefined;
+        continue;
+      }
+      rmSync(acknowledgement, { force: true });
+      launcher.unref();
+      break;
+    }
     expectedVersion = protocol.a;
     previousType = protocol.tipo;
     previousRef = protocol.refPrecedente;
     previousVersion = protocol.da;
     restarting = true;
   }
+}
+
+function restore(
+  previousType: "clone" | "zip",
+  previousRef: string,
+  restartFile: string,
+): void {
+  if (previousType === "clone") {
+    execFileSync("git", ["checkout", previousRef], {
+      cwd: root,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+      stdio: "inherit",
+    });
+  } else {
+    const protectedNames = [
+      "data",
+      ".runtime",
+      "node_modules",
+      "dist",
+      ".aggiornamento",
+    ];
+    for (const name of readdirSync(root)) {
+      if (!protectedNames.includes(name))
+        rmSync(join(root, name), { recursive: true, force: true });
+    }
+    const saved = join(root, ".aggiornamento", "precedente");
+    for (const name of readdirSync(saved)) {
+      if (name !== "node_modules" && name !== "dist")
+        renameSync(join(saved, name), join(root, name));
+    }
+  }
+  const previous = join(root, ".aggiornamento", "precedente");
+  for (const name of ["node_modules", "dist"]) {
+    const saved = join(previous, name);
+    if (existsSync(saved)) {
+      rmSync(join(root, name), { recursive: true, force: true });
+      renameSync(saved, join(root, name));
+    }
+  }
+  const data = process.env.GAETANATA_DATA_DIR ?? join(root, "data");
+  const database = join(data, "gaetanata.db");
+  rmSync(`${database}-wal`, { force: true });
+  rmSync(`${database}-shm`, { force: true });
+  copyFileSync(join(data, "prima-di-aggiornamento.db"), database);
+  rmSync(restartFile, { force: true });
 }
 
 async function alreadyRunning(expectedVersion?: string): Promise<boolean> {
