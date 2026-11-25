@@ -126,8 +126,8 @@ export async function installClone(options: {
     db.prepare("VACUUM INTO ?").run(temporaryBackup);
     await rename(temporaryBackup, backup);
     await mkdir(updateDir, { recursive: true });
-    await git("checkout", "--detach", `v${version}`);
     checkedOut = true;
+    await git("checkout", "--detach", `v${version}`);
     const pkg: unknown = JSON.parse(
       await readFile(join(root, "package.json"), "utf8"),
     );
@@ -174,7 +174,7 @@ export async function installClone(options: {
   } catch (error) {
     await rm(temporaryBackup, { force: true });
     try {
-      if (checkedOut) await git("checkout", ref);
+      if (checkedOut) await git("checkout", "--force", ref);
       for (const name of moved) {
         await rm(join(root, name), { recursive: true, force: true });
         await rename(join(previous, name), join(root, name));

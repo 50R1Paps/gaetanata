@@ -144,7 +144,15 @@ export function WindowGate({
     return (
       <section role="status">
         <h2>Aggiornamento in corso</h2>
-        {status === "active" && <p>{labels[update.step]}…</p>}
+        {status === "active" && (
+          <ol>
+            {Object.entries(labels).map(([step, label]) => (
+              <li key={step} aria-current={step === update.step ? "step" : undefined}>
+                {label}
+              </li>
+            ))}
+          </ol>
+        )}
       </section>
     );
   }
@@ -192,7 +200,9 @@ export function WindowGate({
           </section>
         )}
         {update.status === "failed" && <p role="alert">{update.message}</p>}
-        {children}
+        <fieldset disabled={installing} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+          {children}
+        </fieldset>
       </PatientDirtyContext>
     </WindowSessionContext>
   );

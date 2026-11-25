@@ -37,22 +37,11 @@ if (
     process.exit(0);
   }
 
-  const rollbackUpdate = process.argv.includes("--rollback-update");
+  const rollbackUpdate =
+    process.argv.includes("--rollback-update") ||
+    (existsSync(restartFile) && !process.argv.includes("--resume-update"));
   const resumeUpdate =
     process.argv.includes("--resume-update") || rollbackUpdate;
-  if (existsSync(restartFile) && !resumeUpdate) {
-    const deadline = Date.now() + 60_000;
-    while (Date.now() < deadline) {
-      if (await alreadyRunning()) {
-        openBrowser(url);
-        process.exit(0);
-      }
-      await delay(500);
-    }
-    throw new Error(
-      "Il riavvio di Gaetanata non è riuscito. Contatta chi ti aiuta.",
-    );
-  }
 
   if (!resumeUpdate) {
     await ensureDependencies(root);
@@ -77,9 +66,7 @@ if (
       !("tipo" in protocol) ||
       (protocol.tipo !== "clone" && protocol.tipo !== "zip") ||
       !("refPrecedente" in protocol) ||
-      typeof protocol.refPrecedente !== "string" ||
-      !("nodeCompleto" in protocol) ||
-      protocol.nodeCompleto !== true
+      typeof protocol.refPrecedente !== "string"
     )
       throw new Error("Protocollo di riavvio non valido");
     expectedVersion = protocol.a;
@@ -132,6 +119,11 @@ if (
           ready = true;
           clearTimeout(timer);
           if (restarting) {
+            for (const name of ["node_modules", "dist"])
+              rmSync(join(root, ".aggiornamento", "precedente", name), {
+                recursive: true,
+                force: true,
+              });
             if (existsSync(restartFile)) unlinkSync(restartFile);
           } else {
             console.log(
@@ -268,7 +260,7 @@ function restore(
   restartFile: string,
 ): void {
   if (previousType === "clone") {
-    execFileSync("git", ["checkout", previousRef], {
+    execFileSync("git", ["checkout", "--force", previousRef], {
       cwd: root,
       env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
       stdio: "inherit",

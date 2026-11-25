@@ -32,11 +32,7 @@ Se l'aggiornamento non riesce, Gaetanata ripristina la versione precedente e mos
 
 L'aggiornamento funziona sia per chi ha installato dallo ZIP sia per i clone Git puliti: se hai modificato file tracciati nel clone, contatta chi ti aiuta. Il clone viene portato sul tag della Versione con HEAD staccato. Nelle installazioni ZIP, tutti i file e le cartelle nella radice diversi da `data/`, `.runtime/`, `node_modules/`, `dist/` e `.aggiornamento/` vengono spostati nella cartella `.aggiornamento/precedente/`, sovrascritta al prossimo aggiornamento: conserva altrove i file personali. La prima versione con questo pulsante va installata a mano; il launcher già in memoria gestisce il successivo riavvio, quindi eventuali modifiche al launcher hanno effetto dall'aggiornamento seguente.
 
-## Pubblicare una Versione
-
-Aggiorna `version` in `package.json` e `package-lock.json`, poi crea e pubblica un tag `vX.Y.Z` che coincida con quella versione (per esempio `v0.1.0` per `0.1.0`). Attendi il successo della CI sul tag: il controllo fallisce se tag e package non coincidono. Pubblica quindi una Release GitHub per quel tag, con note in italiano che descrivano le novità per chi usa l'app. I soli merge su `main` non costituiscono una Versione pubblicata.
-
-Il campo `engines.node` deve essere un minimo nel formato `>=X.Y.Z`; `.nvmrc` sceglie la versione portabile da scaricare.
+Per pubblicare una Versione, consulta le [istruzioni di sviluppo](docs/funzioni/sviluppo.md#pubblicare-una-versione).
 
 ## Documentazione
 
