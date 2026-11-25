@@ -18,6 +18,18 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it("does not offer installation when no release check is enabled", async () => {
+  vi.stubGlobal("fetch", async () =>
+    Response.json({ active: true, update: { status: "idle" } }),
+  );
+  await act(async () => {
+    render(<WindowGate>Contenuto</WindowGate>);
+  });
+  expect(
+    screen.queryByRole("button", { name: "Installa aggiornamento" }),
+  ).toBeNull();
+});
+
 it("shows the restored version's failure message", async () => {
   vi.stubGlobal("fetch", async () =>
     Response.json({

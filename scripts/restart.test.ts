@@ -13,7 +13,6 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { setTimeout as delay } from "node:timers/promises";
 import { expect, it } from "vitest";
 
 it("relaunches the new server after exit 75 and verifies its ready version", async () => {
@@ -266,8 +265,16 @@ process.exit(75);`;
   }
 }, 60_000);
 
-it("hands a restart requiring another Node to the full launcher", async () => {
+it("hands a restart requiring another Node to a launcher and starts the new server", async () => {
   const root = mkdtempSync(join(tmpdir(), "gaetanata-node-restart-"));
+  const reservation = createServer();
+  reservation.listen(0, "127.0.0.1");
+  await once(reservation, "listening");
+  const address = reservation.address();
+  if (!address || typeof address === "string") throw new Error("address");
+  const port = address.port;
+  reservation.close();
+  await once(reservation, "close");
   try {
     cpSync("scripts/start.ts", join(root, "scripts/start.ts"));
     mkdirSync(join(root, "src"));
@@ -287,13 +294,20 @@ it("hands a restart requiring another Node to the full launcher", async () => {
     );
     writeFileSync(
       join(root, "scripts/serve.ts"),
-      `import {writeFileSync} from "node:fs";writeFileSync(".aggiornamento/riavvio.json",JSON.stringify({da:"0.1.0",a:"0.2.0",tipo:"zip",refPrecedente:"",nodeCompleto:true}));process.exit(75)`,
+      `import {existsSync,writeFileSync} from "node:fs";
+import {createServer} from "node:http";
+if(!existsSync(".aggiornamento/riavvio.json")) {
+  writeFileSync(".aggiornamento/riavvio.json",JSON.stringify({da:"0.1.0",a:"0.2.0",tipo:"zip",refPrecedente:"",nodeCompleto:true}));
+  process.exit(75);
+}
+createServer((req,res) => { if(req.url === "/stop") { res.end(); setTimeout(() => process.exit(0), 20); } else { res.setHeader("content-type","application/json"); res.end(JSON.stringify({app:"gaetanata",version:"0.2.0"})); } }).listen(Number(process.env.PORT),"127.0.0.1",() => process.send?.("ready"));
+setTimeout(() => process.exit(1), 15000);`,
     );
     writeFileSync(
       join(root, process.platform === "win32" ? "avvia.cmd" : "avvia.sh"),
       process.platform === "win32"
-        ? `@echo launched> "${join(root, "launched.txt")}"\r\n@echo ready> "${join(root, ".aggiornamento", "launcher-pronto")}"\r\n`
-        : "#!/bin/sh\necho launched > launched.txt\necho ready > .aggiornamento/launcher-pronto\n",
+        ? `@echo ready> "${join(root, ".aggiornamento", "launcher-pronto")}"\r\n@"${process.execPath}" --experimental-strip-types --disable-warning=ExperimentalWarning "${join(root, "scripts", "start.ts")}" --resume-update\r\n`
+        : `#!/bin/sh\necho ready > .aggiornamento/launcher-pronto\n"${process.execPath}" --experimental-strip-types --disable-warning=ExperimentalWarning "${join(root, "scripts", "start.ts")}" --resume-update\n`,
       { mode: 0o755 },
     );
     const child = spawn(
@@ -305,22 +319,58 @@ it("hands a restart requiring another Node to the full launcher", async () => {
       ],
       {
         cwd: root,
-        env: { ...process.env, PORT: "0", GAETANATA_NO_BROWSER: "1" },
+        env: { ...process.env, PORT: String(port), GAETANATA_NO_BROWSER: "1" },
         stdio: "pipe",
       },
     );
     const [code] = await once(child, "exit");
     expect(code).toBe(0);
-    expect(existsSync(join(root, ".aggiornamento", "riavvio.json"))).toBe(true);
-    // The detached OS process cannot be driven with fake timers.
-    const deadline = Date.now() + 5000;
-    while (!existsSync(join(root, "launched.txt")) && Date.now() < deadline)
-      await delay(25);
-    expect(readFileSync(join(root, "launched.txt"), "utf8").trim()).toBe(
-      "launched",
-    );
+    await expect
+      .poll(
+        async () => {
+          try {
+            const response = await fetch(`http://127.0.0.1:${port}/api/health`);
+            return await response.json();
+          } catch {
+            return null;
+          }
+        },
+        { timeout: 10_000 },
+      )
+      .toEqual({ app: "gaetanata", version: "0.2.0" });
+    await expect
+      .poll(() => existsSync(join(root, ".aggiornamento", "riavvio.json")), {
+        timeout: 10_000,
+      })
+      .toBe(false);
+    await fetch(`http://127.0.0.1:${port}/stop`);
+    await expect
+      .poll(
+        async () => {
+          try {
+            await fetch(`http://127.0.0.1:${port}/api/health`);
+            return true;
+          } catch {
+            return false;
+          }
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(false);
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    await expect
+      .poll(
+        () => {
+          try {
+            rmSync(root, { recursive: true, force: true });
+            return true;
+          } catch {
+            return false;
+          }
+        },
+        { timeout: 10_000 },
+      )
+      .toBe(true);
   }
 }, 20_000);
 

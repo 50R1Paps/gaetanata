@@ -23,3 +23,20 @@ jobs:
           GAETANATA_FORCE_RUNTIME: '1'
           GAETANATA_NO_BROWSER: '1'
         run: ./scripts/check-launchers.ps1
+
+  update-handoff:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.17.0'
+      - name: Exercise real launcher update and rollback
+        run: node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/ci-update-handoff.ts
