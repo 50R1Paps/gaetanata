@@ -28,7 +28,7 @@ Quando compare un aggiornamento, leggi le note e premi **Installa aggiornamento*
 
 Se l'aggiornamento non riesce, Gaetanata ripristina la versione precedente e mostra un avviso. Se la nuova versione non si avvia, ripristina anche la copia del database.
 
-Per ora l'installazione dall'app funziona sui clone Git puliti: se hai modificato file tracciati, contatta chi ti aiuta. Il clone viene portato sul tag della Versione con HEAD staccato. Per le installazioni ZIP l'aggiornamento dall'app non è ancora disponibile. La prima versione con questo pulsante va installata a mano; il launcher già in memoria gestisce il successivo riavvio, quindi eventuali modifiche al launcher hanno effetto dall'aggiornamento seguente.
+L'aggiornamento funziona sia per chi ha installato dallo ZIP sia per i clone Git puliti: se hai modificato file tracciati nel clone, contatta chi ti aiuta. Il clone viene portato sul tag della Versione con HEAD staccato. Nelle installazioni ZIP, tutti i file e le cartelle nella radice diversi da `data/`, `.runtime/`, `node_modules/`, `dist/` e `.aggiornamento/` vengono spostati nella cartella `.aggiornamento/precedente/`, sovrascritta al prossimo aggiornamento: conserva altrove i file personali. La prima versione con questo pulsante va installata a mano; il launcher già in memoria gestisce il successivo riavvio, quindi eventuali modifiche al launcher hanno effetto dall'aggiornamento seguente.
 
 ## Pubblicare una Versione
 

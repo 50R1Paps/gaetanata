@@ -1,12 +1,21 @@
 import { execFile, execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  readdir,
+  readFile,
+  rename,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import { ensureBuild, ensureDependencies } from "../scripts/start.ts";
 import type { UpdateState } from "../src/update.ts";
+import { boundedTemplateZip } from "./template-zip.ts";
 
 const execute = promisify(execFile);
 const gitEnv = {
@@ -19,11 +28,6 @@ const gitEnv = {
 export function inspectClone(
   root: string,
 ): { ref: string } | { error: string } {
-  if (!existsSync(join(root, ".git")))
-    return {
-      error:
-        "Gli aggiornamenti delle installazioni ZIP non sono ancora disponibili. Contatta chi ti aiuta.",
-    };
   try {
     const git = (...args: string[]) =>
       execFileSync("git", args, {
@@ -161,5 +165,161 @@ export async function installClone(options: {
         message: "Ripristino non riuscito. Contatta chi ti aiuta.",
       });
     }
+  }
+}
+
+export async function installZip(options: {
+  root: string;
+  databaseFile: string;
+  db: DatabaseSync;
+  gitUrl: string;
+  zipUrl: string;
+  from: string;
+  version: string;
+  ref: string;
+  setState: (state: UpdateState) => void;
+  restart: () => void;
+}): Promise<void> {
+  const { root, databaseFile, db, zipUrl, from, version, setState, restart } =
+    options;
+  const updateDir = join(root, ".aggiornamento");
+  const previous = join(updateDir, "precedente");
+  const staging = join(updateDir, "nuova");
+  const temporaryBackup = join(
+    dirname(databaseFile),
+    "prima-di-aggiornamento.tmp.db",
+  );
+  const backup = join(dirname(databaseFile), "prima-di-aggiornamento.db");
+  const protectedNames = new Set([
+    "data",
+    ".runtime",
+    "node_modules",
+    "dist",
+    ".aggiornamento",
+  ]);
+  const moved: string[] = [];
+  const installed: string[] = [];
+  const dependencies: string[] = [];
+  const progress = (step: "installo" | "preparo" | "riavvio") =>
+    setState({ status: "progress", step, from, version });
+  try {
+    const response = await fetch(zipUrl, {
+      signal: AbortSignal.timeout(120_000),
+    });
+    if (!response.ok || !response.body)
+      throw new Error("Download ZIP non riuscito");
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      size += value.length;
+      if (size > 40 * 1024 * 1024) {
+        await reader.cancel();
+        throw new Error("Archivio ZIP troppo grande");
+      }
+      chunks.push(value);
+    }
+    const zip = boundedTemplateZip(Buffer.concat(chunks));
+    await rm(staging, { recursive: true, force: true });
+    await mkdir(staging, { recursive: true });
+    let prefix: string | undefined;
+    for (const [name, entry] of Object.entries(zip.files)) {
+      const parts = name.split("/");
+      if (!prefix) prefix = parts[0];
+      if (
+        !prefix ||
+        parts[0] !== prefix ||
+        parts.some(
+          (part) => part === "." || part === ".." || part.includes("\\"),
+        )
+      )
+        throw new Error("Percorso ZIP non valido");
+      const relative = parts.slice(1).filter(Boolean);
+      if (!relative.length) continue;
+      if (protectedNames.has(relative[0] ?? ""))
+        throw new Error("Percorso ZIP riservato");
+      const target = join(staging, ...relative);
+      if (entry.dir) await mkdir(target, { recursive: true });
+      else {
+        await mkdir(dirname(target), { recursive: true });
+        await writeFile(target, entry.asNodeBuffer());
+      }
+    }
+    const pkg: unknown = JSON.parse(
+      await readFile(join(staging, "package.json"), "utf8"),
+    );
+    if (
+      !pkg ||
+      typeof pkg !== "object" ||
+      !("version" in pkg) ||
+      pkg.version !== version
+    )
+      throw new Error("La versione del package non coincide con il tag.");
+    for (const name of ["avvia.sh", "avvia.command"]) {
+      if (existsSync(join(staging, name)))
+        await chmod(join(staging, name), 0o755);
+    }
+    await rm(temporaryBackup, { force: true });
+    db.prepare("VACUUM INTO ?").run(temporaryBackup);
+    await rename(temporaryBackup, backup);
+    await rm(previous, { recursive: true, force: true });
+    await mkdir(previous, { recursive: true });
+    for (const name of await readdir(root)) {
+      if (protectedNames.has(name)) continue;
+      await rename(join(root, name), join(previous, name));
+      moved.push(name);
+    }
+    for (const name of await readdir(staging)) {
+      await rename(join(staging, name), join(root, name));
+      installed.push(name);
+    }
+    for (const name of ["node_modules", "dist"]) {
+      if (existsSync(join(root, name))) {
+        await rename(join(root, name), join(previous, name));
+        dependencies.push(name);
+      }
+    }
+    await writeFile(
+      join(updateDir, "riavvio.json"),
+      JSON.stringify({
+        da: from,
+        a: version,
+        tipo: "zip",
+        refPrecedente: "",
+        nodeCompleto: false,
+      }),
+    );
+    progress("installo");
+    await ensureDependencies(root);
+    progress("preparo");
+    await ensureBuild(root);
+    progress("riavvio");
+    await delay(6_000);
+    restart();
+  } catch (error) {
+    try {
+      await rm(temporaryBackup, { force: true });
+      for (const name of installed)
+        await rm(join(root, name), { recursive: true, force: true });
+      for (const name of [...moved, ...dependencies]) {
+        await rm(join(root, name), { recursive: true, force: true });
+        await rename(join(previous, name), join(root, name));
+      }
+      await rm(join(updateDir, "riavvio.json"), { force: true });
+      setState({
+        status: "failed",
+        message: `Aggiornamento non riuscito, stai usando ancora la versione ${from}`,
+      });
+    } catch (restoreError) {
+      console.error("Ripristino non riuscito", error, restoreError);
+      setState({
+        status: "failed",
+        message: "Ripristino non riuscito. Contatta chi ti aiuta.",
+      });
+    }
+  } finally {
+    await rm(staging, { recursive: true, force: true });
   }
 }

@@ -45,6 +45,10 @@ export async function checkRelease(
           status: "available",
           version: release.tag_name.slice(1),
           notes: release.body ?? "",
+          ...("zipball_url" in release &&
+          typeof release.zipball_url === "string"
+            ? { zipUrl: release.zipball_url }
+            : {}),
         };
       if (a < b) return idle;
     }

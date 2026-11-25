@@ -12,6 +12,7 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import PizZip from "pizzip";
 import { expect, it } from "vitest";
 import { startServer } from "./app.ts";
 
@@ -68,11 +69,23 @@ it("refuses a modified clone without changing tracked files", async () => {
   }
 }, 15_000);
 
-it("refuses a ZIP installation before touching its files", async () => {
+it("restores ZIP files when the archive has the wrong version", async () => {
   const root = mkdtempSync(join(tmpdir(), "gaetanata-zip-"));
-  writeFileSync(join(root, "tracked"), "unchanged");
-  const releases = createServer((_req, res) => {
-    res.end(JSON.stringify({ tag_name: "v99.0.0", body: "novità" }));
+  writeFileSync(join(root, "tracked"), "original");
+  const zip = new PizZip();
+  zip.file("release/package.json", JSON.stringify({ version: "0.3.0" }));
+  zip.file("release/tracked", "new");
+  const archive = zip.generate({ type: "nodebuffer" });
+  const releases = createServer((req, res) => {
+    if (req.url === "/archive") res.end(archive);
+    else
+      res.end(
+        JSON.stringify({
+          tag_name: "v0.2.0",
+          body: "",
+          zipball_url: `http://${req.headers.host}/archive`,
+        }),
+      );
   });
   releases.listen(0, "127.0.0.1");
   await once(releases, "listening");
@@ -94,23 +107,20 @@ it("refuses a ZIP installation before touching its files", async () => {
         method: "POST",
         body: JSON.stringify({ windowId: "active" }),
       });
-    await expect
-      .poll(
-        async () => (await (await post("/api/window")).json()).update.status,
-      )
-      .toBe("available");
-    const response = await post("/api/update");
-    expect(response.status).toBe(409);
-    expect((await response.json()).error).toMatch(/ZIP/);
-    expect(readFileSync(join(root, "tracked"), "utf8")).toBe("unchanged");
-    expect(existsSync(join(root, ".aggiornamento"))).toBe(false);
+    const presence = async () =>
+      (await (await post("/api/window")).json()).update;
+    await expect.poll(async () => (await presence()).status).toBe("available");
+    expect((await post("/api/update")).status).toBe(202);
+    await expect.poll(async () => (await presence()).status).toBe("failed");
+    expect(readFileSync(join(root, "tracked"), "utf8")).toBe("original");
+    expect(existsSync(join(root, "package.json"))).toBe(false);
   } finally {
     server.close();
     releases.close();
     await Promise.all([once(server, "close"), once(releases, "close")]);
     rmSync(root, { recursive: true, force: true });
   }
-}, 15_000);
+}, 30_000);
 
 it("updates a clean local clone, preserving a consistent database and previous build", async () => {
   const root = mkdtempSync(join(tmpdir(), "gaetanata-update-"));
@@ -365,5 +375,139 @@ it("rejects a checked-out tag whose package version does not match", async () =>
     releases.close();
     await Promise.all([once(server, "close"), once(releases, "close")]);
     rmSync(root, { recursive: true, force: true });
+  }
+}, 90_000);
+
+it("installs a release ZIP and preserves data, runtime and the previous files", async () => {
+  const parent = mkdtempSync(join(tmpdir(), "gaetanata-zip-install-"));
+  const root = join(parent, "app");
+  const source = join(parent, "source");
+  const vite = join(parent, "fake-vite");
+  mkdirSync(root);
+  mkdirSync(source);
+  mkdirSync(join(vite, "bin"), { recursive: true });
+  writeFileSync(
+    join(vite, "package.json"),
+    JSON.stringify({ name: "vite", version: "1.0.0" }),
+  );
+  writeFileSync(
+    join(vite, "bin/vite.js"),
+    'require("node:fs").mkdirSync("dist",{recursive:true})',
+  );
+  writeFileSync(
+    join(source, "package.json"),
+    JSON.stringify({
+      name: "fixture",
+      version: "0.2.0",
+      dependencies: { vite: "file:../fake-vite" },
+    }),
+  );
+  const bin = dirname(process.execPath);
+  const npm = [
+    join(bin, "node_modules/npm/bin/npm-cli.js"),
+    join(bin, "../lib/node_modules/npm/bin/npm-cli.js"),
+  ].find(existsSync);
+  if (!npm) throw new Error("npm not found");
+  execFileSync(
+    process.execPath,
+    [
+      npm,
+      "install",
+      "--package-lock-only",
+      "--ignore-scripts",
+      "--offline",
+      "--no-audit",
+      "--no-fund",
+    ],
+    { cwd: source },
+  );
+  const zip = new PizZip();
+  zip.file("release/package.json", readFileSync(join(source, "package.json")));
+  zip.file(
+    "release/package-lock.json",
+    readFileSync(join(source, "package-lock.json")),
+  );
+  zip.file("release/src/index.ts", "new source");
+  zip.file("release/index.html", "new html");
+  zip.file("release/vite.config.ts", "");
+  zip.file("release/avvia.sh", "new launcher");
+  zip.file("release/avvia.command", "new launcher");
+  const archive = zip.generate({ type: "nodebuffer" });
+  mkdirSync(join(root, ".runtime"));
+  mkdirSync(join(root, "node_modules"));
+  mkdirSync(join(root, "dist"));
+  mkdirSync(join(root, ".aggiornamento/precedente"), { recursive: true });
+  writeFileSync(join(root, ".runtime/keep"), "runtime");
+  writeFileSync(join(root, "node_modules/old"), "dependencies");
+  writeFileSync(join(root, "dist/old"), "build");
+  writeFileSync(join(root, ".aggiornamento/precedente/stale"), "stale");
+  writeFileSync(join(root, "old-file"), "old");
+  const releases = createServer((req, res) => {
+    if (req.url === "/archive") res.end(archive);
+    else
+      res.end(
+        JSON.stringify({
+          tag_name: "v0.2.0",
+          body: "",
+          zipball_url: `http://${req.headers.host}/archive`,
+        }),
+      );
+  });
+  releases.listen(0, "127.0.0.1");
+  await once(releases, "listening");
+  const address = releases.address();
+  if (!address || typeof address === "string") throw new Error("address");
+  const restarted = Promise.withResolvers<void>();
+  const server = await startServer({
+    port: 0,
+    databaseFile: join(root, "data/gaetanata.db"),
+    appDir: root,
+    onRestart: restarted.resolve,
+    releaseSource: { apiUrl: `http://127.0.0.1:${address.port}`, gitUrl: root },
+  });
+  try {
+    const app = server.address();
+    if (!app || typeof app === "string") throw new Error("address");
+    const base = `http://127.0.0.1:${app.port}`;
+    const post = (path: string) =>
+      fetch(`${base}${path}`, {
+        method: "POST",
+        body: JSON.stringify({ windowId: "active" }),
+      });
+    await expect
+      .poll(
+        async () => (await (await post("/api/window")).json()).update.status,
+      )
+      .toBe("available");
+    expect((await post("/api/update")).status).toBe(202);
+    await restarted.promise;
+    expect(readFileSync(join(root, "src/index.ts"), "utf8")).toBe("new source");
+    expect(readFileSync(join(root, ".runtime/keep"), "utf8")).toBe("runtime");
+    expect(
+      readFileSync(join(root, ".aggiornamento/precedente/old-file"), "utf8"),
+    ).toBe("old");
+    expect(
+      readFileSync(
+        join(root, ".aggiornamento/precedente/node_modules/old"),
+        "utf8",
+      ),
+    ).toBe("dependencies");
+    expect(
+      readFileSync(join(root, ".aggiornamento/precedente/dist/old"), "utf8"),
+    ).toBe("build");
+    expect(existsSync(join(root, ".aggiornamento/precedente/stale"))).toBe(
+      false,
+    );
+    expect(existsSync(join(root, "data/gaetanata.db"))).toBe(true);
+    expect(
+      JSON.parse(
+        readFileSync(join(root, ".aggiornamento/riavvio.json"), "utf8"),
+      ).tipo,
+    ).toBe("zip");
+  } finally {
+    server.close();
+    releases.close();
+    await Promise.all([once(server, "close"), once(releases, "close")]);
+    rmSync(parent, { recursive: true, force: true });
   }
 }, 90_000);
