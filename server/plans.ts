@@ -45,7 +45,7 @@ export function validPlan(value: unknown): value is WeekPlan {
   );
 }
 
-export function planHandler(db: DatabaseSync) {
+export function planHandler(db: DatabaseSync, frozen: () => boolean = () => false) {
   const patient = db.prepare("SELECT id FROM patients WHERE id = ?");
   const get = db.prepare("SELECT plan_json FROM plans WHERE patient_id = ?");
   const put = db.prepare(
@@ -89,6 +89,7 @@ export function planHandler(db: DatabaseSync) {
         error:
           "Piano non valido: servono sette giorni, sei pasti e quantità non negative.",
       });
+    if (frozen()) return send(409, { error: "Aggiornamento in corso" });
     // The patient may have been deleted while the request body was arriving.
     if (!patient.get(id))
       return send(404, { error: "Scheda paziente non trovata" });
