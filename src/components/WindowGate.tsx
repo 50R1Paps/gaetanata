@@ -6,6 +6,7 @@ import {
   useState,
 } from "react";
 import type { DraftInput } from "../draftApi";
+import type { UpdateState } from "../update";
 import { closeWindow, signalWindow } from "../windowApi";
 
 type WindowSession = {
@@ -33,6 +34,7 @@ export function WindowGate({
 }) {
   const [windowId] = useState(() => crypto.randomUUID());
   const [session] = useState<WindowSession>(() => ({ windowId }));
+  const [update, setUpdate] = useState<UpdateState>({ status: "idle" });
   const [status, setStatus] = useState<
     "pending" | "active" | "waiting" | "closed"
   >("pending");
@@ -42,8 +44,9 @@ export function WindowGate({
     let timer: number | undefined;
     async function presence() {
       try {
-        const active = await signalWindow(windowId);
+        const { active, update: nextUpdate } = await signalWindow(windowId);
         if (disposed) return;
+        setUpdate(nextUpdate);
         // A waiting window must not send a former owner's documents.
         if (!active) delete session.pendingDraft;
         setStatus(active ? "active" : "waiting");
@@ -88,6 +91,18 @@ export function WindowGate({
   }
   if (status === "pending") return <p role="status">Apertura di Gaetanata…</p>;
   return (
-    <WindowSessionContext value={session}>{children}</WindowSessionContext>
+    <WindowSessionContext value={session}>
+      {update.status === "available" && (
+        <section
+          className="update-banner"
+          aria-label="Aggiornamento disponibile"
+        >
+          <strong>Aggiornamento disponibile: {update.version}</strong>
+          <p>{update.notes}</p>
+          <button type="button">Installa aggiornamento</button>
+        </section>
+      )}
+      {children}
+    </WindowSessionContext>
   );
 }
