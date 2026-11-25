@@ -13,6 +13,7 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { setTimeout as delay } from "node:timers/promises";
 import { expect, it } from "vitest";
 
 it("relaunches the new server after exit 75 and verifies its ready version", async () => {
@@ -234,3 +235,138 @@ process.exit(75);`;
     rmSync(root, { recursive: true, force: true });
   }
 }, 60_000);
+
+it("hands a restart requiring another Node to the full launcher", async () => {
+  const root = mkdtempSync(join(tmpdir(), "gaetanata-node-restart-"));
+  try {
+    cpSync("scripts/start.ts", join(root, "scripts/start.ts"));
+    mkdirSync(join(root, "src"));
+    mkdirSync(join(root, "node_modules/vite/bin"), { recursive: true });
+    mkdirSync(join(root, ".aggiornamento"));
+    writeFileSync(join(root, "package.json"), '{"type":"module"}');
+    writeFileSync(join(root, "package-lock.json"), "{}");
+    writeFileSync(
+      join(root, "node_modules/.gaetanata-lock"),
+      "017884b51b91073c9a6fa06ce0f8cafee3a89d685fce596de57d7c6da25ad303",
+    );
+    writeFileSync(join(root, "index.html"), "");
+    writeFileSync(join(root, "vite.config.ts"), "");
+    writeFileSync(
+      join(root, "node_modules/vite/bin/vite.js"),
+      'require("node:fs").mkdirSync("dist",{recursive:true})',
+    );
+    writeFileSync(
+      join(root, "scripts/serve.ts"),
+      `import {writeFileSync} from "node:fs";writeFileSync(".aggiornamento/riavvio.json",JSON.stringify({da:"0.1.0",a:"0.2.0",tipo:"zip",refPrecedente:"",nodeCompleto:true}));process.exit(75)`,
+    );
+    writeFileSync(
+      join(root, process.platform === "win32" ? "avvia.cmd" : "avvia.sh"),
+      process.platform === "win32"
+        ? `@echo launched> "${join(root, "launched.txt")}"\r\n@echo ready> "${join(root, ".aggiornamento", "launcher-pronto")}"\r\n`
+        : "#!/bin/sh\necho launched > launched.txt\necho ready > .aggiornamento/launcher-pronto\n",
+      { mode: 0o755 },
+    );
+    const child = spawn(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        "--disable-warning=ExperimentalWarning",
+        join(root, "scripts/start.ts"),
+      ],
+      {
+        cwd: root,
+        env: { ...process.env, PORT: "0", GAETANATA_NO_BROWSER: "1" },
+        stdio: "pipe",
+      },
+    );
+    const [code] = await once(child, "exit");
+    expect(code).toBe(0);
+    expect(existsSync(join(root, ".aggiornamento", "riavvio.json"))).toBe(true);
+    // The detached OS process cannot be driven with fake timers.
+    const deadline = Date.now() + 5000;
+    while (!existsSync(join(root, "launched.txt")) && Date.now() < deadline)
+      await delay(25);
+    expect(readFileSync(join(root, "launched.txt"), "utf8").trim()).toBe(
+      "launched",
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}, 20_000);
+
+it("restores a ZIP after a resumed launcher fails to start the new server", async () => {
+  const root = mkdtempSync(join(tmpdir(), "gaetanata-node-rollback-"));
+  try {
+    cpSync("scripts/start.ts", join(root, "scripts/start.ts"));
+    mkdirSync(join(root, "src"));
+    mkdirSync(join(root, "node_modules/vite/bin"), { recursive: true });
+    mkdirSync(join(root, ".aggiornamento/precedente/scripts"), {
+      recursive: true,
+    });
+    mkdirSync(join(root, ".aggiornamento/precedente/node_modules"), {
+      recursive: true,
+    });
+    mkdirSync(join(root, "data"));
+    writeFileSync(join(root, "data/gaetanata.db"), "after");
+    writeFileSync(join(root, "data/prima-di-aggiornamento.db"), "before");
+    writeFileSync(join(root, "package.json"), '{"type":"module"}');
+    writeFileSync(join(root, "package-lock.json"), "{}");
+    writeFileSync(join(root, "index.html"), "");
+    writeFileSync(join(root, "vite.config.ts"), "");
+    writeFileSync(
+      join(root, "node_modules/.gaetanata-lock"),
+      "017884b51b91073c9a6fa06ce0f8cafee3a89d685fce596de57d7c6da25ad303",
+    );
+    writeFileSync(
+      join(root, "node_modules/vite/bin/vite.js"),
+      'require("node:fs").mkdirSync("dist",{recursive:true})',
+    );
+    writeFileSync(join(root, "scripts/serve.ts"), "process.exit(1)");
+    writeFileSync(
+      join(root, ".aggiornamento/precedente/package.json"),
+      '{"type":"module"}',
+    );
+    writeFileSync(
+      join(root, ".aggiornamento/precedente/node_modules/old"),
+      "old",
+    );
+    writeFileSync(
+      join(root, ".aggiornamento/precedente/scripts/serve.ts"),
+      'import {writeFileSync} from "node:fs";writeFileSync("result",process.env.GAETANATA_AGGIORNAMENTO_FALLITO);process.exit(0)',
+    );
+    writeFileSync(
+      join(root, ".aggiornamento/riavvio.json"),
+      JSON.stringify({
+        da: "0.1.0",
+        a: "0.2.0",
+        tipo: "zip",
+        refPrecedente: "",
+        nodeCompleto: true,
+      }),
+    );
+    const child = spawn(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        "--disable-warning=ExperimentalWarning",
+        join(root, "scripts/start.ts"),
+        "--resume-update",
+      ],
+      {
+        cwd: root,
+        env: { ...process.env, PORT: "0", GAETANATA_NO_BROWSER: "1" },
+        stdio: "pipe",
+      },
+    );
+    const [code] = await once(child, "exit");
+    expect(code).toBe(0);
+    expect(readFileSync(join(root, "result"), "utf8")).toBe("0.1.0");
+    expect(readFileSync(join(root, "data/gaetanata.db"), "utf8")).toBe(
+      "before",
+    );
+    expect(readFileSync(join(root, "node_modules/old"), "utf8")).toBe("old");
+    expect(existsSync(join(root, ".aggiornamento/riavvio.json"))).toBe(false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+}, 20_000);

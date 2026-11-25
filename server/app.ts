@@ -40,6 +40,7 @@ export type ServerOptions = {
   /** Installation directory and launcher callback; absent in development. */
   appDir?: string;
   onRestart?: () => void;
+  nodeVersion?: string;
   failedUpdateVersion?: string | undefined;
   /** Built frontend to serve; omit when a dev middleware serves the frontend. */
   staticDir?: string;
@@ -167,6 +168,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
           from: packageInfo.version,
           version,
           ref: clone && "ref" in clone ? clone.ref : "",
+          nodeVersion: options.nodeVersion ?? process.versions.node,
           setState: (state) => {
             update = state;
             if (state.status === "failed") windows.updateFinished();
