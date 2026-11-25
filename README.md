@@ -18,6 +18,10 @@ Se l'avvio dall'icona fallisce, un dialogo indica il file `data/avvio.log` da co
 
 I dati sono salvati sul computer in `data/gaetanata.db`. Per un backup, chiudi l'app e copia l'intera cartella `data/`.
 
+## Pubblicare una Versione
+
+Aggiorna `version` in `package.json` e `package-lock.json`, poi crea e pubblica un tag `vX.Y.Z` che coincida con quella versione (per esempio `v0.1.0` per `0.1.0`). Attendi il successo della CI sul tag: il controllo fallisce se tag e package non coincidono. Pubblica quindi una Release GitHub per quel tag, con note in italiano che descrivano le novità per chi usa l'app. I soli merge su `main` non costituiscono una Versione pubblicata.
+
 ## Documentazione
 
 - [Piano settimanale](docs/funzioni/piano-settimanale.md): editor, scorciatoie, salvataggio e media dei nutrienti.

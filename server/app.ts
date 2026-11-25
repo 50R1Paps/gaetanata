@@ -6,6 +6,7 @@ import {
   type ServerResponse,
 } from "node:http";
 import { extname, join, normalize, sep } from "node:path";
+import packageInfo from "../package.json" with { type: "json" };
 import {
   localToday,
   type PatientInput,
@@ -66,7 +67,11 @@ export async function startServer(options: ServerOptions): Promise<Server> {
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     if (url.pathname === "/api/health") {
-      sendJson(res, 200, { app: APP_ID, schemaVersion: schemaVersion(db) });
+      sendJson(res, 200, {
+        app: APP_ID,
+        schemaVersion: schemaVersion(db),
+        version: packageInfo.version,
+      });
       return;
     }
     if (url.pathname === "/api/draft") {
