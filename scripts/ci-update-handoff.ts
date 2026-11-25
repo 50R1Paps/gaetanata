@@ -124,27 +124,29 @@ async function scenario(broken: boolean) {
       );
     const expected = broken ? "98.0.0" : "99.0.0";
     await waitFor("updated server", async () => {
+      let state: { status: string; message?: string; failedMessage?: string };
       try {
-        await presence();
-        const result = await health();
-        if (!result || result.version !== expected) return undefined;
-        if (broken) {
-          const state = (await presence()).update;
-          if (
-            !`${state.message ?? ""}${state.failedMessage ?? ""}`.includes(
-              "Aggiornamento non riuscito",
-            )
-          )
-            return undefined;
-        } else if (
-          Number(result.node.split(".")[0]) < Number(newerNode.split(".")[0])
-        ) {
-          throw new Error(`Wrong Node: ${result.node}`);
-        }
-        return result;
+        state = (await presence()).update;
       } catch {
         return undefined;
       }
+      if (!broken && state.status === "failed")
+        throw new Error(`Installation failed: ${state.message}`);
+      const result = await health();
+      if (!result || result.version !== expected) return undefined;
+      if (broken) {
+        if (
+          !`${state.message ?? ""}${state.failedMessage ?? ""}`.includes(
+            "Aggiornamento non riuscito",
+          )
+        )
+          return undefined;
+      } else if (
+        Number(result.node.split(".")[0]) < Number(newerNode.split(".")[0])
+      ) {
+        throw new Error(`Wrong Node: ${result.node}`);
+      }
+      return result;
     });
     console.log(`${broken ? "rollback" : "handoff"}: ${expected} ready`);
   } finally {
@@ -179,6 +181,14 @@ try {
       throw new Error("Could not isolate local shortcuts");
     writeFileSync(launcher, isolated);
   }
+  const installerFile = join(source, "server/install-update.ts");
+  writeFileSync(
+    installerFile,
+    readFileSync(installerFile, "utf8").replace(
+      "} catch (error) {\n    await rm(temporaryBackup",
+      '} catch (error) {\n    console.error("Synthetic CI install error:", error);\n    await rm(temporaryBackup',
+    ),
+  );
   const releaseFile = join(source, "server/update.ts");
   const releaseSource = readFileSync(releaseFile, "utf8")
     .replace(
