@@ -3,9 +3,11 @@ import type { FieldErrors, Patient, PatientInput } from "./patient";
 /** A failed API call; `fields` holds the server's per-field messages. */
 export class ApiError extends Error {
   readonly fields: FieldErrors;
-  constructor(message: string, fields: FieldErrors = {}) {
+  readonly status: number;
+  constructor(message: string, fields: FieldErrors = {}, status = 0) {
     super(message);
     this.fields = fields;
+    this.status = status;
   }
 }
 
@@ -30,6 +32,7 @@ async function request<T>(
     throw new ApiError(
       data?.error ?? `errore ${response.status}`,
       data?.fields ?? {},
+      response.status,
     );
   return data as T;
 }

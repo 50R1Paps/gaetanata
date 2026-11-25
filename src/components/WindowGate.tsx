@@ -180,6 +180,7 @@ export function WindowGate({
       });
     return (
       <ErrorMessage
+        reportable={false}
         message={`Gaetanata si è chiusa. Riaprila dall'icona${time ? `: le modifiche fino alle ${time} sono nella bozza.` : ". Nessuna bozza scritta in questa finestra."}`}
       />
     );

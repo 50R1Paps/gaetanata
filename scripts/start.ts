@@ -120,8 +120,10 @@ if (
       : undefined;
     child.on("message", async (message) => {
       if (message !== "ready") return;
+      failedVersion = undefined;
+      failedTarget = undefined;
       const deadline = Date.now() + 60_000;
-      while (Date.now() < deadline && child.exitCode === null) {
+      while (Date.now() < deadline && child.exitCode === null && child.signalCode === null) {
         if (await alreadyRunning(expectedVersion)) {
           ready = true;
           clearTimeout(timer);

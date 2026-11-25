@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { createServer } from "node:http";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -154,7 +154,7 @@ it("records failed updates, including a rollback reported after restart", async 
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({
       origin: "aggiornamento",
-      message: "Download ZIP non riuscito",
+      message: "Download ZIP non riuscito; versione tentata 99.0.0",
       stack: expect.stringContaining("install-update.ts"),
     });
     server.close();
@@ -308,3 +308,33 @@ it("keeps serving requests when writing the registry fails", async () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+it.each(["{registro corrotto", "{}"])(
+  "starts with an empty registry when the stored log is invalid (%s)",
+  async (contents) => {
+    const dir = mkdtempSync(join(tmpdir(), "gaetanata-corrupt-errors-"));
+    const file = join(dir, "errori.json");
+    writeFileSync(file, contents);
+    let server: Server | undefined;
+    try {
+      server = await startServer({ port: 0, databaseFile: join(dir, "app.db") });
+      const address = server.address();
+      if (!address || typeof address === "string") throw new Error("address");
+      const base = `http://127.0.0.1:${address.port}`;
+      expect((await (await fetch(`${base}/api/report`)).json()).errors).toEqual([]);
+      expect((await fetch(`${base}/api/errors`, {
+        method: "POST",
+        body: JSON.stringify({ message: "Nuovo errore" }),
+      })).status).toBe(204);
+      expect(JSON.parse(readFileSync(file, "utf8"))).toEqual([
+        expect.objectContaining({ origin: "interfaccia", message: "Nuovo errore" }),
+      ]);
+    } finally {
+      if (server) {
+        server.close();
+        await once(server, "close");
+      }
+      if (server) rmSync(dir, { recursive: true, force: true });
+    }
+  },
+);

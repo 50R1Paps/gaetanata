@@ -94,7 +94,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
       }
     : { status: "idle" };
   if (update.status === "failed")
-    errors.record("aggiornamento", new Error(update.message));
+    errors.record("aggiornamento", new Error(`${update.message}${options.failedUpdateTarget ? `; versione tentata ${options.failedUpdateTarget}` : ""}`));
   const windows = windowHandler({
     staleAfterMs: options.windowStaleAfterMs,
     idleGraceMs: options.idleGraceMs,
@@ -247,7 +247,11 @@ export async function startServer(options: ServerOptions): Promise<Server> {
           from: packageInfo.version,
           version,
           nodeVersion: options.nodeVersion ?? process.versions.node,
-          onFailure: (error: unknown) => errors.record("aggiornamento", error),
+          onFailure: (error: unknown) => {
+            const entry = new Error(`${error instanceof Error ? error.message : "Aggiornamento non riuscito"}; versione tentata ${version}`);
+            if (error instanceof Error && error.stack) entry.stack = error.stack;
+            errors.record("aggiornamento", entry);
+          },
           setState: (state: UpdateState) => {
             update = state;
             if (state.status === "failed") windows.updateFinished();

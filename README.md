@@ -26,7 +26,9 @@ senza corpi o parametri delle richieste né dati dei pazienti. Gli errori di
 validazione e le richieste dell'interfaccia fallite per assenza di rete non
 vengono registrati; il controllo iniziale della Versione resta silenzioso.
 Un Aggiornamento già avviato che fallisce viene invece registrato anche se la
-causa è la rete.
+causa è la rete; la voce indica anche la Versione tentata e non viene ripetuta
+ai riavvii successivi. Se il registro è illeggibile o corrotto, l'app si avvia
+con un registro vuoto e lo sostituisce alla prima nuova registrazione.
 Se il registro non può essere scritto sul disco, l'operazione in corso non si
 interrompe: gli errori restano in memoria e vengono salvati alla successiva
 registrazione riuscita. Se l'app si chiude prima, queste voci non persistono.
@@ -46,13 +48,16 @@ cinque errori del registro.
 Il tasto compare anche nei messaggi delle operazioni non riuscite: lettura,
 salvataggio ed eliminazione delle schede, caricamento e salvataggio di piano e
 schema, lettura/ripristino/scarto/scrittura della bozza, template, generazione e
-download del Word, lettura e aggiornamento dello storico, server non disponibile
-e aggiornamento dell'app. Apre la stessa schermata con quell'errore prima degli
+download del Word, lettura e aggiornamento dello storico e aggiornamento
+dell'app. Apre la stessa schermata con quell'errore prima degli
 errori del registro. Per un aggiornamento non riuscito riporta anche la Versione
 installata e quella non riuscita, anche dopo il ripristino; un launcher precedente
 può non conoscere la Versione tentata. I nomi dei file Word non entrano nell'errore.
 Le indicazioni per correggere i dati inseriti non sono errori operativi e non
-mostrano il tasto.
+mostrano il tasto, né lo mostra la schermata «Gaetanata si è chiusa».
+Se i dati tecnici non sono disponibili, un avviso lo indica: puoi comunque
+inviare il messaggio con la Versione nota al browser, la schermata e l'errore
+di partenza.
 
 Scegli **Invia con Gmail** per aprire una composizione nel browser, **Invia con il
 programma di posta** per usare la posta del computer, oppure **Copia il testo**

@@ -9,8 +9,8 @@ import {
 
 type TechnicalData = {
   version: string;
-  system: string;
-  installation: "clone" | "ZIP";
+  system?: string;
+  installation?: "clone" | "ZIP";
   errors: { date: string; origin: string; message: string; stack: string }[];
 };
 
@@ -29,8 +29,8 @@ function reportText(
   const mailto = (body: string) =>
     `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   const details = [
-    `Sistema operativo: ${data.system}`,
-    `Installazione: ${data.installation}`,
+    ...(data.system ? [`Sistema operativo: ${data.system}`] : []),
+    ...(data.installation ? [`Installazione: ${data.installation}`] : []),
     `Schermata: ${screen}`,
   ];
   const base = () =>
@@ -75,6 +75,7 @@ function reportText(
 type ReportSession = {
   openReport: (initialError?: string, failedUpdate?: FailedUpdate) => void;
   setScreen: (screen: string) => void;
+  setVersion: (version: string) => void;
 };
 const ReportContext = createContext<ReportSession | null>(null);
 
@@ -89,6 +90,7 @@ export function ReportProvider({ children }: { children: ReactNode }) {
     failedUpdate?: FailedUpdate;
   } | null>(null);
   const [screen, setScreen] = useState("Finestra non attiva");
+  const [version, setVersion] = useState<string>();
   return (
     <ReportContext
       value={{
@@ -99,10 +101,11 @@ export function ReportProvider({ children }: { children: ReactNode }) {
             ...(failedUpdate ? { failedUpdate } : {}),
           }),
         setScreen,
+        setVersion,
       }}
     >
       {children}
-      {report && <ReportScreen {...report} close={() => setReport(null)} />}
+      {report && <ReportScreen {...report} version={version} close={() => setReport(null)} />}
     </ReportContext>
   );
 }
@@ -112,16 +115,19 @@ function ReportScreen({
   initialError,
   failedUpdate,
   close,
+  version,
 }: {
   screen: string;
   initialError?: string;
   failedUpdate?: FailedUpdate;
   close: () => void;
+  version: string | undefined;
 }) {
   const [data, setData] = useState<TechnicalData | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   const [description, setDescription] = useState("");
   const [message, setMessage] = useState("");
+  const [unavailable, setUnavailable] = useState(false);
   useEffect(() => {
     dialog.current?.showModal();
     const controller = new AbortController();
@@ -134,13 +140,13 @@ function ReportScreen({
         if (!controller.signal.aborted) setData(body);
       })
       .catch(() => {
-        if (!controller.signal.aborted)
-          setMessage(
-            "Impossibile leggere i dati tecnici. Chiudi e riapri la segnalazione.",
-          );
+        if (!controller.signal.aborted) {
+          setUnavailable(true);
+          setData({ version: version ?? "Non disponibile", errors: [] });
+        }
       });
     return () => controller.abort();
-  }, []);
+  }, [version]);
   const { subject, body, mailto } = data
     ? reportText(data, description, screen, initialError, failedUpdate)
     : { subject: "", body: "", mailto: "" };
@@ -201,6 +207,7 @@ function ReportScreen({
       ) : (
         <p>Lettura dei dati tecnici…</p>
       )}
+      {unavailable && <p>Dati tecnici non disponibili. Puoi inviare comunque la segnalazione.</p>}
       {message && <p role="status">{message}</p>}
       <div className="report-actions">
         <button

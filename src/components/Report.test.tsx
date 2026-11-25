@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { App } from "../App";
+import { PatientManager } from "./PatientManager";
 import { ReportProvider, useReport } from "./Report";
 import { stubDialogs } from "./schemaTestKit";
 import { VersionFooter } from "./VersionFooter";
@@ -259,3 +260,84 @@ it("opens a native modal and closes it on cancellation without sending", async (
   fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
   expect(screen.queryByRole("dialog")).toBeNull();
 });
+
+it("does not offer reporting when the server has stopped", async () => {
+  vi.stubGlobal("fetch", async () => {
+    throw new TypeError("offline");
+  });
+  render(
+    <ReportProvider>
+      <WindowGate>Contenuto</WindowGate>
+    </ReportProvider>,
+  );
+  await screen.findByText(/Gaetanata si è chiusa/);
+  expect(screen.queryByRole("button", { name: "Segnala problema" })).toBeNull();
+});
+
+it.each(["http", "network"])(
+  "keeps all sending methods available without technical data (%s)",
+  async (failure) => {
+    vi.stubGlobal("fetch", async (path: string) => {
+      if (path === "/api/health") return Response.json({ version: "1.2.3" });
+      if (failure === "network") throw new TypeError("offline");
+      return new Response(null, { status: 500 });
+    });
+    render(
+      <ReportProvider>
+        <ErrorSource />
+        <VersionFooter />
+      </ReportProvider>,
+    );
+    await screen.findByText(/Versione 1.2.3/);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Apri con errore" }));
+    await screen.findByText(/dati tecnici non disponibili/i);
+    fireEvent.change(screen.getByLabelText("Cosa è successo o cosa ti serve?"), {
+      target: { value: "Non riesco a salvare." },
+    });
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    const copy = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", { clipboard: { writeText: copy } });
+    const preview = screen.getByLabelText("Anteprima della segnalazione").textContent;
+    expect(preview).toContain("Versione: 1.2.3");
+    expect(preview).toContain("Schermata: Finestra non attiva");
+    expect(preview).toContain("Errore di partenza: Salvataggio non riuscito, id 42");
+    for (const name of [
+      "Invia con Gmail",
+      "Invia con il programma di posta",
+      "Copia il testo",
+    ]) {
+      const button = screen.getByRole("button", { name }) as HTMLButtonElement;
+      expect(button.disabled).toBe(false);
+      await user.click(button);
+    }
+    expect(new URL(String(open.mock.calls[0]?.[0])).searchParams.get("body")).toBe(preview);
+    expect(new URL(String(open.mock.calls[1]?.[0])).searchParams.get("body")).toBe(preview);
+    expect(copy).toHaveBeenCalledWith(preview);
+    expect(screen.getByText(/dati tecnici non disponibili/i)).toBeTruthy();
+  },
+);
+
+it.each([400, 500, "network"])(
+  "only offers reporting for a failed patient operation, not validation (%s)",
+  async (status) => {
+    vi.stubGlobal("fetch", async (_path: string, init?: RequestInit) => {
+      if (init?.method === "POST") {
+        if (status === "network") throw new TypeError("offline");
+        return Response.json({ error: "Richiesta non riuscita" }, { status });
+      }
+      return Response.json({ patients: [] });
+    });
+    render(
+      <ReportProvider>
+        <PatientManager selectedId={null} onSelect={async () => true} />
+      </ReportProvider>,
+    );
+    await screen.findByText("Nessuna scheda salvata.");
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("Nome (obbligatorio)"), "Persona Fittizia");
+    await user.click(screen.getByRole("button", { name: "Salva scheda" }));
+    await screen.findByText(/Salvataggio non riuscito/);
+    expect(Boolean(screen.queryByRole("button", { name: "Segnala problema" }))).toBe(status !== 400);
+  },
+);
