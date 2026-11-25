@@ -80,3 +80,13 @@ _Avoid_: livello di attività
 **Bozza**:
 Copia automatica delle modifiche non salvate a piano settimanale e schema, separata da ciò che è salvato; ce n'è al massimo una, del paziente aperto o di nessun paziente. Non diventa mai il piano o lo schema del paziente finché non si preme Salva.
 _Avoid_: Autosalvataggio, backup, copia di sicurezza
+
+### App
+
+**Versione**:
+Uno stato di Gaetanata pubblicato da chi la sviluppa e identificato da un numero (es. 0.2.0). Chi usa l'app riceve solo versioni, mai modifiche intermedie.
+_Avoid_: Release, build, commit
+
+**Aggiornamento**:
+Passaggio dalla versione installata a una versione più recente, avviato da chi usa l'app; se non riesce, resta la versione di prima.
+_Avoid_: "Aggiorna" da solo, pull, update
