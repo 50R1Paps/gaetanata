@@ -31,3 +31,29 @@ revisione dei dati da pubblicare.
 I test delle finestre avanzano esplicitamente Date e timer fittizi, con HTTP reale,
 e attendono `onIdle` tramite promise, senza ritardi reali contro limiti brevi.
 I test CLI hanno 15 s locali per avviare processi reali, senza aumentare il timeout globale.
+
+## Isolamento dei test dell'interfaccia
+
+Vitest esegue prima i test Node (fino a quattro worker), poi quelli `.test.tsx`
+in un solo worker jsdom, mantenendo l'isolamento fra file. Non eseguire i due
+gruppi contemporaneamente: query sul DOM e rendering React competono per la CPU
+con gli altri DOM e con i sottoprocessi CLI. I timeout restano a 5 s.
+
+Diagnosi #51: la suite iniziale ha prodotto cinque timeout in `SchemaScreen`;
+lo stesso file isolato è passato, con test da 0,3–1,1 s. Un profilo CPU del file
+ha attribuito circa 4,4 s su 10,9 s alle query per etichetta e 3,4 s al rendering
+React (tempi inclusivi, non sommabili): lavoro CPU, non attese di rete.
+
+Un timeout di Vitest non cancella la promise del test. Se avviene dentro un
+`act` asincrono, React conserva la coda aperta: anche dopo `cleanup()` il test
+successivo può trovare soltanto `<body><div /></body>`. La regressione
+`src/testIsolation.test.tsx` forza questa condizione e verifica che il test
+seguente riesca ancora a montare e modificare un campo.
+
+Nei test usare `asyncAct` da `src/testSetup.ts` per gli scope `act` asincroni.
+Il setup traccia anche il wrapper di user-event e delle query asincrone:
+attende gli scope già iniziati e interrompe la continuazione del test scaduto,
+prima di smontare componenti, ripristinare timer o rimuovere stub. Per questo
+gli hook dell'interfaccia sono in ordine di registrazione (`hooks: "list"`).
+Il drain ha il limite degli hook di Vitest: non rende risolvibile una promise
+che non termina mai.

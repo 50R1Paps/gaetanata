@@ -1,14 +1,9 @@
 // @vitest-environment jsdom
-import {
-  act,
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { addPortion, emptyWeekPlan } from "../plan";
+import { asyncAct as act } from "../testSetup";
 import { stubDialogs } from "./schemaTestKit";
 import { WindowGate } from "./WindowGate";
 
