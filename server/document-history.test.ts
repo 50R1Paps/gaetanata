@@ -46,7 +46,11 @@ it("keeps generated documents immutable, newest first and scoped to their patien
       method: "PUT",
       body: new Uint8Array(buildSyntheticTemplate()),
     });
-    await call(`${base}/schema`, "PUT", { ...emptySchema(), kcal: 1800 });
+    await call(`${base}/schema`, "PUT", {
+      ...emptySchema(),
+      kcal: 1800,
+      proteinWeek: { redMeatGrams: 100 },
+    });
     const generated = await call(`${base}/document`, "POST");
     expect(generated.status).toBe(200);
     const bytes = Buffer.from(await generated.arrayBuffer());
@@ -60,7 +64,11 @@ it("keeps generated documents immutable, newest first and scoped to their patien
       },
     ]);
     expect(new Date(first[0].date).toISOString()).toBe(first[0].date);
-    await call(`${base}/schema`, "PUT", { ...emptySchema(), kcal: 2200 });
+    await call(`${base}/schema`, "PUT", {
+      ...emptySchema(),
+      kcal: 2200,
+      proteinWeek: { redMeatGrams: 100 },
+    });
     expect((await call(`${base}/document`, "POST")).status).toBe(200);
     await stop(server);
     server = await startServer({ port: 0, databaseFile });

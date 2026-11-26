@@ -135,7 +135,7 @@ it("applies manual grams without hiding calculated values and undoes by removing
   expect(restored.protein.grams).toBe(150);
 });
 
-it("reports real and every ideal protein ratio, with inclusive warning limits", () => {
+it("reports only the reference protein ratio, with inclusive warning limits", () => {
   const result = calculateSchema(
     patient,
     { ...emptySchema(), kcal: 2000 },
@@ -143,11 +143,10 @@ it("reports real and every ideal protein ratio, with inclusive warning limits", 
   );
   if (!result.ok) throw new Error("Expected calculation");
   expect(result.protein.grams).toBe(100);
-  expect(result.protein.real).toBe(1.25);
-  expect(result.protein.ideal.bmi225.weightKg).toBeCloseTo(72.9);
-  expect(result.protein.ideal.bmi225.gramsPerKg).toBeCloseTo(1.371742);
-  expect(result.protein.ideal.bmi25.weightKg).toBe(81);
-  expect(result.protein.ideal.lorenz.weightKg).toBe(72.5);
+  expect(result.protein).toEqual({
+    grams: 100,
+    reference: { weightKg: 80, gramsPerKg: 1.25, basis: "real" },
+  });
   expect(
     result.warnings.filter((w) => w.code !== "substitution-unavailable"),
   ).toEqual([]);
@@ -171,6 +170,35 @@ it("reports real and every ideal protein ratio, with inclusive warning limits", 
     );
   }
 });
+
+it.each([
+  [70, 70, "real", 1.4285714285714286],
+  [50, 50, "real", 2],
+  [81, 81, "real", 1.2345679012345678],
+  [120, 81, "bmi25", 1.2345679012345678],
+] as const)(
+  "uses the reference weight for a %i kg patient (ADR 0012)",
+  (weightKg, referenceKg, basis, gramsPerKg) => {
+    const result = calculateSchema(
+      { ...patient, weightKg },
+      { ...emptySchema(), kcal: 2000 },
+      today,
+    );
+    if (!result.ok) throw new Error("Expected calculation");
+    expect(result.protein).toEqual({
+      grams: 100,
+      reference: { weightKg: referenceKg, gramsPerKg, basis },
+    });
+    const warnings = result.warnings.filter(
+      (w) => w.code !== "substitution-unavailable",
+    );
+    expect(warnings).toEqual(
+      weightKg <= 70
+        ? [{ code: "protein-high", basis: "real", value: gramsPerKg }]
+        : [],
+    );
+  },
+);
 
 it("returns only actionable issues, never numbers, for missing or invalid inputs", () => {
   const result = calculateSchema(

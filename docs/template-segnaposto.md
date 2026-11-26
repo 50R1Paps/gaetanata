@@ -12,8 +12,14 @@ La copia reale resta fuori dal repository (ADR 0003). Questo documento elenca so
 | `{colazione_latte_ml}` | Latte: quantità scelta, oppure proposta 150 se è scelto yogurt | ml |
 | `{colazione_yogurt_g}` | Yogurt: quantità scelta, oppure proposta 125 se è scelto latte | g |
 | `{spuntino_frutta_secca_g}` | Frutta secca degli spuntini | g |
+| `{spuntino_noci_n}` | Conteggio indicativo noci, base 3–4 a 20 g | numero/intervallo |
+| `{spuntino_mandorle_n}` | Conteggio indicativo mandorle, base 10–12 a 20 g | numero/intervallo |
+| `{spuntino_pistacchi_n}` | Conteggio indicativo pistacchi, base 20 a 20 g | numero |
+| `{spuntino_arachidi_n}` | Conteggio indicativo arachidi, base 20 a 20 g | numero |
 | `{spuntino_yogurt_g}` | Yogurt degli spuntini | g |
 | `{pizza_pane_g}` | Pane del giorno pizza | g |
+| `{pizza_carne_bianca_g}` | Carne bianca del pranzo pizza, base carne rossa ×1,3 ai 5 g o correzione | g |
+| `{pizza_pesce_g}` | Pesce del pranzo pizza, base carne rossa ×1,5 ai 5 g o correzione | g |
 | `{pizza_olio_ml}` | Olio del giorno pizza | ml |
 | `{pizza_olio_cucchiai}` | Cucchiai del giorno pizza: ml / 10, senza arrotondamento | numero |
 | `{pizza_olio_cucchiaini}` | Cucchiaini del giorno pizza: ml / 5, senza arrotondamento | numero |
@@ -26,6 +32,7 @@ La copia reale resta fuori dal repository (ADR 0003). Questo documento elenca so
 | `{pranzo_sost_gnocchi_g}` | Gnocchi alternativi a pranzo | g |
 | `{cena_sost_pasta_g}` | Pasta alternativa a cena | g |
 | `{cena_sost_gallette_g}` | Gallette alternative al pane: stesso valore nei pasti e nella lista della cena | g |
+| `{cena_sost_gallette_n}` | Conteggio gallette: da ceil(g ×3/35) a floor(g ×4/35) | numero/intervallo |
 | `{cena_sost_cracker_g}` | Cracker/grissini alternativi a cena | g |
 | `{cena_sost_patate_g}` | Patate alternative a cena | g |
 | `{conversione_pasta_cruda_g}` | Pasta cruda usata per la conversione | g |
@@ -43,7 +50,18 @@ La copia locale mantiene invece tutte le alternative e la frase originale:
 si sostituiscono solo le quantità fisse di latte e yogurt con i rispettivi tag,
 senza condizioni né riordino. La bevanda non scelta conserva la quantità proposta.
 Lo yogurt usa g anche a colazione. Negli spuntini si sostituiscono le quantità
-di frutta secca e yogurt; gli altri testi restano invariati.
+di frutta secca e yogurt e i conteggi degli esempi: proporzione sui grammi
+effettivi rispetto ai 20 g, minimo arrotondato per eccesso e massimo per difetto.
+Estremi uguali danno un numero solo; se il minimo supera il massimo si usa il
+minimo. A 20 g rimangono 3-4 noci, 10-12 mandorle, 20 pistacchi e 20 arachidi;
+a 25 g diventano 4-5, 13-15, 25 e 25. Il burro di frutta secca resta fisso a 25 g.
+
+Le gallette usano la stessa regola sugli estremi con base 35 g → 3-4:
+la copia locale riporta `{cena_sost_gallette_n} gallette ({cena_sost_gallette_g} g)`
+nella lista delle sostituzioni e nelle righe C: di tutte le cene.
+Per i cracker restano solo i grammi, senza «1 pacchetto di» (#54).
+Il pranzo pizza richiede entrambe le quantità: se mancano base e correzioni,
+la generazione viene rifiutata come per una fonte feriale senza grammi (#53).
 
 ## Fonti proteiche: tutti i giorni e pasti
 

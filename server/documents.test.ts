@@ -161,7 +161,12 @@ it("generates schema values and conditional blocks, refusing incomplete inputs",
           },
         },
       },
-      pizza: { breadGrams: 65.5, oilMl: 12.5 },
+      pizza: {
+        breadGrams: 65.5,
+        oilMl: 12.5,
+        whiteMeatGrams: 140,
+        fishGrams: 160,
+      },
     });
     const italian = await fetch(base + path, { method: "POST" });
     expect(italian.status).toBe(200);

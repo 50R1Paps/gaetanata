@@ -6,7 +6,11 @@
 
 `src/schemaCalc.ts` espone `calculateSchema(paziente, schema, oggi)`; l'interfaccia
 è documentata in testa al modulo. Calcola fabbisogno, ripartizione per 3–6 pasti,
-grammature ai 5 g, sostituzioni e proteine/kg sul peso reale e sui tre pesi ideali.
+grammature ai 5 g, sostituzioni e proteine/kg sul solo peso di riferimento:
+il minore tra peso reale e 25 × altezza² in metri (ADR 0012). Normopeso e
+sottopeso usano il peso reale; a BMI 25 si indica ancora il peso reale.
+`protein` espone `grams` e `reference: { weightKg, gramsPerKg, basis }`,
+con `basis` pari a `real` o `bmi25`; gli avvisi riguardano solo questo rapporto.
 I dati mancanti producono indicazioni da completare, senza risultati numerici.
 Ogni quantità distingue calcolo e correzione manuale; eliminare la correzione
 ripristina il calcolo. Le correzioni dei macro sono in grammi.
@@ -42,8 +46,11 @@ La schermata e l'API per generare il Word sono descritte in [Documento Word](wor
   si contano insieme (1–2), come i legumi (2–4); carne bianca 2–4, carne rossa
   0–1, pesce 2–4, pesce in scatola 1–2, affettati 0–1, uova 1–2. I limiti sono
   inclusivi; si contano le scelte, non i grammi né le eccezioni come pasti extra.
-- `pizza: { breadGrams?, oilMl? }`: sempre presente nel risultato con pane 50 g
-  e olio 10 ml iniziali. È un ottavo giorno intercambiabile con un giorno della
+- `pizza: { breadGrams?, oilMl?, whiteMeatGrams?, fishGrams? }`: sempre presente
+  nel risultato con pane 50 g e olio 10 ml iniziali. `whiteMeat` e `fish`
+  seguono la base carne rossa ×1,3 e ×1,5, arrotondata ai 5 g come nei giorni
+  feriali: senza base sono `null`, salvo correzione manuale (anche zero).
+  Eliminare la correzione ripristina il calcolo. È un ottavo giorno intercambiabile con un giorno della
   settimana, al massimo una volta: non è assegnato a un giorno fisso e non
   modifica le sette scelte o i conteggi delle fonti proteiche.
 - `breakfast: { choice?, quantity? }`: `latte` (150 ml, predefinito) oppure
@@ -61,8 +68,9 @@ kcal dieta; poi LAF, kcal dieta, numero di pasti (3–6) e ripartizione dei macr
 che deve sommare a 100 %. Con dati mancanti elenca cosa completare e non mostra
 numeri. Le tabelle riportano kcal e grammi di macro per pasto, pasta a pranzo e
 pane a cena con tutte le sostituzioni (la polenta resta «Non disponibile» con
-avviso) e le proteine in g/kg sul peso reale e sui tre pesi ideali, evidenziando
-quelle fuori da 1,2–1,4.
+avviso) e le proteine in g/kg sul solo peso di riferimento, con i kg e
+l'indicazione «peso reale» o «peso ideale BMI 25», evidenziando il rapporto
+fuori da 1,2–1,4.
 
 Ogni grammatura si corregge scrivendo nel campo: la correzione è evidenziata in
 giallo e il pulsante ↺ accanto mostra il valore calcolato e lo ripristina.
@@ -81,7 +89,7 @@ proposta. Uova e pesce in scatola hanno la casella dell'eccezione (3 uova
 180 g, tonno 78 g); carne bianca e pesce senza base restano vuoti con
 l'indicazione di inserirla. Accanto, le frequenze settimanali contano le scelte
 per fonte (formaggi e legumi insieme, con il dettaglio) e segnalano quelle
-sotto o sopra il consigliato. Il giorno pizza, con pane e olio, è un riquadro
+sotto o sopra il consigliato. Il giorno pizza, con pane, olio, carne bianca e pesce, è un riquadro
 separato «in più», non uno dei sette giorni. Tutte le quantità seguono le
 stesse regole di correzione evidenziata e ↺; sotto i 600 px la griglia diventa
 un elenco per giorno. Le sezioni vengono salvate solo con i valori scelti o
