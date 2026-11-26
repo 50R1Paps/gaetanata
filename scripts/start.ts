@@ -16,6 +16,7 @@ import {
 import { dirname, join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import type { FailedUpdate } from "../src/update.ts";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
 const port = Number(process.env.PORT ?? 5174);
@@ -50,7 +51,7 @@ if (
 
   let restarting = false;
   let expectedVersion: string | undefined;
-  let failedVersion: string | undefined;
+  let failedUpdate: FailedUpdate | undefined;
   let previousRef: string | undefined;
   let previousType: "clone" | "zip" = "clone";
   let previousVersion: string | undefined;
@@ -76,7 +77,7 @@ if (
     restarting = true;
     if (rollbackUpdate) {
       restore(previousType, previousRef, restartFile);
-      failedVersion = previousVersion;
+      failedUpdate = { installed: previousVersion, attempted: expectedVersion };
       restarting = false;
       expectedVersion = undefined;
     } else {
@@ -86,7 +87,10 @@ if (
       } catch (error) {
         console.error(error);
         restore(previousType, previousRef, restartFile);
-        failedVersion = previousVersion;
+        failedUpdate = {
+          installed: previousVersion,
+          attempted: expectedVersion,
+        };
         restarting = false;
         expectedVersion = undefined;
       }
@@ -99,7 +103,11 @@ if (
       [...process.execArgv, join(root, "scripts", "serve.ts")],
       {
         cwd: root,
-        env: { ...process.env, GAETANATA_AGGIORNAMENTO_FALLITO: failedVersion },
+        env: {
+          ...process.env,
+          GAETANATA_AGGIORNAMENTO_FALLITO: failedUpdate?.installed,
+          GAETANATA_AGGIORNAMENTO_VERSIONE_TENTATA: failedUpdate?.attempted,
+        },
         windowsHide: true,
         stdio: ["inherit", "inherit", "inherit", "ipc"],
       },
@@ -113,8 +121,13 @@ if (
       : undefined;
     child.on("message", async (message) => {
       if (message !== "ready") return;
+      failedUpdate = undefined;
       const deadline = Date.now() + 60_000;
-      while (Date.now() < deadline && child.exitCode === null) {
+      while (
+        Date.now() < deadline &&
+        child.exitCode === null &&
+        child.signalCode === null
+      ) {
         if (await alreadyRunning(expectedVersion)) {
           ready = true;
           clearTimeout(timer);
@@ -165,7 +178,10 @@ if (
       if (!previousVersion || (previousType === "clone" && !previousRef))
         throw new Error("Protocollo di riavvio non valido");
       restore(previousType, previousRef ?? "", restartFile);
-      failedVersion = previousVersion;
+      failedUpdate = {
+        installed: previousVersion,
+        ...(expectedVersion ? { attempted: expectedVersion } : {}),
+      };
       restarting = false;
       expectedVersion = undefined;
       continue;
@@ -237,7 +253,7 @@ if (
       if (!existsSync(acknowledgement)) {
         launcher.kill();
         restore(protocol.tipo, protocol.refPrecedente, restartFile);
-        failedVersion = protocol.da;
+        failedUpdate = { installed: protocol.da, attempted: protocol.a };
         restarting = false;
         expectedVersion = undefined;
         continue;

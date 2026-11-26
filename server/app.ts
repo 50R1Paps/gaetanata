@@ -6,6 +6,7 @@ import {
   type Server,
   type ServerResponse,
 } from "node:http";
+import { platform, release } from "node:os";
 import { extname, join, normalize, sep } from "node:path";
 import packageInfo from "../package.json" with { type: "json" };
 import {
@@ -13,10 +14,12 @@ import {
   type PatientInput,
   validatePatient,
 } from "../src/patient.ts";
-import type { UpdateState } from "../src/update.ts";
+import type { TechnicalData } from "../src/report.ts";
+import type { FailedUpdate, Installation, UpdateState } from "../src/update.ts";
 import { openDatabase, schemaVersion } from "./db.ts";
 import { documentHandler } from "./documents.ts";
 import { draftHandler } from "./draft.ts";
+import { errorLog } from "./error-log.ts";
 import { inspectClone, installClone, installZip } from "./install-update.ts";
 import { type PatientStore, patientStore } from "./patients.ts";
 import { planHandler } from "./plans.ts";
@@ -41,7 +44,7 @@ export type ServerOptions = {
   appDir?: string;
   onRestart?: () => void;
   nodeVersion?: string;
-  failedUpdateVersion?: string | undefined;
+  failedUpdate?: FailedUpdate | undefined;
   /** Built frontend to serve; omit when a dev middleware serves the frontend. */
   staticDir?: string;
   /** Handles non-API requests in dev mode (Vite middleware). */
@@ -62,6 +65,21 @@ const contentTypes: Record<string, string> = {
 /** Listens on 127.0.0.1 only: patient data must never be reachable from the network. */
 export async function startServer(options: ServerOptions): Promise<Server> {
   const db = openDatabase(options.databaseFile);
+  const installation: Installation = existsSync(
+    join(options.appDir ?? process.cwd(), ".git"),
+  )
+    ? "clone"
+    : "ZIP";
+  const errors = errorLog(options.databaseFile);
+  const recordServerError = (error: unknown) => {
+    errors.record("server", error);
+    console.error(error);
+  };
+  function sendServerError(error: unknown, res: ServerResponse) {
+    recordServerError(error);
+    if (res.headersSent) res.end();
+    else sendJson(res, 500, { error: "Errore interno del server" });
+  }
   const patients = patientStore(db);
   const frozen = () => update.status === "progress";
   const handlePlan = planHandler(db, frozen);
@@ -72,12 +90,20 @@ export async function startServer(options: ServerOptions): Promise<Server> {
     (windowId) => windows.isActive(windowId),
     frozen,
   );
-  let update: UpdateState = options.failedUpdateVersion
+  let update: UpdateState = options.failedUpdate
     ? {
         status: "failed",
-        message: `Aggiornamento non riuscito, stai usando ancora la versione ${options.failedUpdateVersion}`,
+        message: `Aggiornamento non riuscito, stai usando ancora la versione ${options.failedUpdate.installed}`,
+        failedUpdate: options.failedUpdate,
       }
     : { status: "idle" };
+  if (update.status === "failed")
+    errors.record(
+      "aggiornamento",
+      new Error(
+        `${update.message}${options.failedUpdate?.attempted ? `; versione tentata ${options.failedUpdate.attempted}` : ""}`,
+      ),
+    );
   const windows = windowHandler({
     staleAfterMs: options.windowStaleAfterMs,
     idleGraceMs: options.idleGraceMs,
@@ -89,6 +115,53 @@ export async function startServer(options: ServerOptions): Promise<Server> {
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
+    if (url.pathname === "/api/report") {
+      if (req.method !== "GET") {
+        sendJson(res, 405, { error: "Metodo non consentito" });
+        return;
+      }
+      sendJson(res, 200, {
+        version: packageInfo.version,
+        system: `${platform()} ${release()}`,
+        installation,
+        errors: errors.latest(5),
+      } satisfies TechnicalData);
+      return;
+    }
+    if (url.pathname === "/api/errors") {
+      void (async () => {
+        if (req.method !== "POST") {
+          sendJson(res, 405, { error: "Metodo non consentito" });
+          return;
+        }
+        const bytes = await readBody(req, res);
+        if (!bytes) return;
+        let body: unknown;
+        try {
+          body = JSON.parse(bytes.toString("utf8"));
+        } catch {
+          body = null;
+        }
+        if (
+          !body ||
+          typeof body !== "object" ||
+          !("message" in body) ||
+          typeof body.message !== "string" ||
+          !body.message.trim() ||
+          ("stack" in body && typeof body.stack !== "string")
+        ) {
+          sendJson(res, 400, { error: "Errore interfaccia non valido" });
+          return;
+        }
+        const error = new Error(body.message);
+        error.stack = "stack" in body ? String(body.stack) : "";
+        errors.record("interfaccia", error);
+        res.writeHead(204).end();
+      })().catch((error: unknown) => {
+        sendServerError(error, res);
+      });
+      return;
+    }
     if (
       url.pathname.startsWith("/api/") &&
       ["POST", "PUT", "PATCH", "DELETE"].includes(req.method ?? "") &&
@@ -142,9 +215,8 @@ export async function startServer(options: ServerOptions): Promise<Server> {
           sendJson(res, 409, { error: "Aggiornamento non disponibile" });
           return;
         }
-        const clone = existsSync(join(options.appDir, ".git"))
-          ? inspectClone(options.appDir)
-          : null;
+        const clone =
+          installation === "clone" ? inspectClone(options.appDir) : null;
         if (clone && "error" in clone) {
           sendJson(res, 409, { error: clone.error });
           return;
@@ -182,6 +254,14 @@ export async function startServer(options: ServerOptions): Promise<Server> {
           from: packageInfo.version,
           version,
           nodeVersion: options.nodeVersion ?? process.versions.node,
+          onFailure: (error: unknown) => {
+            const entry = new Error(
+              `${error instanceof Error ? error.message : "Aggiornamento non riuscito"}; versione tentata ${version}`,
+            );
+            if (error instanceof Error && error.stack)
+              entry.stack = error.stack;
+            errors.record("aggiornamento", entry);
+          },
           setState: (state: UpdateState) => {
             update = state;
             if (state.status === "failed") windows.updateFinished();
@@ -198,9 +278,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
           });
         else void installZip({ ...context, zipUrl: zipUrl ?? "" });
       })().catch((error: unknown) => {
-        console.error(error);
-        if (res.headersSent) res.end();
-        else sendJson(res, 500, { error: "Errore interno del server" });
+        sendServerError(error, res);
       });
       return;
     }
@@ -210,9 +288,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
         return;
       }
       drafts.handle(req, res).catch((error) => {
-        console.error(error);
-        if (res.headersSent) res.end();
-        else sendJson(res, 500, { error: "Errore interno del server" });
+        sendServerError(error, res);
       });
       return;
     }
@@ -223,17 +299,13 @@ export async function startServer(options: ServerOptions): Promise<Server> {
       windows
         .handle(req, res, url.pathname === "/api/window/close")
         .catch((error) => {
-          console.error(error);
-          if (res.headersSent) res.end();
-          else sendJson(res, 500, { error: "Errore interno del server" });
+          sendServerError(error, res);
         });
       return;
     }
     if (url.pathname === "/api/template") {
       handleDocument(req, res).catch((error) => {
-        console.error(error);
-        if (res.headersSent) res.end();
-        else sendJson(res, 500, { error: "Errore interno del server" });
+        sendServerError(error, res);
       });
       return;
     }
@@ -249,9 +321,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
         documentMatch[2] === "documents",
         documentMatch[3] === undefined ? undefined : Number(documentMatch[3]),
       ).catch((error) => {
-        console.error(error);
-        if (res.headersSent) res.end();
-        else sendJson(res, 500, { error: "Errore interno del server" });
+        sendServerError(error, res);
       });
       return;
     }
@@ -270,9 +340,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
           )
         : handlePatients(patients, url.pathname, req, res, frozen);
       handled.catch((error) => {
-        console.error(error);
-        if (res.headersSent) res.end();
-        else sendJson(res, 500, { error: "Errore interno del server" });
+        sendServerError(error, res);
       });
       return;
     }
@@ -286,7 +354,7 @@ export async function startServer(options: ServerOptions): Promise<Server> {
     }
     if (options.staticDir) {
       serveStatic(options.staticDir, url.pathname, res).catch((error) => {
-        console.error(error);
+        recordServerError(error);
         if (!res.headersSent) res.writeHead(500);
         res.end();
       });
@@ -304,6 +372,11 @@ export async function startServer(options: ServerOptions): Promise<Server> {
     resolve();
   });
   await promise;
+  // Observe fatal exceptions without changing Node's default crash behavior.
+  process.on("uncaughtExceptionMonitor", recordServerError);
+  server.once("close", () => {
+    process.off("uncaughtExceptionMonitor", recordServerError);
+  });
   if (options.releaseSource) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5_000);
@@ -316,7 +389,11 @@ export async function startServer(options: ServerOptions): Promise<Server> {
       .then((result) => {
         if (update.status === "failed") {
           if (result.status === "available")
-            update = { ...result, failedMessage: update.message };
+            update = {
+              ...result,
+              failedMessage: update.message,
+              failedUpdate: update.failedUpdate,
+            };
         } else if (update.status === "idle") {
           update = result;
         }

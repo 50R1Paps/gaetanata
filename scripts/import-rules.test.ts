@@ -110,7 +110,7 @@ it("keeps the dependency installer limited to node built-ins", () => {
     }
     writeFileSync(
       launcher,
-      'import { spawn } from "node:child_process";\nimport "node:fs";',
+      'import { spawn } from "node:child_process";\nimport "node:fs";\nimport type {\n FailedUpdate,\n UpdateState,\n} from "../src/update.ts";',
     );
     const accepted = lint();
     expect(accepted.status, accepted.stderr).toBe(0);

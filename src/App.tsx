@@ -1,6 +1,7 @@
 import {
   type KeyboardEvent,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -13,6 +14,7 @@ import {
   type PatientDocument,
   PatientPlanHeader,
 } from "./components/PatientPlanHeader";
+import { useReport } from "./components/Report";
 import { SchemaScreen } from "./components/SchemaScreen";
 import { SummaryPanel } from "./components/SummaryPanel";
 import { useWindowSession } from "./components/WindowGate";
@@ -43,6 +45,12 @@ export function App({ initialPlan }: { initialPlan?: WeekPlan } = {}) {
   const [schema, setSchema] = useState(emptySchema);
   const [patient, setPatient] = useState<Patient | null>(null);
   const [view, setView] = useState<"plan" | "schema">("plan");
+  const report = useReport();
+  const setReportScreen = report?.setScreen;
+  useEffect(() => {
+    setReportScreen?.(view);
+    return () => setReportScreen?.("waiting");
+  }, [view, setReportScreen]);
   const [dayIndex, setDayIndex] = useState(0);
   const [mealIndex, setMealIndex] = useState(0);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);

@@ -9,6 +9,8 @@ import {
 import type { DraftInput } from "../draftApi";
 import type { UpdateState } from "../update";
 import { closeWindow, signalWindow } from "../windowApi";
+import { ErrorMessage } from "./ErrorMessage";
+import { useReport } from "./Report";
 
 type WindowSession = {
   windowId: string;
@@ -58,6 +60,11 @@ export function WindowGate({
   const [status, setStatus] = useState<
     "pending" | "active" | "waiting" | "closed"
   >("pending");
+  const setReportScreen = useReport()?.setScreen;
+  useEffect(() => {
+    if (update.status === "progress") setReportScreen?.("update");
+    else if (status !== "active") setReportScreen?.(status);
+  }, [status, update.status, setReportScreen]);
 
   useEffect(() => {
     let disposed = false;
@@ -170,12 +177,10 @@ export function WindowGate({
         minute: "2-digit",
       });
     return (
-      <p role="alert">
-        Gaetanata si è chiusa. Riaprila dall'icona
-        {time
-          ? `: le modifiche fino alle ${time} sono nella bozza.`
-          : ". Nessuna bozza scritta in questa finestra."}
-      </p>
+      <ErrorMessage
+        reportable={false}
+        message={`Gaetanata si è chiusa. Riaprila dall'icona${time ? `: le modifiche fino alle ${time} sono nella bozza.` : ". Nessuna bozza scritta in questa finestra."}`}
+      />
     );
   }
   if (status === "pending") return <p role="status">Apertura di Gaetanata…</p>;
@@ -199,12 +204,25 @@ export function WindowGate({
             {patientDirty && (
               <p>Salva la scheda paziente prima di aggiornare.</p>
             )}
-            {installError && <p role="alert">{installError}</p>}
+            {installError && (
+              <ErrorMessage
+                message={installError}
+                failedUpdate={{ attempted: update.version }}
+              />
+            )}
           </section>
         )}
-        {update.status === "failed" && <p role="alert">{update.message}</p>}
+        {update.status === "failed" && (
+          <ErrorMessage
+            message={update.message}
+            failedUpdate={update.failedUpdate}
+          />
+        )}
         {update.status === "available" && update.failedMessage && (
-          <p role="alert">{update.failedMessage}</p>
+          <ErrorMessage
+            message={update.failedMessage}
+            failedUpdate={update.failedUpdate}
+          />
         )}
         <fieldset
           disabled={installing}

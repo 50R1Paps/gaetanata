@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { DatabaseSync } from "node:sqlite";
 import { isDietSchema } from "../src/schema.ts";
+import { parsePatientJson } from "./patient-json.ts";
 import { validPlan } from "./plans.ts";
 import { readBody } from "./request-body.ts";
 
@@ -38,10 +39,22 @@ export function draftHandler(
       return send(200, {
         patientId: row.patient_id,
         updatedAt: row.updated_at,
-        ...(row.plan_json === null ? {} : { plan: JSON.parse(row.plan_json) }),
+        ...(row.plan_json === null
+          ? {}
+          : {
+              plan: parsePatientJson(row.plan_json, {
+                kind: "draft",
+                patientId: row.patient_id,
+              }),
+            }),
         ...(row.schema_json === null
           ? {}
-          : { schema: JSON.parse(row.schema_json) }),
+          : {
+              schema: parsePatientJson(row.schema_json, {
+                kind: "draft",
+                patientId: row.patient_id,
+              }),
+            }),
       });
     }
     if (req.method !== "PUT" && req.method !== "DELETE")

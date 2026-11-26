@@ -17,12 +17,13 @@ import {
   listPatients,
   updatePatient,
 } from "../patientsApi";
+import { ErrorMessage } from "./ErrorMessage";
 import { MetabolismPanel } from "./MetabolismPanel";
 import { usePatientDirtySetter } from "./WindowGate";
 
 type ListState =
   | { status: "loading" }
-  | { status: "error"; message: string }
+  | { status: "error"; message: string; reportable: boolean }
   | { status: "ready"; patients: Patient[] };
 
 const byName = (a: Patient, b: Patient) =>
@@ -52,6 +53,7 @@ export function PatientManager({
   const [form, setForm] = useState<PatientForm>(emptyPatientForm);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [failure, setFailure] = useState<string | null>(null);
+  const [reportable, setReportable] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -96,7 +98,12 @@ export function PatientManager({
         setForm(active ? patientToForm(active) : emptyPatientForm);
       },
       (error: unknown) => {
-        if (current) setList({ status: "error", message: messageOf(error) });
+        if (current)
+          setList({
+            status: "error",
+            message: messageOf(error),
+            reportable: isOperationFailure(error),
+          });
       },
     );
     return () => {
@@ -161,6 +168,7 @@ export function PatientManager({
       setNotice("Scheda salvata.");
     } catch (error) {
       if (error instanceof ApiError) showErrors(error.fields);
+      setReportable(isOperationFailure(error));
       setFailure(`Salvataggio non riuscito: ${messageOf(error)}`);
     } finally {
       // Unless an invalid field already claimed it, focus goes back to the
@@ -188,6 +196,7 @@ export function PatientManager({
     } catch (error) {
       setConfirmingDelete(false);
       focusNext.current = deleteId;
+      setReportable(isOperationFailure(error));
       setFailure(`Eliminazione non riuscita: ${messageOf(error)}`);
     } finally {
       setBusy(false);
@@ -247,12 +256,15 @@ export function PatientManager({
           <p className="muted">Caricamento schede…</p>
         )}
         {list.status === "error" && (
-          <div role="alert" className="error">
-            <p>Impossibile leggere le schede: {list.message}</p>
+          <ErrorMessage
+            as="div"
+            message={`Impossibile leggere le schede: ${list.message}`}
+            reportable={list.reportable}
+          >
             <button type="button" onClick={() => setReloads((n) => n + 1)}>
               Riprova
             </button>
-          </div>
+          </ErrorMessage>
         )}
         {list.status === "ready" && patients.length === 0 && (
           <p className="muted">Nessuna scheda salvata.</p>
@@ -372,11 +384,7 @@ export function PatientManager({
           </div>
         )}
         <div role="status">{notice && <p className="notice">{notice}</p>}</div>
-        {failure && (
-          <p role="alert" className="error">
-            {failure}
-          </p>
-        )}
+        {failure && <ErrorMessage message={failure} reportable={reportable} />}
       </form>
     </div>
   );
@@ -384,4 +392,10 @@ export function PatientManager({
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function isOperationFailure(error: unknown) {
+  return (
+    !(error instanceof ApiError) || error.status === 0 || error.status >= 500
+  );
 }

@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { DatabaseSync } from "node:sqlite";
 import { emptySchema, isDietSchema } from "../src/schema.ts";
+import { parsePatientJson } from "./patient-json.ts";
 import { readBody } from "./request-body.ts";
 
 /** One current input-only Schema per patient, matching the plan HTTP contract. */
@@ -26,7 +27,15 @@ export function schemaHandler(
       return send(404, { error: "Scheda paziente non trovata" });
     if (req.method === "GET") {
       const row = get.get(id) as { schema_json: string } | undefined;
-      return send(200, row ? JSON.parse(row.schema_json) : emptySchema());
+      return send(
+        200,
+        row
+          ? parsePatientJson(row.schema_json, {
+              kind: "patient",
+              patientId: id,
+            })
+          : emptySchema(),
+      );
     }
     if (req.method !== "PUT")
       return send(405, { error: "Metodo non consentito" });

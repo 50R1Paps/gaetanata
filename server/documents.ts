@@ -7,6 +7,7 @@ import { localToday } from "../src/patient.ts";
 import { type DietSchema, emptySchema } from "../src/schema.ts";
 import { IncompleteDocumentError } from "./document-values.ts";
 import { generateDocument } from "./generate-document.ts";
+import { parsePatientJson } from "./patient-json.ts";
 import { patientStore } from "./patients.ts";
 import { readBody, templateBodyLimit } from "./request-body.ts";
 import { validateTemplate } from "./template-contract.ts";
@@ -87,7 +88,7 @@ export function documentHandler(
       }
       const row = getSchema.get(id) as { schema_json: string } | undefined;
       const schema: DietSchema = row
-        ? JSON.parse(row.schema_json)
+        ? parsePatientJson(row.schema_json, { kind: "patient", patientId: id })
         : emptySchema();
       try {
         const { bytes, filename } = generateDocument(

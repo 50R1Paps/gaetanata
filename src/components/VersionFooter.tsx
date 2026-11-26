@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
+import { useReport } from "./Report";
 
 export function VersionFooter() {
+  const report = useReport();
   const [version, setVersion] = useState<string>();
+  const setReportVersion = report?.setVersion;
 
   useEffect(() => {
     let disposed = false;
@@ -11,14 +14,23 @@ export function VersionFooter() {
         return response.json();
       })
       .then((body: { version?: unknown }) => {
-        if (!disposed && typeof body.version === "string")
+        if (!disposed && typeof body.version === "string") {
           setVersion(body.version);
+          setReportVersion?.(body.version);
+        }
       })
       .catch(() => {});
     return () => {
       disposed = true;
     };
-  }, []);
+  }, [setReportVersion]);
 
-  return <footer>{version && `Versione ${version}`}</footer>;
+  return (
+    <footer>
+      {version && `Versione ${version}`}
+      <button type="button" onClick={() => report?.openReport()}>
+        Segnala problema
+      </button>
+    </footer>
+  );
 }

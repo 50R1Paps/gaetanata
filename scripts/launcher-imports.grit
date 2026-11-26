@@ -8,5 +8,6 @@ or {
   JsExportNamedFromClause(source=$source)
 } as $statement where {
   not $source <: r"[\"']node:.*",
+  not $statement <: r"(?s)type .* from [\"']\..*",
   register_diagnostic(span=$statement, message="Il launcher può importare soltanto moduli node: prima di npm ci.")
 }

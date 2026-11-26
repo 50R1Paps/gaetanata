@@ -12,7 +12,7 @@ export function lookupFood(name: string): Food | undefined {
 
 export function findFood(name: string): Food {
   const food = foodsByName.get(name);
-  if (!food) throw new Error(`Alimento sconosciuto: ${name}`);
+  if (!food) throw new Error("Alimento sconosciuto.");
   return food;
 }
 

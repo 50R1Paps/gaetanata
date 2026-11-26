@@ -18,9 +18,58 @@ Se l'avvio dall'icona fallisce, un dialogo indica il file `data/avvio.log` da co
 
 I dati sono salvati sul computer in `data/gaetanata.db`. Per un backup, chiudi l'app e copia l'intera cartella `data/`.
 
+Gli ultimi 50 errori del server e dell'interfaccia e i fallimenti degli
+Aggiornamenti restano in `data/errori.json`, nella stessa cartella del database
+anche quando è configurata una cartella dati diversa. Il registro sopravvive ai
+riavvii e conserva data, origine, messaggio e le prime sei righe dello stack,
+senza corpi o parametri delle richieste né dati dei pazienti. Gli errori di
+validazione e le richieste dell'interfaccia fallite per assenza di rete non
+vengono registrati; il controllo iniziale della Versione resta silenzioso.
+Un Aggiornamento già avviato che fallisce viene invece registrato anche se la
+causa è la rete; la voce indica anche la Versione tentata e non viene ripetuta
+ai riavvii successivi. Se il registro è illeggibile o corrotto, l'app si avvia
+con un registro vuoto e lo sostituisce alla prima nuova registrazione.
+Se il registro non può essere scritto sul disco, l'operazione in corso non si
+interrompe: gli errori restano in memoria e vengono salvati alla successiva
+registrazione riuscita. Se l'app si chiude prima, queste voci non persistono.
+
 All'avvio Gaetanata controlla in silenzio se è disponibile una versione più
 recente e ne mostra le note nella finestra attiva. Il controllo non impedisce
 l'avvio anche se la rete non è disponibile.
+
+## Segnala problema
+
+Premi **Segnala problema**, a piè di pagina accanto alla Versione, anche in una
+finestra non attiva. Scrivi cosa è successo o cosa ti serve, senza inserire nomi
+o dati dei pazienti. L'anteprima mostra il testo esatto e i **Dati tecnici**:
+Versione, sistema operativo, installazione clone o ZIP, schermata aperta e ultimi
+cinque errori del registro.
+
+Il tasto compare anche nei messaggi delle operazioni non riuscite: lettura,
+salvataggio ed eliminazione delle schede, caricamento e salvataggio di piano e
+schema, lettura/ripristino/scarto/scrittura della bozza, template, generazione e
+download del Word, lettura e aggiornamento dello storico e aggiornamento
+dell'app. Apre la stessa schermata con quell'errore prima degli
+errori del registro. Per un aggiornamento non riuscito riporta anche la Versione
+installata e quella non riuscita, anche dopo il ripristino; un launcher precedente
+può non conoscere la Versione tentata. I nomi dei file Word non entrano nell'errore.
+Le indicazioni per correggere i dati inseriti non sono errori operativi e non
+mostrano il tasto, né lo mostra la schermata «Gaetanata si è chiusa».
+Se i dati tecnici non sono disponibili, un avviso lo indica: puoi comunque
+inviare il messaggio con la Versione nota al browser, la schermata e l'errore
+di partenza.
+
+Scegli **Invia con Gmail** per aprire una composizione nel browser, **Invia con il
+programma di posta** per usare la posta del computer, oppure **Copia il testo**
+per incollarlo dove preferisci. L'app prepara il messaggio per
+`gaetanata.qualify006@simplelogin.com`, ma sei tu a inviarlo: non spedisce email
+automaticamente e non allega file. Copia funziona anche senza rete.
+
+Gli errori vengono abbreviati per mantenere l'indirizzo di posta entro circa
+2.000 caratteri; l'anteprima, Gmail e Copia usano lo stesso testo abbreviato.
+Se necessario vengono omessi anche gli altri dati tecnici, mai la Versione o
+la descrizione. Una descrizione molto lunga può superare comunque il limite
+del programma di posta: in quel caso usa Gmail o Copia.
 
 ## Aggiornamento
 
