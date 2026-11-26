@@ -34,6 +34,7 @@ try {
   const saved = await json(`/api/patients/${patient.id}/schema`, "PUT", {
     ...emptySchema(),
     kcal: 1800,
+    proteinWeek: { redMeatGrams: 100 },
   });
   assert.equal(saved.status, 200, await saved.text());
   const uploaded = await fetch(`${base}/api/template`, {
@@ -46,7 +47,7 @@ try {
     method: "POST",
     signal: AbortSignal.timeout(10000),
   });
-  assert.equal(document.status, 200);
+  assert.equal(document.status, 200, await document.clone().text());
   assert.match(
     document.headers.get("content-type") ?? "",
     /wordprocessingml.document/,
