@@ -1070,6 +1070,7 @@ html {
 }
 
 .protein-meal .muted,
+.schema-field .muted,
 .schema-variants {
   font-size: 0.8rem;
 }

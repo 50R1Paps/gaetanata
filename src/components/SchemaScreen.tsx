@@ -19,8 +19,8 @@ import {
 import {
   calculateSchema,
   type SchemaCalculation,
-  type SchemaIdealBasis,
   type SchemaProteinPortion,
+  type SchemaProteinReference,
   type SchemaQuantity,
   substitutionReferences,
 } from "../schemaCalc";
@@ -49,10 +49,9 @@ const substitutionNames: Record<SubstitutionKey, string> = {
   riceCakes: "Gallette di riso",
   crackers: "Crackers",
 };
-const idealNames: Record<SchemaIdealBasis, string> = {
-  bmi225: "Peso ideale BMI 22,5",
+const referenceNames: Record<SchemaProteinReference["basis"], string> = {
+  real: "Peso reale",
   bmi25: "Peso ideale BMI 25",
-  lorenz: "Peso ideale Lorenz",
 };
 const ratioFormat = new Intl.NumberFormat("it-IT", {
   minimumFractionDigits: 2,
@@ -206,6 +205,12 @@ export function SchemaScreen({
     0,
   );
   const splitInvalid = Math.abs(macroSum - 100) > 1e-8;
+  // The g/kg is checked on the reference weight only (ADR 0012).
+  const proteinWarning = result.ok
+    ? result.warnings.find(
+        (warning) => warning.code !== "substitution-unavailable",
+      )
+    : undefined;
   const update = (change: Partial<DietSchema>) =>
     setSchema((current) => ({ ...current, ...change }));
   const setOverride = (
@@ -516,43 +521,24 @@ export function SchemaScreen({
                 </tr>
               </thead>
               <tbody>
-                {[
-                  {
-                    key: "real",
-                    name: "Peso reale",
-                    weightKg: patient.weightKg ?? 0,
-                    gramsPerKg: result.protein.real,
-                  },
-                  ...(Object.keys(idealNames) as SchemaIdealBasis[]).map(
-                    (key) => ({
-                      key,
-                      name: idealNames[key],
-                      ...result.protein.ideal[key],
-                    }),
-                  ),
-                ].map((row) => {
-                  const warning = result.warnings.find(
-                    (warning) =>
-                      warning.code !== "substitution-unavailable" &&
-                      warning.basis === row.key,
-                  );
-                  return (
-                    <tr key={row.key} className={warning ? "warning" : ""}>
-                      <th scope="row">{row.name}</th>
-                      <td className="num">{formatNumber(row.weightKg)}</td>
-                      <td className="num">
-                        {ratioFormat.format(row.gramsPerKg)}
-                      </td>
-                      <td>
-                        {warning?.code === "protein-low"
-                          ? "Sotto 1,2"
-                          : warning?.code === "protein-high"
-                            ? "Sopra 1,4"
-                            : "Nell'intervallo"}
-                      </td>
-                    </tr>
-                  );
-                })}
+                <tr className={proteinWarning ? "warning" : ""}>
+                  <th scope="row">
+                    {referenceNames[result.protein.reference.basis]}
+                  </th>
+                  <td className="num">
+                    {formatNumber(result.protein.reference.weightKg)}
+                  </td>
+                  <td className="num">
+                    {ratioFormat.format(result.protein.reference.gramsPerKg)}
+                  </td>
+                  <td>
+                    {proteinWarning?.code === "protein-low"
+                      ? "Sotto 1,2"
+                      : proteinWarning?.code === "protein-high"
+                        ? "Sopra 1,4"
+                        : "Nell'intervallo"}
+                  </td>
+                </tr>
               </tbody>
             </table>
           </section>
@@ -800,6 +786,24 @@ function ProteinWeekPanel({
               setSchema((current) => withSection(current, "pizza", { oilMl }))
             }
           />
+          <LabeledQuantity
+            label="Carne bianca pranzo pizza (g)"
+            quantity={pizza.whiteMeat}
+            onChange={(whiteMeatGrams) =>
+              setSchema((current) =>
+                withSection(current, "pizza", { whiteMeatGrams }),
+              )
+            }
+          />
+          <LabeledQuantity
+            label="Pesce pranzo pizza (g)"
+            quantity={pizza.fish}
+            onChange={(fishGrams) =>
+              setSchema((current) =>
+                withSection(current, "pizza", { fishGrams }),
+              )
+            }
+          />
         </div>
       </section>
     </section>
@@ -893,7 +897,8 @@ function ProteinMealInput({
 }
 
 /** A quantity with a visible label, for fields outside the tables; clearing
- * the correction (↺) passes undefined. */
+ * the correction (↺) passes undefined. A null quantity (white meat or fish
+ * without the red-meat base) starts empty and asks for the base. */
 function LabeledQuantity({
   label,
   unit = "g",
@@ -902,10 +907,11 @@ function LabeledQuantity({
 }: {
   label: string;
   unit?: string;
-  quantity: SchemaQuantity;
+  quantity: SchemaQuantity | SchemaProteinPortion["quantity"];
   onChange: (value: number | undefined) => void;
 }) {
   const id = useId();
+  const hintId = useId();
   return (
     <div className="schema-field">
       <label htmlFor={id}>{label}</label>
@@ -913,10 +919,18 @@ function LabeledQuantity({
         id={id}
         label={label}
         unit={unit}
-        quantity={quantity}
+        quantity={
+          quantity ?? { calculated: null, value: null, overridden: false }
+        }
+        describedBy={quantity ? undefined : hintId}
         onChange={onChange}
         onRevert={() => onChange(undefined)}
       />
+      {!quantity && (
+        <span id={hintId} className="muted">
+          Inserisci la base carne rossa
+        </span>
+      )}
     </div>
   );
 }

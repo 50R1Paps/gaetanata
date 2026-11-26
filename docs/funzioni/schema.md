@@ -89,8 +89,10 @@ proposta. Uova e pesce in scatola hanno la casella dell'eccezione (3 uova
 180 g, tonno 78 g); carne bianca e pesce senza base restano vuoti con
 l'indicazione di inserirla. Accanto, le frequenze settimanali contano le scelte
 per fonte (formaggi e legumi insieme, con il dettaglio) e segnalano quelle
-sotto o sopra il consigliato. Il giorno pizza, con pane, olio, carne bianca e pesce, è un riquadro
-separato «in più», non uno dei sette giorni. Tutte le quantità seguono le
+sotto o sopra il consigliato. Il giorno pizza è un riquadro separato «in più»,
+non uno dei sette giorni, con pane, olio e le quantità di carne bianca e pesce
+del pranzo, calcolate dalla stessa base (senza base restano vuote con
+l'indicazione di inserirla). Tutte le quantità seguono le
 stesse regole di correzione evidenziata e ↺; sotto i 600 px la griglia diventa
 un elenco per giorno. Le sezioni vengono salvate solo con i valori scelti o
 corretti, così le proposte restano quelle del calcolo.
