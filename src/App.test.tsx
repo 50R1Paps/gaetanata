@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import {
-  act,
   cleanup,
   fireEvent,
   render,
@@ -15,6 +14,7 @@ import { patients, stubDialogs } from "./components/schemaTestKit";
 import type { DraftInput } from "./draftApi";
 import { addPortion, emptyWeekPlan } from "./plan";
 import { emptySchema } from "./schema";
+import { asyncAct as act } from "./testSetup";
 
 beforeEach(() => {
   vi.stubGlobal("fetch", async (path: string) =>
