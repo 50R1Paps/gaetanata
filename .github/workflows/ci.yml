@@ -1,7 +1,10 @@
 name: CI
 
 on:
+  # Branches run through their pull request: one run per commit, not two.
   push:
+    branches: [main]
+    tags: ["v*"]
   pull_request:
 
 permissions:

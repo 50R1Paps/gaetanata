@@ -1,6 +1,10 @@
 name: Portable launchers
 
-on: [push, pull_request]
+on:
+  # Branches run through their pull request: one run per commit, not two.
+  push:
+    branches: [main]
+  pull_request:
 
 permissions:
   contents: read

@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(
@@ -18,9 +18,21 @@ const files = git(["ls-files", "--cached", "-z"])
   .toString()
   .split("\0")
   .filter(Boolean);
+// Linked worktrees lack the untracked list: fall back to the main checkout's copy.
+const mainCheckout = dirname(
+  resolve(
+    root,
+    git(["rev-parse", "--path-format=absolute", "--git-common-dir"])
+      .toString()
+      .trim(),
+  ),
+);
+const patternsFile = [root, mainCheckout]
+  .map((dir) => resolve(dir, ".private-patterns"))
+  .find((file) => existsSync(file));
 let privatePatterns: RegExp[] = [];
-try {
-  privatePatterns = readFileSync(resolve(root, ".private-patterns"), "utf8")
+if (patternsFile) {
+  privatePatterns = readFileSync(patternsFile, "utf8")
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line && !line.startsWith("#"))
@@ -31,8 +43,7 @@ try {
           "giu",
         ),
     );
-} catch (error) {
-  if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+} else {
   console.log("Privacy: .private-patterns assente, controllo privato saltato.");
 }
 let failures = 0;

@@ -33,6 +33,12 @@ Usa dati fittizi e template sintetici; nessun estratto riconoscibile di pazienti
 professionisti o istituti deve entrare nel repository o nei servizi esterni.
 Controlla il significato dei dati, non soltanto l'estensione dei file.
 
+I messaggi d'errore di operazioni fallite finiscono nel registro degli errori e
+nelle segnalazioni ([ADR 0011](docs/adr/0011-segnalazione-via-email.md)): citano
+al massimo id numerici, mai nomi, misure o contenuti di piano e schema. Gli errori
+di validazione mostrati per correggere un campo possono nominare giorno, pasto e
+alimento, perché non escono dall'app.
+
 ## Pattern esistenti
 
 Riusa i pattern già presenti per lo stesso problema. Una nuova convenzione o
