@@ -57,10 +57,14 @@ Metabolismo basale moltiplicato per il LAF; il LAF di partenza è 1,4, più alto
 Divisione delle kcal dieta in macronutrienti (di solito 50/30/20 carboidrati, lipidi, proteine) e in percentuali per pasto, che dipendono dal numero di pasti (da 3 a 6).
 
 **Giorno pizza**:
-Giorno sempre presente nello schema, con pane 50 g e olio 10 ml come valori di partenza, raramente modificati.
+Giorno sempre presente nello schema, con pane 50 g e olio 10 ml come valori di partenza, raramente modificati. A pranzo carne bianca o pesce seguono la stessa regola degli altri giorni: base della carne rossa ×1,3 e ×1,5.
 
 **Fonte proteica**:
 Alimento proteico (carne rossa, carne bianca, pesce, uova...) scelto per paziente per ogni giorno e pasto, senza rotazione fissa.
+
+**Peso di riferimento**:
+Peso su cui si calcola l'obiettivo di 1,2–1,4 g di proteine per kg: il peso reale se il paziente è normopeso, il peso ideale con BMI 25 se è in sovrappeso od obeso (ADR 0012).
+_Avoid_: Peso ideale (è solo uno dei due casi)
 
 ### Metabolismo
 
