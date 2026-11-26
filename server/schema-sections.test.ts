@@ -49,7 +49,7 @@ it("persists optional input sections across restart, rejects invalid sections at
           ]),
         ),
       },
-      pizza: { breadGrams: 65, oilMl: 0 },
+      pizza: { breadGrams: 65, oilMl: 0, whiteMeatGrams: 0, fishGrams: 190 },
       breakfast: { choice: "yogurt", quantity: 170 },
       snacks: { nutsGrams: 30, yogurtGrams: 200 },
     };
@@ -80,6 +80,8 @@ it("persists optional input sections across restart, rejects invalid sections at
       { pizza: { enabled: false } },
       { pizza: { breadGrams: -1 } },
       { pizza: { oilMl: "10" } },
+      { pizza: { whiteMeatGrams: -1 } },
+      { pizza: { fishGrams: "150" } },
       { breakfast: null },
       { breakfast: { choice: "succo" } },
       { breakfast: { quantity: -1 } },

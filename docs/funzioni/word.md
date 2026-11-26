@@ -33,6 +33,17 @@ schermata Schema. Salvare prima lo Schema del paziente.
   Tutte le quantità nel Word usano la virgola decimale italiana (237,5),
   senza separatori delle migliaia né decimali aggiunti agli interi.
 
+Il pranzo del giorno pizza usa carne bianca e pesce dalla base carne rossa
+(×1,3 e ×1,5 ai 5 g), incluse le correzioni. Se una quantità manca, il Word
+è rifiutato con 422 e richiede la base o la correzione, come nei giorni feriali.
+Le gallette mantengono conteggio e grammi nella lista e nelle righe C: delle
+cene: a 35 g «3-4 gallette (35 g)». Il conteggio varia proporzionalmente con
+estremi arrotondati verso l'interno; se non resta un intervallo si usa il minimo.
+Gli esempi della frutta secca seguono i grammi dello spuntino rispetto alla
+base di 20 g (3-4 noci, 10-12 mandorle, 20 pistacchi, 20 arachidi), con la
+stessa regola. Il burro di frutta secca resta 25 g. I cracker riportano solo
+i grammi, senza «1 pacchetto di» (risposte del 26/11, #53 e #54).
+
 ### Storico dei Word generati
 
 Ogni generazione riuscita salva nel database locale una voce immutabile:

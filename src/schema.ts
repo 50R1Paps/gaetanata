@@ -81,7 +81,12 @@ export type DietSchema = {
   macroPercent: SchemaMacros;
   overrides: SchemaOverrides;
   proteinWeek?: SchemaProteinWeek;
-  pizza?: { breadGrams?: number; oilMl?: number };
+  pizza?: {
+    breadGrams?: number;
+    oilMl?: number;
+    whiteMeatGrams?: number;
+    fishGrams?: number;
+  };
   breakfast?: { choice?: "latte" | "yogurt"; quantity?: number };
   snacks?: { nutsGrams?: number; yogurtGrams?: number };
 };
@@ -213,10 +218,7 @@ export function isDietSchema(value: unknown): value is DietSchema {
   const pizza = value.pizza;
   if (
     pizza !== undefined &&
-    (!record(pizza) ||
-      !keys(pizza, ["breadGrams", "oilMl"]) ||
-      (pizza.breadGrams !== undefined && !nonnegative(pizza.breadGrams)) ||
-      (pizza.oilMl !== undefined && !nonnegative(pizza.oilMl)))
+    !numbers(pizza, ["breadGrams", "oilMl", "whiteMeatGrams", "fishGrams"])
   )
     return false;
   const breakfast = value.breakfast;

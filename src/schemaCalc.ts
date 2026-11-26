@@ -2,8 +2,8 @@
  * calculateSchema(patient, inputs, today) accepts PatientInput, DietSchema and
  * an explicit ISO date (no clock/I/O). Invalid/missing data => {ok:false,issues}
  * with no numeric results. Success includes metabolism, fabbisogno, ordered
- * meals, substitutions and protein/kg for real and ALL existing ideal weights;
- * no ideal-weight formula is silently chosen. Warnings use inclusive 1.2–1.4.
+ * meals, substitutions and protein/kg on the reference weight (ADR 0012).
+ * Warnings use inclusive 1.2–1.4 on min(real weight, BMI-25 weight) only.
  * Quantity = {calculated,value,overridden}; delete the corresponding input
  * override to undo it. Macro overrides are grams; food overrides are grams.
  * kcal reflect the prescribed allocation, not reconstructed rounded grams.
@@ -62,11 +62,15 @@ export type SchemaMeal = {
   macroKcal: SchemaMacros;
   grams: Record<keyof SchemaMacros, SchemaQuantity>;
 };
-export type SchemaIdealBasis = "bmi225" | "bmi25" | "lorenz";
+export type SchemaProteinReference = {
+  weightKg: number;
+  gramsPerKg: number;
+  basis: "real" | "bmi25";
+};
 export type SchemaWarning =
   | {
       code: "protein-low" | "protein-high";
-      basis: "real" | SchemaIdealBasis;
+      basis: SchemaProteinReference["basis"];
       value: number;
     }
   | { code: "substitution-unavailable"; substitution: SubstitutionKey };
@@ -87,11 +91,7 @@ export type SchemaCalculation =
       >;
       protein: {
         grams: number;
-        real: number;
-        ideal: Record<
-          SchemaIdealBasis,
-          { weightKg: number; gramsPerKg: number }
-        >;
+        reference: SchemaProteinReference;
       };
       proteinWeek: {
         days: {
@@ -109,7 +109,12 @@ export type SchemaCalculation =
           outOfRange: boolean;
         }[];
       };
-      pizza: { bread: SchemaQuantity; oil: SchemaQuantity };
+      pizza: {
+        bread: SchemaQuantity;
+        oil: SchemaQuantity;
+        whiteMeat: SchemaProteinPortion["quantity"];
+        fish: SchemaProteinPortion["quantity"];
+      };
       breakfast: {
         choice: "latte" | "yogurt";
         unit: "ml" | "g";
@@ -437,26 +442,18 @@ export function calculateSchema(
         : meal.macroKcal.protein / 4),
     0,
   );
-  function proteinRatio(basis: "real" | keyof typeof weights, weight: number) {
-    const value = proteinGrams / weight;
-    if (value < 1.2 || value > 1.4)
-      warnings.push({
-        code: value < 1.2 ? "protein-low" : "protein-high",
-        basis,
-        value,
-      });
-    return value;
-  }
-  const real = proteinRatio("real", weightKg);
-  const ideal = Object.fromEntries(
-    Object.entries(weights).map(([key, value]) => [
-      key,
-      {
-        weightKg: value.weight,
-        gramsPerKg: proteinRatio(key as keyof typeof weights, value.weight),
-      },
-    ]),
-  ) as Extract<SchemaCalculation, { ok: true }>["protein"]["ideal"];
+  const referenceWeight = Math.min(weightKg, weights.bmi25.weight);
+  const reference: SchemaProteinReference = {
+    weightKg: referenceWeight,
+    gramsPerKg: proteinGrams / referenceWeight,
+    basis: weightKg <= weights.bmi25.weight ? "real" : "bmi25",
+  };
+  if (reference.gramsPerKg < 1.2 || reference.gramsPerKg > 1.4)
+    warnings.push({
+      code: reference.gramsPerKg < 1.2 ? "protein-low" : "protein-high",
+      basis: reference.basis,
+      value: reference.gramsPerKg,
+    });
   if (
     !Number.isFinite(proteinGrams) ||
     meals.some(
@@ -480,11 +477,31 @@ export function calculateSchema(
     fabbisogno,
     meals,
     carbohydrates,
-    protein: { grams: proteinGrams, real, ideal },
+    protein: { grams: proteinGrams, reference },
     proteinWeek: proteinWeek(schema),
     pizza: {
       bread: quantity(50, schema.pizza?.breadGrams),
       oil: quantity(10, schema.pizza?.oilMl),
+      whiteMeat:
+        proteinPortion(
+          {
+            source: "carne_bianca",
+            ...(schema.pizza?.whiteMeatGrams === undefined
+              ? {}
+              : { grams: schema.pizza.whiteMeatGrams }),
+          },
+          schema.proteinWeek?.redMeatGrams,
+        )?.quantity ?? null,
+      fish:
+        proteinPortion(
+          {
+            source: "pesce",
+            ...(schema.pizza?.fishGrams === undefined
+              ? {}
+              : { grams: schema.pizza.fishGrams }),
+          },
+          schema.proteinWeek?.redMeatGrams,
+        )?.quantity ?? null,
     },
     breakfast: {
       choice: schema.breakfast?.choice ?? "latte",

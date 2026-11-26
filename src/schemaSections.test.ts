@@ -27,6 +27,8 @@ it("keeps v1 drafts valid and supplies independent manual defaults without inven
   expect(result.pizza).toEqual({
     bread: { calculated: 50, value: 50, overridden: false },
     oil: { calculated: 10, value: 10, overridden: false },
+    whiteMeat: null,
+    fish: null,
   });
   expect(result.breakfast).toEqual({
     choice: "latte",
@@ -199,6 +201,8 @@ it("uses manual pizza, breakfast and snack quantities without scaling them with 
     expect(result.pizza).toEqual({
       bread: { calculated: 50, value: 75, overridden: true },
       oil: { calculated: 10, value: 0, overridden: true },
+      whiteMeat: null,
+      fish: null,
     });
     expect(result.breakfast).toEqual({
       choice: "yogurt",
@@ -215,4 +219,68 @@ it("uses manual pizza, breakfast and snack quantities without scaling them with 
   );
   if (!result.ok) throw new Error("Expected calculation");
   expect(result.breakfast.quantity.value).toBe(125);
+});
+
+it("recalculates pizza meat and fish like weekdays, preserves manual zero and restores deleted overrides", () => {
+  const schema = {
+    ...emptySchema(),
+    kcal: 1800,
+    proteinWeek: { redMeatGrams: 115 },
+  };
+  const proposed = calculateSchema(patient, schema, today);
+  if (!proposed.ok) throw new Error("Expected calculation");
+  expect(proposed.pizza.whiteMeat).toEqual({
+    calculated: 150,
+    value: 150,
+    overridden: false,
+  });
+  expect(proposed.pizza.fish).toEqual({
+    calculated: 175,
+    value: 175,
+    overridden: false,
+  });
+  const corrected = calculateSchema(
+    patient,
+    { ...schema, pizza: { whiteMeatGrams: 0, fishGrams: 190 } },
+    today,
+  );
+  if (!corrected.ok) throw new Error("Expected calculation");
+  expect(corrected.pizza.whiteMeat).toEqual({
+    calculated: 150,
+    value: 0,
+    overridden: true,
+  });
+  expect(corrected.pizza.fish).toEqual({
+    calculated: 175,
+    value: 190,
+    overridden: true,
+  });
+  const restored = calculateSchema(
+    patient,
+    { ...schema, proteinWeek: { redMeatGrams: 100 }, pizza: {} },
+    today,
+  );
+  if (!restored.ok) throw new Error("Expected calculation");
+  expect(restored.pizza.whiteMeat?.value).toBe(130);
+  expect(restored.pizza.fish?.value).toBe(150);
+  const manual = calculateSchema(
+    patient,
+    {
+      ...schema,
+      proteinWeek: {},
+      pizza: { whiteMeatGrams: 120, fishGrams: 0 },
+    },
+    today,
+  );
+  if (!manual.ok) throw new Error("Expected calculation");
+  expect(manual.pizza.whiteMeat).toEqual({
+    calculated: null,
+    value: 120,
+    overridden: true,
+  });
+  expect(manual.pizza.fish).toEqual({
+    calculated: null,
+    value: 0,
+    overridden: true,
+  });
 });

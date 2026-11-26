@@ -30,6 +30,18 @@ function formatTemplateNumber(value: number): string {
   return String(value).replace(".", ",");
 }
 
+/** Inward-rounded proportional counts from the confirmed baseline (#54). */
+function proportionalCount(
+  grams: number,
+  baselineGrams: number,
+  lower: number,
+  upper: number,
+): string {
+  const min = Math.ceil((grams * lower) / baselineGrams);
+  const max = Math.floor((grams * upper) / baselineGrams);
+  return max > min ? `${min}-${max}` : String(min);
+}
+
 /** Pure mapping: units and descriptive text belong exclusively to the template. */
 export function documentValues(
   patient: PatientInput,
@@ -73,15 +85,52 @@ export function documentValues(
         ? result.breakfast.quantity.value
         : 125,
     spuntino_frutta_secca_g: result.snacks.nuts.value,
+    spuntino_noci_n: proportionalCount(result.snacks.nuts.value, 20, 3, 4),
+    spuntino_mandorle_n: proportionalCount(
+      result.snacks.nuts.value,
+      20,
+      10,
+      12,
+    ),
+    spuntino_pistacchi_n: proportionalCount(
+      result.snacks.nuts.value,
+      20,
+      20,
+      20,
+    ),
+    spuntino_arachidi_n: proportionalCount(
+      result.snacks.nuts.value,
+      20,
+      20,
+      20,
+    ),
     spuntino_yogurt_g: result.snacks.yogurt.value,
     pizza_pane_g: result.pizza.bread.value,
     ...pizzaOilTemplateValues(result.pizza.oil.value),
     pranzo_sost_polenta: lunch.cornmeal !== null,
     pranzo_sost_farina_mais_g: lunch.cornmeal?.value ?? 0,
+    cena_sost_gallette_n: proportionalCount(
+      dinner.riceCakes?.value ?? 0,
+      35,
+      3,
+      4,
+    ),
   };
   for (const [tag, quantity] of Object.entries(substitutions)) {
     if (quantity === null)
       issues.push({ field: tag, message: `Completa la sostituzione ${tag}.` });
+    else values[tag] = quantity.value;
+  }
+  for (const [key, source, tag] of [
+    ["whiteMeat", "carne_bianca", "pizza_carne_bianca_g"],
+    ["fish", "pesce", "pizza_pesce_g"],
+  ] as const) {
+    const quantity = result.pizza[key];
+    if (quantity === null)
+      issues.push({
+        field: `pizza.${key}Grams`,
+        message: `Inserisci la base della carne rossa o i grammi di ${source} per il pranzo del giorno pizza.`,
+      });
     else values[tag] = quantity.value;
   }
   const raw = lunch.pasta?.value ?? 0;

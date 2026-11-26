@@ -8,7 +8,25 @@ import { formatNumber } from "../format";
 import { localToday } from "../patient";
 import { emptyWeekPlan } from "../plan";
 import { type DietSchema, emptySchema } from "../schema";
-import { openSchema, patients, setup, stubDialogs } from "./schemaTestKit";
+import {
+  patients as kitPatients,
+  openSchema,
+  setup,
+  stubDialogs,
+} from "./schemaTestKit";
+
+// Fake, anonymous: BMI about 33, so the protein reference is BMI 25.
+const patients = [
+  ...kitPatients,
+  {
+    id: 3,
+    name: "Prova Tre",
+    birthDate: "1980-03-15",
+    sex: "female" as const,
+    weightKg: 90,
+    heightCm: 165,
+  },
+];
 
 // The real API is tested over HTTP in server/schemas.test.ts; here an
 // in-memory stand-in answers the same routes.
@@ -39,16 +57,35 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+/** Label queries walk the whole subtree: scoping them to the section under
+ * test keeps the long Schema tests within the 5 s budget. */
+type Area = Pick<typeof screen, "getByLabelText">;
+
 /** Replaces the field's text in one input event, as pasting would: the
  * fields keep the typed text, so a keystroke at a time adds nothing. */
-async function type(user: UserEvent, label: string, text: string) {
-  const input = screen.getByLabelText(label);
+async function type(
+  user: UserEvent,
+  label: string,
+  text: string,
+  area: Area = screen,
+) {
+  const input = area.getByLabelText(label);
   await user.clear(input);
   await user.paste(text);
 }
 
-const value = (label: string) =>
-  (screen.getByLabelText(label) as HTMLInputElement).value;
+const value = (label: string, area: Area = screen) =>
+  (area.getByLabelText(label) as HTMLInputElement).value;
+
+/** A titled section of the Schema, found by its heading text: cheaper than a
+ * role query over the whole screen, which computes every element's role. */
+function section(title: string) {
+  const element = screen
+    .getByText(title, { selector: "h2, h3" })
+    .closest("section");
+  if (!element) throw new Error(`No section «${title}»`);
+  return within(element);
+}
 
 it("says what to complete in the record instead of showing numbers", async () => {
   const user = setup();
@@ -116,12 +153,40 @@ it("starts from metabolism and fabbisogno, then splits the diet kcal", async () 
   ).toHaveLength(2);
   expect(screen.getByText(/Farina di mais.*non è nella tabella/)).toBeTruthy();
 
+  // Normal weight: the g/kg is on the real weight only.
   const protein = screen.getByRole("table", { name: "Proteine per kg" });
+  expect(within(protein).getAllByRole("row")).toHaveLength(2); // head + 1
   const real = within(protein).getByRole("row", { name: /^Peso reale/ });
-  expect(within(real).getByText("1,50")).toBeTruthy();
-  expect(within(real).getByText("Sopra 1,4")).toBeTruthy();
-  const bmi25 = within(protein).getByRole("row", { name: /BMI 25/ });
-  expect(within(bmi25).getByText("Nell'intervallo")).toBeTruthy();
+  expect(
+    within(real)
+      .getAllByRole("cell")
+      .map((cell) => cell.textContent),
+  ).toEqual(["60", "1,50", "Sopra 1,4"]);
+  expect(real.className).toBe("warning");
+});
+
+it("checks the protein of an obese patient on the BMI 25 weight", async () => {
+  schemas.set(3, { ...emptySchema(), kcal: 1800 });
+  const user = setup();
+  render(<App />);
+  await openSchema(user, "Prova Tre");
+
+  // 90 g over 25 × 1,65² = 68,06 kg: 1,32 g/kg, inside 1,2–1,4, while the
+  // real 90 kg would give 1,00.
+  const protein = screen.getByRole("table", { name: "Proteine per kg" });
+  expect(within(protein).getAllByRole("row")).toHaveLength(2);
+  expect(
+    within(protein).queryByRole("row", { name: /^Peso reale/ }),
+  ).toBeNull();
+  const reference = within(protein).getByRole("row", {
+    name: /^Peso ideale BMI 25/,
+  });
+  expect(
+    within(reference)
+      .getAllByRole("cell")
+      .map((cell) => cell.textContent),
+  ).toEqual(["68,1", "1,32", "Nell'intervallo"]);
+  expect(reference.className).toBe("");
 });
 
 it("splits by the number of meals and requires macros summing to 100 %", async () => {
@@ -267,8 +332,9 @@ it("reopens a saved schema with its corrections", async () => {
   );
 });
 
-const source = (meal: string) => screen.getByLabelText(`Fonte ${meal}`);
-const grams = (meal: string) => value(`Quantità ${meal}`);
+const source = (meal: string, area: Area) =>
+  area.getByLabelText(`Fonte ${meal}`);
+const grams = (meal: string, area: Area) => value(`Quantità ${meal}`, area);
 
 it("chooses lunch and dinner protein sources with their starting quantities", async () => {
   schemas.set(1, { ...emptySchema(), kcal: 1800 });
@@ -276,29 +342,32 @@ it("chooses lunch and dinner protein sources with their starting quantities", as
   render(<App />);
   await openSchema(user, "Prova Uno");
 
-  const week = within(screen.getByRole("region", { name: "Fonti proteiche" }));
+  const week = section("Fonti proteiche");
   for (const day of ["Lunedì", "Domenica"])
     expect(week.getByRole("group", { name: day })).toBeTruthy();
-  expect((source("Lunedì pranzo") as HTMLSelectElement).value).toBe("");
-  expect(screen.queryByLabelText("Quantità Lunedì pranzo (g)")).toBeNull();
+  expect((source("Lunedì pranzo", week) as HTMLSelectElement).value).toBe("");
+  expect(week.queryByLabelText("Quantità Lunedì pranzo (g)")).toBeNull();
 
-  await user.selectOptions(source("Lunedì pranzo"), "Uova");
-  expect(grams("Lunedì pranzo (g)")).toBe("120");
-  await user.click(screen.getByLabelText("Lunedì pranzo: 3 uova (180 g)"));
-  expect(grams("Lunedì pranzo (g)")).toBe("180");
+  await user.selectOptions(source("Lunedì pranzo", week), "Uova");
+  expect(grams("Lunedì pranzo (g)", week)).toBe("120");
+  await user.click(week.getByLabelText("Lunedì pranzo: 3 uova (180 g)"));
+  expect(grams("Lunedì pranzo (g)", week)).toBe("180");
 
-  await user.selectOptions(source("Giovedì cena"), "Tonno/pesce in scatola");
-  expect(grams("Giovedì cena (g)")).toBe("52");
-  await user.click(screen.getByLabelText("Giovedì cena: tonno 78 g"));
-  expect(grams("Giovedì cena (g)")).toBe("78");
-  expect(screen.queryByLabelText(/Lunedì cena: /)).toBeNull();
+  await user.selectOptions(
+    source("Giovedì cena", week),
+    "Tonno/pesce in scatola",
+  );
+  expect(grams("Giovedì cena (g)", week)).toBe("52");
+  await user.click(week.getByLabelText("Giovedì cena: tonno 78 g"));
+  expect(grams("Giovedì cena (g)", week)).toBe("78");
+  expect(week.queryByLabelText(/Lunedì cena: /)).toBeNull();
 
   // A new source starts again from its own proposal.
-  await type(user, "Quantità Lunedì pranzo (g)", "200");
-  await user.selectOptions(source("Lunedì pranzo"), "Affettati");
-  expect(grams("Lunedì pranzo (g)")).toBe("80");
-  await user.selectOptions(source("Lunedì pranzo"), "Nessuna");
-  expect(screen.queryByLabelText("Quantità Lunedì pranzo (g)")).toBeNull();
+  await type(user, "Quantità Lunedì pranzo (g)", "200", week);
+  await user.selectOptions(source("Lunedì pranzo", week), "Affettati");
+  expect(grams("Lunedì pranzo (g)", week)).toBe("80");
+  await user.selectOptions(source("Lunedì pranzo", week), "Nessuna");
+  expect(week.queryByLabelText("Quantità Lunedì pranzo (g)")).toBeNull();
 });
 
 it("computes white meat and fish from the red-meat base", async () => {
@@ -306,27 +375,32 @@ it("computes white meat and fish from the red-meat base", async () => {
   const user = setup();
   render(<App />);
   await openSchema(user, "Prova Uno");
-  const week = within(screen.getByRole("region", { name: "Fonti proteiche" }));
+  const week = section("Fonti proteiche");
 
   // White meat and fish follow the red-meat base written by the nutritionist.
-  await user.selectOptions(source("Martedì cena"), "Pesce");
-  await user.selectOptions(source("Mercoledì pranzo"), "Carne bianca");
-  expect(grams("Martedì cena (g)")).toBe("");
-  expect(week.getAllByText("Inserisci la base carne rossa")).toHaveLength(2);
-  await type(user, "Carne rossa, quantità base (g)", "100");
-  expect(grams("Martedì cena (g)")).toBe("150");
-  expect(grams("Mercoledì pranzo (g)")).toBe("130");
-  await type(user, "Carne rossa, quantità base (g)", "120");
-  expect(grams("Martedì cena (g)")).toBe("180");
-  expect(grams("Mercoledì pranzo (g)")).toBe("155");
+  await user.selectOptions(source("Martedì cena", week), "Pesce");
+  await user.selectOptions(source("Mercoledì pranzo", week), "Carne bianca");
+  expect(grams("Martedì cena (g)", week)).toBe("");
+  for (const day of ["Martedì", "Mercoledì"])
+    expect(
+      within(week.getByRole("group", { name: day })).getByText(
+        "Inserisci la base carne rossa",
+      ),
+    ).toBeTruthy();
+  await type(user, "Carne rossa, quantità base (g)", "100", week);
+  expect(grams("Martedì cena (g)", week)).toBe("150");
+  expect(grams("Mercoledì pranzo (g)", week)).toBe("130");
+  await type(user, "Carne rossa, quantità base (g)", "120", week);
+  expect(grams("Martedì cena (g)", week)).toBe("180");
+  expect(grams("Mercoledì pranzo (g)", week)).toBe("155");
 
-  await type(user, "Quantità Martedì cena (g)", "170");
+  await type(user, "Quantità Martedì cena (g)", "170", week);
   await user.click(
-    screen.getByRole("button", {
+    week.getByRole("button", {
       name: "Ripristina Quantità Martedì cena (g): 180 calcolati",
     }),
   );
-  expect(grams("Martedì cena (g)")).toBe("180");
+  expect(grams("Martedì cena (g)", week)).toBe("180");
 });
 
 it("counts each source in the week against the recommended frequencies", async () => {
@@ -334,12 +408,13 @@ it("counts each source in the week against the recommended frequencies", async (
   const user = setup();
   render(<App />);
   await openSchema(user, "Prova Uno");
+  const week = section("Fonti proteiche");
 
-  await user.selectOptions(source("Lunedì pranzo"), "Formaggio fresco");
-  await user.selectOptions(source("Lunedì cena"), "Formaggio stagionato");
-  await user.selectOptions(source("Martedì pranzo"), "Formaggio fresco");
-  await user.selectOptions(source("Martedì cena"), "Uova");
-  const counts = screen.getByRole("table", { name: "Frequenze settimanali" });
+  await user.selectOptions(source("Lunedì pranzo", week), "Formaggio fresco");
+  await user.selectOptions(source("Lunedì cena", week), "Formaggio stagionato");
+  await user.selectOptions(source("Martedì pranzo", week), "Formaggio fresco");
+  await user.selectOptions(source("Martedì cena", week), "Uova");
+  const counts = week.getByRole("table", { name: "Frequenze settimanali" });
   const row = (name: RegExp) => within(counts).getByRole("row", { name });
   const cells = (name: RegExp) =>
     within(row(name))
@@ -356,9 +431,11 @@ it("counts each source in the week against the recommended frequencies", async (
 });
 
 const savedIntake = {
-  pizza: { breadGrams: 60 },
   breakfast: { choice: "yogurt" },
   snacks: { nutsGrams: 15, yogurtGrams: 0 },
+} satisfies Partial<DietSchema>;
+const savedPizza = {
+  pizza: { breadGrams: 60, whiteMeatGrams: 120 },
 } satisfies Partial<DietSchema>;
 const savedWeek = {
   proteinWeek: {
@@ -371,40 +448,23 @@ const savedWeek = {
   },
 } satisfies Partial<DietSchema>;
 
-it("edits breakfast, snacks and the extra pizza day and saves them", async () => {
+it("edits breakfast and snacks and saves them", async () => {
   schemas.set(1, { ...emptySchema(), kcal: 1800 });
   const user = setup();
   render(<App />);
   await openSchema(user, "Prova Uno");
+  const intake = section("Colazione e spuntini");
 
-  const pizza = within(
-    screen.getByRole("region", { name: "Giorno pizza (in più)" }),
-  );
-  expect(pizza.getByText(/non è uno dei sette giorni/)).toBeTruthy();
-  expect(value("Pane giorno pizza (g)")).toBe("50");
-  expect(value("Olio giorno pizza (ml)")).toBe("10");
-  expect(value("Latte a colazione (ml)")).toBe("150");
-  expect(value("Frutta secca spuntino (g)")).toBe("20");
-  expect(value("Yogurt spuntino (g)")).toBe("125");
+  expect(value("Latte a colazione (ml)", intake)).toBe("150");
+  expect(value("Frutta secca spuntino (g)", intake)).toBe("20");
+  expect(value("Yogurt spuntino (g)", intake)).toBe("125");
 
-  await type(user, "Olio giorno pizza (ml)", "5");
-  expect(
-    screen.getByRole("button", {
-      name: "Ripristina Olio giorno pizza (ml): 10 calcolati",
-    }),
-  ).toBeTruthy();
-  await type(user, "Pane giorno pizza (g)", "60");
-  await type(user, "Latte a colazione (ml)", "200");
-  await user.click(screen.getByRole("radio", { name: "Yogurt" }));
-  expect(screen.queryByLabelText("Latte a colazione (ml)")).toBeNull();
-  expect(value("Yogurt a colazione (g)")).toBe("125");
-  await type(user, "Frutta secca spuntino (g)", "15");
-  await type(user, "Yogurt spuntino (g)", "0");
-  await user.click(
-    screen.getByRole("button", {
-      name: "Ripristina Olio giorno pizza (ml): 10 calcolati",
-    }),
-  );
+  await type(user, "Latte a colazione (ml)", "200", intake);
+  await user.click(intake.getByRole("radio", { name: "Yogurt" }));
+  expect(intake.queryByLabelText("Latte a colazione (ml)")).toBeNull();
+  expect(value("Yogurt a colazione (g)", intake)).toBe("125");
+  await type(user, "Frutta secca spuntino (g)", "15", intake);
+  await type(user, "Yogurt spuntino (g)", "0", intake);
 
   await user.click(screen.getByRole("button", { name: "Salva schema" }));
   await screen.findByText("Schema salvato.");
@@ -415,20 +475,88 @@ it("edits breakfast, snacks and the extra pizza day and saves them", async () =>
   });
 });
 
+it("proposes the extra pizza day, its lunch from the red-meat base", async () => {
+  schemas.set(1, { ...emptySchema(), kcal: 1800 });
+  const user = setup();
+  render(<App />);
+  await openSchema(user, "Prova Uno");
+  const pizza = section("Giorno pizza (in più)");
+
+  expect(pizza.getByText(/non è uno dei sette giorni/)).toBeTruthy();
+  expect(value("Pane giorno pizza (g)", pizza)).toBe("50");
+  expect(value("Olio giorno pizza (ml)", pizza)).toBe("10");
+  // Without the base, like the weekdays: empty, asking for it.
+  expect(value("Carne bianca pranzo pizza (g)", pizza)).toBe("");
+  expect(value("Pesce pranzo pizza (g)", pizza)).toBe("");
+  expect(pizza.getAllByText("Inserisci la base carne rossa")).toHaveLength(2);
+
+  await type(
+    user,
+    "Carne rossa, quantità base (g)",
+    "100",
+    section("Fonti proteiche"),
+  );
+  expect(value("Carne bianca pranzo pizza (g)", pizza)).toBe("130");
+  expect(value("Pesce pranzo pizza (g)", pizza)).toBe("150");
+  expect(pizza.queryByText("Inserisci la base carne rossa")).toBeNull();
+});
+
+it("corrects the pizza day and saves only the corrections", async () => {
+  const base = { proteinWeek: { redMeatGrams: 100 } };
+  schemas.set(1, { ...emptySchema(), kcal: 1800, ...base });
+  const user = setup();
+  render(<App />);
+  await openSchema(user, "Prova Uno");
+  const pizza = section("Giorno pizza (in più)");
+
+  await type(user, "Pane giorno pizza (g)", "60", pizza);
+  await type(user, "Olio giorno pizza (ml)", "5", pizza);
+  await type(user, "Pesce pranzo pizza (g)", "140", pizza);
+  await type(user, "Carne bianca pranzo pizza (g)", "120", pizza);
+  expect(
+    pizza
+      .getByLabelText("Carne bianca pranzo pizza (g)")
+      .closest(".quantity")
+      ?.classList.contains("overridden"),
+  ).toBe(true);
+  await user.click(
+    pizza.getByRole("button", {
+      name: "Ripristina Olio giorno pizza (ml): 10 calcolati",
+    }),
+  );
+  await user.click(
+    pizza.getByRole("button", {
+      name: "Ripristina Pesce pranzo pizza (g): 150 calcolati",
+    }),
+  );
+  expect(value("Olio giorno pizza (ml)", pizza)).toBe("10");
+  expect(value("Pesce pranzo pizza (g)", pizza)).toBe("150");
+
+  await user.click(screen.getByRole("button", { name: "Salva schema" }));
+  await screen.findByText("Schema salvato.");
+  expect(schemas.get(1)).toEqual({
+    ...emptySchema(),
+    kcal: 1800,
+    ...base,
+    ...savedPizza,
+  });
+});
+
 it("saves the protein choices of the week", async () => {
   schemas.set(1, { ...emptySchema(), kcal: 1800 });
   const user = setup();
   render(<App />);
   await openSchema(user, "Prova Uno");
+  const week = section("Fonti proteiche");
 
-  await user.selectOptions(source("Venerdì cena"), "Carne rossa");
-  await type(user, "Carne rossa, quantità base (g)", "100");
-  await user.selectOptions(source("Sabato pranzo"), "Uova");
-  await user.click(screen.getByLabelText("Sabato pranzo: 3 uova (180 g)"));
-  await user.selectOptions(source("Domenica pranzo"), "Legumi secchi");
-  await type(user, "Quantità Domenica pranzo (g)", "60");
-  await user.selectOptions(source("Lunedì cena"), "Pesce");
-  await user.selectOptions(source("Lunedì cena"), "Nessuna");
+  await user.selectOptions(source("Venerdì cena", week), "Carne rossa");
+  await type(user, "Carne rossa, quantità base (g)", "100", week);
+  await user.selectOptions(source("Sabato pranzo", week), "Uova");
+  await user.click(week.getByLabelText("Sabato pranzo: 3 uova (180 g)"));
+  await user.selectOptions(source("Domenica pranzo", week), "Legumi secchi");
+  await type(user, "Quantità Domenica pranzo (g)", "60", week);
+  await user.selectOptions(source("Lunedì cena", week), "Pesce");
+  await user.selectOptions(source("Lunedì cena", week), "Nessuna");
 
   await user.click(screen.getByRole("button", { name: "Salva schema" }));
   await screen.findByText("Schema salvato.");
@@ -444,25 +572,31 @@ it("reopens the saved breakfast, snacks, pizza day and protein week", async () =
     ...emptySchema(),
     kcal: 1800,
     ...savedIntake,
+    ...savedPizza,
     ...savedWeek,
   });
   const user = setup();
   render(<App />);
   await openSchema(user, "Prova Uno");
-  expect(value("Pane giorno pizza (g)")).toBe("60");
-  expect(value("Olio giorno pizza (ml)")).toBe("10");
-  expect(value("Yogurt a colazione (g)")).toBe("125");
-  expect(value("Frutta secca spuntino (g)")).toBe("15");
-  expect(value("Yogurt spuntino (g)")).toBe("0");
-  expect(value("Carne rossa, quantità base (g)")).toBe("100");
-  expect(grams("Venerdì cena (g)")).toBe("100");
-  expect(grams("Sabato pranzo (g)")).toBe("180");
+  const intake = section("Colazione e spuntini");
+  const week = section("Fonti proteiche");
+  const pizza = section("Giorno pizza (in più)");
+  expect(value("Pane giorno pizza (g)", pizza)).toBe("60");
+  expect(value("Olio giorno pizza (ml)", pizza)).toBe("10");
+  expect(value("Carne bianca pranzo pizza (g)", pizza)).toBe("120");
+  expect(value("Pesce pranzo pizza (g)", pizza)).toBe("150");
+  expect(value("Yogurt a colazione (g)", intake)).toBe("125");
+  expect(value("Frutta secca spuntino (g)", intake)).toBe("15");
+  expect(value("Yogurt spuntino (g)", intake)).toBe("0");
+  expect(value("Carne rossa, quantità base (g)", week)).toBe("100");
+  expect(grams("Venerdì cena (g)", week)).toBe("100");
+  expect(grams("Sabato pranzo (g)", week)).toBe("180");
   expect(
-    (screen.getByLabelText("Sabato pranzo: 3 uova (180 g)") as HTMLInputElement)
+    (week.getByLabelText("Sabato pranzo: 3 uova (180 g)") as HTMLInputElement)
       .checked,
   ).toBe(true);
-  expect(grams("Domenica pranzo (g)")).toBe("60");
-  expect((source("Lunedì cena") as HTMLSelectElement).value).toBe("");
+  expect(grams("Domenica pranzo (g)", week)).toBe("60");
+  expect((source("Lunedì cena", week) as HTMLSelectElement).value).toBe("");
   expect(screen.getByRole("status", { name: "Schema" }).textContent).toBe(
     "Schema caricato.",
   );
